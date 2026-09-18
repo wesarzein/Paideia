@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:18.6
+    container_name: paideia-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-paideia}
+      POSTGRES_USER: ${POSTGRES_USER:-paideia_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_only_for_local_dev}
+      TZ: ${TZ:-America/Lima}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - paideia_postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-paideia_user} -d ${POSTGRES_DB:-paideia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paideia-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: paideia-backend
+    env_file:
+      - .env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paideia-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: paideia-frontend
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - paideia-network
+
+volumes:
+  paideia_postgres_data:
+
+networks:
+  paideia-network:
+    driver: bridge

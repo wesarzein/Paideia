@@ -1,0 +1,6 @@
+{
+  "editor.formatOnSave": true,
+  "python.analysis.typeCheckingMode": "standard",
+  "eslint.validate": ["typescript", "html"],
+  "files.encoding": "utf8"
+}
