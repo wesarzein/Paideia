@@ -10,6 +10,8 @@ class StudentBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=120)
     birth_date: date | None = None
     status: str = Field(default="ACTIVE", min_length=1, max_length=30)
+    grade_id: UUID | None = None
+    section_id: UUID | None = None
 
 
 class StudentCreate(StudentBase):
@@ -21,6 +23,8 @@ class StudentUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=120)
     birth_date: date | None = None
     status: str | None = Field(default=None, min_length=1, max_length=30)
+    grade_id: UUID | None = None
+    section_id: UUID | None = None
 
 
 class StudentResponse(StudentBase):

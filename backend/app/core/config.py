@@ -15,7 +15,7 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://paideia_user:change_me_only_for_local_dev@localhost:5432/paideia"
     )
     backend_cors_origins: str = "http://localhost:4200"
-    jwt_secret_key: str = "replace_with_a_secure_local_secret"
+    jwt_secret_key: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 

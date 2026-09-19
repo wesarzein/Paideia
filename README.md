@@ -30,7 +30,7 @@ flowchart TD
 
 | Capa | Tecnologia |
 | --- | --- |
-| Frontend | Angular 22, TypeScript, Vitest |
+| Frontend | Angular 20.3, TypeScript 5.8.3, Vitest |
 | Backend | Python 3.12-slim, FastAPI 0.141, Pydantic 2, SQLAlchemy 2 |
 | Datos | PostgreSQL 17-alpine, Alembic |
 | IA | Pandas, NumPy, scikit-learn |

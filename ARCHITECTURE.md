@@ -4,7 +4,7 @@ Paideia usa una arquitectura modular simple orientada a mantener un producto esc
 
 ```mermaid
 flowchart LR
-  UI[Angular 22 SPA] --> API[FastAPI REST API]
+  UI[Angular 20.3 SPA] --> API[FastAPI REST API]
   API --> Auth[Auth/RBAC]
   API --> Services[Service Layer]
   Services --> Repos[Repositories]

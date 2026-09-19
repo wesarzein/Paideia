@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import require_roles
 from app.core.database import get_db
 from app.models.student import Student
 from app.schemas.students import StudentCreate, StudentResponse, StudentSummary, StudentUpdate
@@ -16,7 +17,11 @@ router = APIRouter()
 def list_students(
     search: str | None = Query(default=None, max_length=100),
     student_status: str | None = Query(default=None, alias="status", max_length=30),
-    db: Session = Depends(get_db),  # noqa: B008
+    grade_id: UUID | None = None,
+    section_id: UUID | None = None,
+    period_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ) -> list[Student]:
     statement = select(Student).order_by(Student.last_name, Student.first_name)
     if search:
@@ -30,18 +35,22 @@ def list_students(
         )
     if student_status:
         statement = statement.where(Student.status == student_status)
+    if grade_id:
+        statement = statement.where(Student.grade_id == grade_id)
+    if section_id:
+        statement = statement.where(Student.section_id == section_id)
     return list(db.scalars(statement).all())
 
 
 @router.get("/summary", response_model=StudentSummary)
-def student_summary(db: Session = Depends(get_db)) -> StudentSummary:  # noqa: B008
+def student_summary(db: Session = Depends(get_db), _user=Depends(require_roles("admin", "teacher", "coordinator", "director"))) -> StudentSummary:
     total = db.scalar(select(func.count()).select_from(Student)) or 0
     active = db.scalar(select(func.count()).where(Student.status == "ACTIVE")) or 0
     return StudentSummary(total=total, active=active, inactive=total - active)
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
-def create_student(payload: StudentCreate, db: Session = Depends(get_db)) -> Student:  # noqa: B008
+def create_student(payload: StudentCreate, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))) -> Student:
     student = Student(**payload.model_dump())
     db.add(student)
     try:
@@ -54,7 +63,7 @@ def create_student(payload: StudentCreate, db: Session = Depends(get_db)) -> Stu
 
 
 @router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: UUID, db: Session = Depends(get_db)) -> Student:  # noqa: B008
+def get_student(student_id: UUID, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "teacher", "coordinator", "director"))) -> Student:
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
@@ -63,7 +72,7 @@ def get_student(student_id: UUID, db: Session = Depends(get_db)) -> Student:  # 
 
 @router.patch("/{student_id}", response_model=StudentResponse)
 def update_student(
-    student_id: UUID, payload: StudentUpdate, db: Session = Depends(get_db)  # noqa: B008
+    student_id: UUID, payload: StudentUpdate, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))
 ) -> Student:
     student = db.get(Student, student_id)
     if student is None:
@@ -76,7 +85,7 @@ def update_student(
 
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_student(student_id: UUID, db: Session = Depends(get_db)) -> None:  # noqa: B008
+def delete_student(student_id: UUID, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))) -> None:
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")

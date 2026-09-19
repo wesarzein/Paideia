@@ -1,13 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
 :root {
   color-scheme: light;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --color-primary: #2457a6;
-  --color-accent: #0f8b8d;
+  font-family: 'Montserrat', sans-serif;
+  --color-primary: #e86f24;
+  --color-primary-dark: #bd4e13;
+  --color-accent: #f4a261;
   --color-surface: #ffffff;
-  --color-muted: #f4f6f8;
-  --color-muted-text: #52606d;
-  --color-text: #1d2733;
-  --color-border: #d8dee8;
+  --color-muted: #fff8f1;
+  --color-muted-text: #735d4d;
+  --color-text: #3f2a1f;
+  --color-border: #f0d7c2;
 }
 
 * {

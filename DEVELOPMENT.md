@@ -1,6 +1,6 @@
 ## Guía de Inicio Rápido con Docker
 
-Sigue estos pasos para clonar y levantar el proyecto en tu entorno local sin instalar Node.js, Python ni las dependencias de forma manual. Docker Compose utiliza Python `3.12-slim` con `build-essential` para el backend, PostgreSQL `17-alpine` para la base de datos y Node.js `24-alpine` para el frontend.
+Sigue estos pasos para clonar y levantar el proyecto en tu entorno local sin instalar Node.js, Python ni las dependencias de forma manual. Docker Compose utiliza Python `3.12-slim` con `build-essential` para el backend, PostgreSQL `17-alpine` para la base de datos y Node.js `24-alpine` para el frontend. El frontend usa Angular `20.3.0` con TypeScript `5.8.3`.
 
 ### Prerrequisitos
 - Tener instalado [Git](https://git-scm.com/).
