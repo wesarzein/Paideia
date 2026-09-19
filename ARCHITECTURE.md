@@ -1,6 +1,6 @@
 # Arquitectura
 
-Paideia usa una arquitectura modular simple para 12 semanas de desarrollo academico.
+Paideia usa una arquitectura modular simple orientada a mantener un producto escalable y mantenible.
 
 ```mermaid
 flowchart LR
@@ -10,12 +10,12 @@ flowchart LR
   Services --> Repos[Repositories]
   Repos --> DB[(PostgreSQL 18.6)]
   Services --> AI[Modulo IA]
-  DB --> BI[Power BI futuro]
+  DB --> BI[Analitica]
 ```
 
 ## Frontend
 
-SPA Angular con standalone components, Router, lazy loading, HttpClient, guards, interceptor JWT, componentes reutilizables y paginas placeholder. Angular Material se deja como decision futura si el equipo requiere acelerar UI.
+SPA Angular con standalone components, Router, lazy loading, HttpClient, guards, interceptor JWT, componentes reutilizables y paginas placeholder.
 
 ## Backend
 
@@ -29,9 +29,9 @@ PostgreSQL 18.6, SQLAlchemy 2, Alembic, UUID donde corresponde, integridad refer
 
 La IA consumira servicios internos del backend. No accede desde frontend a la base de datos. La prediccion sera alerta temprana indicativa y requiere validacion pedagogica.
 
-## BI
+## BI / analitica
 
-Power BI consumira datos preparados desde PostgreSQL o vistas analiticas futuras. No se versionan archivos binarios `.pbix`.
+La capa de inteligencia de negocio o analitica consumira datos preparados desde PostgreSQL y vistas analiticas.
 
 ## Seguridad
 

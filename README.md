@@ -8,11 +8,11 @@ La institucion gestiona informacion academica en hojas Excel dispersas. La conso
 
 ## Objetivo
 
-Centralizar datos academicos y convertirlos en informacion util mediante sistema transaccional, analitica, BI e IA como alerta temprana.
+Centralizar datos academicos y convertirlos en informacion util mediante un sistema transaccional, analitica, inteligencia de negocio e IA como alerta temprana.
 
 ## Alcance
 
-Incluye base para gestion academica, notas, asistencia, seguimiento, BI, IA, reportes e importacion Excel/CSV. No es un ERP escolar completo.
+Incluye base para gestion academica, notas, asistencia, seguimiento, analitica, IA, reportes e importacion Excel/CSV. No es un ERP escolar completo.
 
 ## Arquitectura
 
@@ -23,7 +23,7 @@ flowchart TD
   C --> D[Repositories]
   D --> E[(PostgreSQL)]
   B --> F[AI Risk Prediction]
-  E --> G[Power BI futuro]
+  E --> G[Analitica]
 ```
 
 ## Stack tecnologico
@@ -47,8 +47,8 @@ backend/   FastAPI, SQLAlchemy, Alembic y tests
 frontend/  Angular SPA y componentes base
 database/  SQL inicial, seeds y backups excluidos
 ml/        estructura de IA sin modelos entrenados
-bi/        SQL, datasets futuros y KPIs
-docs/      requisitos, arquitectura, Scrum, IA y BI
+bi/        SQL, datasets y KPIs de analitica de negocio
+docs/      requisitos, arquitectura, Scrum, IA y analitica de negocio
 ```
 
 ## Requisitos previos
@@ -85,7 +85,3 @@ El desarrollo se ejecutara por sprints, tomando el backlog documentado como punt
 ## Seguridad
 
 No incluir datos reales, documentos, backups, Excel/CSV reales, contrasenas, JWT ni secretos.
-
-## Estado del proyecto
-
-Fase inicial de arquitectura/base. No incluye CRUD funcional, dashboards, IA entrenada, reportes finales ni importacion completa.

@@ -6,7 +6,7 @@
 - Notas.
 - Asistencia.
 - Seguimiento academico.
-- Business Intelligence.
+- Inteligencia de negocio y analitica.
 - Inteligencia Artificial como alerta temprana.
 - Reportes.
 - Importacion Excel/CSV.
@@ -24,4 +24,4 @@
 - Aplicacion movil nativa.
 - ERP institucional completo.
 
-Este alcance protege la viabilidad del proyecto en un maximo de 12 semanas.
+Este alcance mantiene el proyecto centrado en el software y en la entrega de valor funcional sin ampliar el alcance operacional del sistema.

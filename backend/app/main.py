@@ -9,7 +9,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.project_name,
         version=settings.api_version,
-        description="API para seguimiento y prevencion del riesgo academico.",
+        description="API para seguimiento y prevencion del riesgo academico institucional.",
         docs_url="/docs",
         redoc_url="/redoc",
     )

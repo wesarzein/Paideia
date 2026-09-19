@@ -25,11 +25,11 @@
 | REQ-21 | Analisis | Analizar rendimiento por grado/seccion/curso. | Must |
 | REQ-22 | Analisis | Analizar asistencia. | Should |
 | REQ-23 | Analisis | Detectar tendencias academicas. | Should |
-| REQ-24 | BI | Preparar datos para dashboards. | Must |
-| REQ-25 | BI | Definir KPIs academicos. | Must |
-| REQ-26 | BI | Facilitar consumo desde Power BI. | Should |
-| REQ-27 | BI | Mantener consistencia de datos analiticos. | Should |
-| REQ-28 | BI | Documentar modelo BI. | Must |
+| REQ-24 | Analitica | Preparar datos para dashboards. | Must |
+| REQ-25 | Analitica | Definir KPIs academicos. | Must |
+| REQ-26 | Analitica | Facilitar consumo para inteligencia de negocio. | Should |
+| REQ-27 | Analitica | Mantener consistencia de datos analiticos. | Should |
+| REQ-28 | Analitica | Documentar modelo de analitica. | Must |
 | REQ-29 | IA | Preparar dataset de riesgo academico. | Must |
 | REQ-30 | IA | Entrenar modelo de clasificacion en fase futura. | Should |
 | REQ-31 | IA | Evaluar metricas del modelo. | Should |

@@ -1,5 +1,5 @@
-# Modelo de datos BI
+# Modelo de datos de analitica
 
-El modelo BI partira de estudiantes, cursos, periodos, evaluaciones, calificaciones, asistencia, seguimiento y predicciones de riesgo.
+El modelo de inteligencia de negocio partira de estudiantes, cursos, periodos, evaluaciones, calificaciones, asistencia, seguimiento y predicciones de riesgo.
 
-Power BI consumira datos preparados desde PostgreSQL con permisos y vistas definidas.
+Los consumidores analiticos consumiran datos preparados desde PostgreSQL con permisos y vistas definidas.
