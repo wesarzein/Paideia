@@ -8,7 +8,7 @@ flowchart LR
   API --> Auth[Auth/RBAC]
   API --> Services[Service Layer]
   Services --> Repos[Repositories]
-  Repos --> DB[(PostgreSQL 18.6)]
+  Repos --> DB[(PostgreSQL 17-alpine)]
   Services --> AI[Modulo IA]
   DB --> BI[Analitica]
 ```
@@ -23,7 +23,7 @@ FastAPI expone `/api/v1`. La estructura separa endpoints, servicios, repositorio
 
 ## Base de datos
 
-PostgreSQL 18.6, SQLAlchemy 2, Alembic, UUID donde corresponde, integridad referencial y timestamps timezone-aware. Modelo inicial: users, roles, students, academic_periods, grades, sections y courses.
+PostgreSQL 17 mediante la imagen `postgres:17-alpine`, SQLAlchemy 2, Alembic, UUID donde corresponde, integridad referencial y timestamps timezone-aware. Modelo inicial: users, roles, students, academic_periods, grades, sections y courses.
 
 ## IA
 
@@ -39,7 +39,7 @@ JWT, RBAC, hashing Argon2 y dependencias FastAPI quedan preparados. No se almace
 
 ## Docker
 
-Compose define `postgres`, `backend` y `frontend`, red interna, healthchecks, volumen persistente y puertos configurables.
+Compose define `postgres`, `backend` y `frontend`, red interna, healthchecks, volumen persistente y puertos configurables. El backend usa Python `3.12-slim` con `build-essential`, y el frontend usa Node.js `24-alpine`. Los accesos locales son `http://localhost:4200`, `http://localhost:8000/docs` y PostgreSQL en `localhost:5432`.
 
 ## Flujo de datos
 
@@ -61,7 +61,7 @@ sequenceDiagram
 - Se mantiene monolito modular, sin microservicios, Kubernetes, Redis ni colas.
 - Node.js se limita al runtime/herramientas del frontend.
 - Se documentan tablas futuras sin crearlas todas en la primera fase.
-- PostgreSQL 18.6 y Python 3.14.7 se declaran segun requerimiento; si la disponibilidad de imagenes/herramientas cambia, se ajustara sin cambiar la arquitectura.
+- El entorno Docker validado usa `postgres:17-alpine`, Python `3.12-slim` con `build-essential` y Node.js `24-alpine`.
 
 ## Fases posteriores
 

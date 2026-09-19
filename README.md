@@ -31,10 +31,10 @@ flowchart TD
 | Capa | Tecnologia |
 | --- | --- |
 | Frontend | Angular 22, TypeScript, Vitest |
-| Backend | Python 3.14.7, FastAPI 0.141, Pydantic 2, SQLAlchemy 2 |
-| Datos | PostgreSQL 18.6, Alembic |
+| Backend | Python 3.12-slim, FastAPI 0.141, Pydantic 2, SQLAlchemy 2 |
+| Datos | PostgreSQL 17-alpine, Alembic |
 | IA | Pandas, NumPy, scikit-learn |
-| Infraestructura | Docker, Docker Compose |
+| Infraestructura | Docker, Docker Compose; frontend sobre Node.js 24-alpine |
 
 ## Modulos
 
@@ -53,23 +53,38 @@ docs/      requisitos, arquitectura, Scrum, IA y analitica de negocio
 
 ## Requisitos previos
 
-Git, Docker Desktop, VS Code. Node.js es opcional para desarrollo Angular local; Angular 22 requiere Node.js 22.22.3+, 24.15.0+ o 26+. Python solo es necesario si se ejecuta el backend fuera de Docker.
+Git, Docker Desktop y VS Code. Node.js es opcional para desarrollo Angular local; el entorno Docker utiliza Node.js 24-alpine. Python solo es necesario si se ejecuta el backend fuera de Docker.
 
-## Configuracion
+## Inicio rapido con Docker
 
-Copiar `.env.example` a `.env` y ajustar valores locales. No versionar `.env`.
-
-## Ejecucion con Docker
+Clona el repositorio y entra en su directorio:
 
 ```bash
-docker compose up --build
+git clone https://github.com/wesarzein/Paideia.git
+cd Paideia
 ```
 
-## URLs
+Crea el archivo local de variables de entorno a partir de la plantilla:
 
+```bash
+cp .env.example .env
+```
+
+En Windows PowerShell, usa `Copy-Item .env.example .env`. Revisa los valores locales y no subas `.env` al repositorio.
+
+Construye las imágenes y levanta los servicios en segundo plano:
+
+```bash
+docker compose up --build -d
+```
+
+## Versiones y accesos
+
+- Backend: Python `3.12-slim` con `build-essential`
+- Base de datos: `postgres:17-alpine`, puerto `5432`
+- Frontend: Node.js `24-alpine`
 - Frontend: http://localhost:4200
-- Backend: http://localhost:8000
-- Swagger: http://localhost:8000/docs
+- Backend / documentación API: http://localhost:8000/docs
 
 ## Testing
 
