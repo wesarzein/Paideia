@@ -37,6 +37,8 @@ Sigue estos pasos para clonar y levantar el proyecto en tu entorno local sin ins
   - **Backend (documentación de la API):** `http://localhost:8000/docs`
   - **Base de datos PostgreSQL:** `localhost:5432`
 
+  La pantalla **Estudiantes** permite consultar, buscar y registrar datos persistidos en PostgreSQL. Las opciones **Analítica** e **IA** permanecen como interfaces de navegación para fases posteriores.
+
 ### Versiones del entorno Docker
 
 | Servicio | Imagen o base | Acceso local |

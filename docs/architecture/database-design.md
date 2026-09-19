@@ -10,6 +10,8 @@
 - `sections`: secciones asociadas a grados.
 - `courses`: cursos.
 
+La migración `0001_initial_structure` se ejecuta automáticamente al iniciar el contenedor del backend. El MVP utiliza actualmente `students` para el alta, consulta, búsqueda, actualización y baja desde la interfaz Angular.
+
 ## Modelo previsto
 
 `permissions`, `enrollments`, `evaluations`, `grades_records`, `attendance`, `academic_follow_up`, `risk_predictions`, `interventions`, `imports`, `import_errors` y `audit_logs` se agregaran por sprint.

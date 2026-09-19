@@ -9,9 +9,9 @@ export const routes: Routes = [
     canActivateChild: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      { path: 'dashboard', loadComponent: () => import('./features/dashboard/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Dashboard' } },
+      { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage), data: { title: 'Dashboard' } },
       { path: 'usuarios', loadComponent: () => import('./features/users/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Usuarios' } },
-      { path: 'estudiantes', loadComponent: () => import('./features/students/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Estudiantes' } },
+      { path: 'estudiantes', loadComponent: () => import('./features/students/students.page').then((m) => m.StudentsPage), data: { title: 'Estudiantes' } },
       { path: 'cursos', loadComponent: () => import('./features/academic/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Cursos y gestion academica' } },
       { path: 'evaluaciones', loadComponent: () => import('./features/academic/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Evaluaciones' } },
       { path: 'calificaciones', loadComponent: () => import('./features/grades/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Calificaciones' } },
