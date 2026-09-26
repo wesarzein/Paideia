@@ -44,6 +44,9 @@ def create_grade(
         student_id=payload.student_id,
         course_id=payload.course_id,
         period_id=payload.period_id,
+        evaluation_name=payload.evaluation_name.strip(),
+        evaluation_type=payload.evaluation_type.strip(),
+        assessment_date=payload.assessment_date,
         score=float(payload.score),
         qualitative_note=payload.qualitative_note,
     )
@@ -58,8 +61,12 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
     record = db.get(GradeRecord, grade_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Calificación no encontrada")
-    for field, value in payload.model_dump(exclude_unset=True).items(): setattr(record, field, value)
-    db.commit(); db.refresh(record)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if field in {"evaluation_name", "evaluation_type"} and isinstance(value, str):
+            value = value.strip()
+        setattr(record, field, value)
+    db.commit()
+    db.refresh(record)
     return record
 
 

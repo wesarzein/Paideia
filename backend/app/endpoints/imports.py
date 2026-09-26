@@ -1,11 +1,14 @@
+from datetime import datetime
 from io import BytesIO
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
+from app.models.academic import AcademicPeriod, Course, GradeRecord
 from app.models.student import Student
 from app.models.user import User
 
@@ -55,3 +58,84 @@ async def import_students(file: UploadFile = File(...), db: Session = Depends(ge
         db.rollback()
         raise HTTPException(status_code=409, detail=f"Importación revertida: {error}") from error
     return {"imported": len(frame)}
+
+
+@router.post("/grades/preview")
+async def preview_grade_import(file: UploadFile = File(...), _user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict:
+    if not file.filename or not file.filename.lower().endswith((".csv", ".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos CSV o Excel")
+    content = await file.read()
+    try:
+        frame = _read_frame(file.filename, content).fillna("")
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"No se pudo leer el archivo: {error}") from error
+    required = {"student_code", "score"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise HTTPException(status_code=422, detail={"missing_columns": missing})
+    errors = []
+    for index, row in frame.iterrows():
+        if not str(row.get("student_code", "")).strip():
+            errors.append({"row": int(index) + 2, "error": "Falta student_code"})
+        try:
+            score = float(row.get("score", ""))
+            if not 0 <= score <= 20:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors.append({"row": int(index) + 2, "error": "La nota debe estar entre 0 y 20"})
+    return {"columns": list(frame.columns), "rows": frame.head(50).to_dict(orient="records"), "total": len(frame), "errors": errors}
+
+
+@router.post("/grades")
+async def import_grades(
+    file: UploadFile = File(...),
+    course_id: UUID | None = Query(default=None),
+    period_id: UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+) -> dict[str, int]:
+    if course_id is None or period_id is None:
+        raise HTTPException(status_code=400, detail="course_id y period_id son obligatorios")
+    if not db.get(Course, course_id):
+        raise HTTPException(status_code=404, detail="Curso no encontrado")
+    if not db.get(AcademicPeriod, period_id):
+        raise HTTPException(status_code=404, detail="Periodo no encontrado")
+
+    content = await file.read()
+    try:
+        frame = _read_frame(file.filename or "", content).fillna("")
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"No se pudo leer el archivo: {error}") from error
+    required = {"student_code", "score"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise HTTPException(status_code=422, detail={"missing_columns": missing})
+
+    imported = 0
+    for row in frame.to_dict(orient="records"):
+        student_code = str(row.get("student_code", "")).strip()
+        if not student_code:
+            continue
+        student = db.scalar(db.query(Student).filter(Student.student_code == student_code))
+        if student is None:
+            raise HTTPException(status_code=404, detail=f"Estudiante no encontrado: {student_code}")
+        try:
+            score = float(row.get("score", ""))
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=f"Nota inválida para {student_code}: {row.get('score')}") from error
+        if not 0 <= score <= 20:
+            raise HTTPException(status_code=422, detail=f"La nota para {student_code} debe estar entre 0 y 20")
+        record = GradeRecord(
+            student_id=student.id,
+            course_id=course_id,
+            period_id=period_id,
+            evaluation_name=str(row.get("evaluation_name", "Evaluación")).strip() or "Evaluación",
+            evaluation_type=str(row.get("evaluation_type", "Tarea")).strip() or "Tarea",
+            assessment_date=pd.to_datetime(row.get("assessment_date") or datetime.now()).date(),
+            score=score,
+            qualitative_note=str(row.get("qualitative_note", "")).strip() or None,
+        )
+        db.add(record)
+        imported += 1
+    db.commit()
+    return {"imported": imported}

@@ -72,7 +72,7 @@ export interface GradePayload {
   score: number;
   qualitative_note?: string;
 }
-export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; score: number; qualitative_note?: string | null; }
+export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; qualitative_note?: string | null; }
 
 export interface AttendancePayload {
   student_id: string;
@@ -102,6 +102,13 @@ export interface RiskAlert {
   average_score: number;
   attendance_rate: number;
   risk_level: string;
+}
+
+export interface ImportPreview {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  total: number;
+  errors: { row: number; error: string }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -197,6 +204,26 @@ export class ApiService {
   previewStudentImport(file: File) {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<{ columns: string[]; rows: Record<string, unknown>[]; total: number; errors: { row: number; error: string }[] }>(`${environment.apiUrl}/imports/preview`, form);
+    return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/preview`, form);
+  }
+
+  importStudents(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ imported: number }>(`${environment.apiUrl}/imports/students`, form);
+  }
+
+  previewGradeImport(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/grades/preview`, form);
+  }
+
+  importGrades(file: File, courseId: string, periodId: string) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ imported: number }>(`${environment.apiUrl}/imports/grades`, form, {
+      params: { course_id: courseId, period_id: periodId },
+    });
   }
 }

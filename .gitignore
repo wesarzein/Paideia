@@ -28,3 +28,4 @@ ml/datasets/synthetic/*
 *.pbix
 !.env.example
 !backend/.env.example
+frontend/.angular/

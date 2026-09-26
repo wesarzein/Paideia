@@ -22,7 +22,7 @@ export const routes: Routes = [
       { path: 'analitica', loadComponent: () => import('./features/analytics/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Analitica' } },
       { path: 'ia', loadComponent: () => import('./features/ai/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'IA' } },
       { path: 'reportes', loadComponent: () => import('./features/reports/reports.page').then((m) => m.ReportsPage), data: { title: 'Reportes' } },
-      { path: 'importacion', loadComponent: () => import('./features/imports/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Importacion' } }
+      { path: 'importacion', loadComponent: () => import('./features/imports/imports.page').then((m) => m.ImportsPage), data: { title: 'Importacion' } }
     ],
   },
 ];
