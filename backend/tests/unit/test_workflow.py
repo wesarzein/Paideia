@@ -58,6 +58,17 @@ def _seed_basics() -> None:
         db.commit()
 
 
+def _admin_headers() -> dict[str, str]:
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@paideia.local", "password": "Admin123!"},
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_login_returns_token() -> None:
     _seed_basics()
     client = TestClient(app)
@@ -77,6 +88,7 @@ def test_login_returns_token() -> None:
 def test_grade_value_must_be_in_official_scale() -> None:
     _seed_basics()
     client = TestClient(app)
+    headers = _admin_headers()
 
     student = SessionLocal().scalar(select(Student).where(Student.student_code == "STU-1001"))
     course = SessionLocal().scalar(select(Course).where(Course.code == "MAT-01"))
@@ -91,15 +103,18 @@ def test_grade_value_must_be_in_official_scale() -> None:
             "score": 22,
             "qualitative_note": "Muy alta",
         },
+        headers=headers,
     )
 
     assert response.status_code == 422
-    assert "0 y 20" in response.json()["detail"][0]["msg"] or "0 and 20" in response.json()["detail"][0]["msg"]
+    detail = response.json()["detail"][0]["msg"]
+    assert "less than or equal to 20" in detail or "greater than or equal to 0" in detail
 
 
 def test_attendance_record_is_created() -> None:
     _seed_basics()
     client = TestClient(app)
+    headers = _admin_headers()
 
     student = SessionLocal().scalar(select(Student).where(Student.student_code == "STU-1001"))
     course = SessionLocal().scalar(select(Course).where(Course.code == "MAT-01"))
@@ -114,7 +129,27 @@ def test_attendance_record_is_created() -> None:
             "status": "PRESENT",
             "attendance_date": "2026-04-15",
         },
+        headers=headers,
     )
 
     assert response.status_code == 201
     assert response.json()["status"] == "PRESENT"
+
+
+def test_follow_up_requires_valid_student() -> None:
+    _seed_basics()
+    client = TestClient(app)
+    headers = _admin_headers()
+
+    response = client.post(
+        "/api/v1/follow-ups",
+        json={
+            "student_id": "11111111-1111-4111-8111-111111111111",
+            "action": "Reunión con la familia para revisar riesgo académico.",
+            "status": "OPEN",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Estudiante no encontrado"
