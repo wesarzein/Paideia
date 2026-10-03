@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    initial_admin_email: str | None = None
+    initial_admin_password: str | None = Field(default=None, min_length=12, max_length=128)
+    initial_admin_full_name: str = "Administrador"
 
     @cached_property
     def cors_origins(self) -> list[str]:

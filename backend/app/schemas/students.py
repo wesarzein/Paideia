@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class StudentBase(BaseModel):
-    student_code: str = Field(min_length=1, max_length=50)
+    student_code: str | None = Field(default=None, max_length=50)
     first_name: str = Field(min_length=1, max_length=120)
     last_name: str = Field(min_length=1, max_length=120)
     birth_date: date | None = None
@@ -31,6 +31,8 @@ class StudentResponse(StudentBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    student_user_id: UUID | None = None
+    parent_user_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

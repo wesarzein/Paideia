@@ -3,19 +3,23 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.services.evidence_types import EVIDENCE_TYPES, EvidenceTypeModel
 
-class GradeCreate(BaseModel):
+
+class GradeCreate(EvidenceTypeModel):
     student_id: UUID
     course_id: UUID
     period_id: UUID
+    component_id: UUID | None = None
     evaluation_name: str = Field(default="Evaluación", min_length=1, max_length=120)
-    evaluation_type: str = Field(default="Tarea", min_length=1, max_length=50)
+    evaluation_type: str = Field(default=EVIDENCE_TYPES[0], min_length=1, max_length=50)
     assessment_date: date = Field(default_factory=date.today)
     score: float = Field(ge=0, le=20)
     qualitative_note: str | None = Field(default=None, max_length=255)
 
 
-class GradeUpdate(BaseModel):
+class GradeUpdate(EvidenceTypeModel):
+    component_id: UUID | None = None
     evaluation_name: str | None = Field(default=None, min_length=1, max_length=120)
     evaluation_type: str | None = Field(default=None, min_length=1, max_length=50)
     assessment_date: date | None = None
@@ -30,6 +34,7 @@ class GradeResponse(BaseModel):
     student_id: UUID
     course_id: UUID
     period_id: UUID
+    component_id: UUID | None = None
     evaluation_name: str
     evaluation_type: str
     assessment_date: date

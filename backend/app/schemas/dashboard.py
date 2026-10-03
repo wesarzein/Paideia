@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DashboardSummary(BaseModel):
@@ -15,3 +15,6 @@ class RiskAlert(BaseModel):
     average_score: float
     attendance_rate: float
     risk_level: str
+    risk_factors: list[str] = Field(default_factory=list)
+    recommendation: str
+    detection_method: str = "rules_fallback"

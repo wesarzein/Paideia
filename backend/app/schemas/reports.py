@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class StudentReport(BaseModel):
     student_id: UUID
+    student_code: str = ""
     student_name: str
     average_score: float
     attendance_rate: float

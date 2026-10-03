@@ -1,16 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-
 :root {
   color-scheme: light;
-  font-family: 'Montserrat', sans-serif;
-  --color-primary: #e86f24;
-  --color-primary-dark: #bd4e13;
-  --color-accent: #f4a261;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-primary: #475569;
+  --color-primary-dark: #334155;
+  --color-accent: #d28a27;
   --color-surface: #ffffff;
-  --color-muted: #fff8f1;
-  --color-muted-text: #735d4d;
-  --color-text: #3f2a1f;
-  --color-border: #f0d7c2;
+  --color-muted: #f8fafc;
+  --color-muted-text: #64748b;
+  --color-text: #1e293b;
+  --color-border: #e2e8f0;
 }
 
 * {
@@ -21,6 +19,7 @@ body {
   margin: 0;
   background: var(--color-muted);
   color: var(--color-text);
+  min-width: 320px;
 }
 
 a {
@@ -30,4 +29,106 @@ a {
 
 button {
   font: inherit;
+}
+
+input, select, textarea {
+  font: inherit;
+  color: var(--color-text);
+}
+
+input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible {
+  outline: 3px solid #d28a274d;
+  outline-offset: 2px;
+}
+
+.icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0 !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 7px !important;
+  background: var(--color-surface) !important;
+  color: var(--color-muted-text) !important;
+  cursor: pointer;
+}
+
+.icon-action:hover {
+  border-color: var(--color-primary) !important;
+  background: var(--color-muted) !important;
+  color: var(--color-primary) !important;
+}
+
+.icon-action.danger-icon:hover {
+  border-color: #b94b3b !important;
+  color: #b94b3b !important;
+}
+
+.icon-action svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.actions-cell {
+  align-items: center;
+  justify-content: center;
+}
+
+.actions-heading {
+  text-align: center;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-root,
+  .print-root * {
+    visibility: visible !important;
+  }
+
+  .print-root .no-print {
+    display: none !important;
+  }
+
+  .print-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 12mm;
+    background: #fff;
+    color: #111;
+  }
+
+  .print-root .panel,
+  .print-root article {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .print-root table {
+    font-size: 9pt;
+  }
+
+  .print-root h1,
+  .print-root h2,
+  .print-root h3 {
+    break-after: avoid;
+  }
+
+  .print-root tr {
+    break-inside: avoid;
+  }
 }

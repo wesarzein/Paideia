@@ -17,6 +17,7 @@ coverage/
 *.log
 database/backups/*
 !database/backups/.gitkeep
+database/local/
 ml/datasets/raw/*
 !ml/datasets/raw/.gitkeep
 ml/datasets/processed/*

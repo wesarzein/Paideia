@@ -8,11 +8,11 @@ La institucion gestiona informacion academica en hojas Excel dispersas. La conso
 
 ## Objetivo
 
-Centralizar datos academicos y convertirlos en informacion util mediante un sistema transaccional, analitica, inteligencia de negocio e IA como alerta temprana.
+Centralizar los datos académicos y apoyar el seguimiento institucional con módulos transaccionales y un dashboard.
 
 ## Alcance
 
-Incluye base para gestion academica, notas, asistencia, seguimiento, analitica, IA, reportes e importacion Excel/CSV. No es un ERP escolar completo.
+Incluye autenticación, usuarios, estudiantes, cursos, calificaciones, asistencia, seguimiento, dashboard, reportes e importación Excel/CSV. Analítica e IA tienen por ahora una interfaz informativa; sus cálculos y predicciones no están habilitados.
 
 ## Arquitectura
 
@@ -22,8 +22,8 @@ flowchart TD
   B --> C[Service Layer]
   C --> D[Repositories]
   D --> E[(PostgreSQL)]
-  B --> F[AI Risk Prediction]
-  E --> G[Analitica]
+  B --> F[Dashboard]
+  F -. "planificado" .-> G[Analítica e IA]
 ```
 
 ## Stack tecnologico
@@ -33,19 +33,19 @@ flowchart TD
 | Frontend | Angular 20.3, TypeScript 5.8.3, Vitest |
 | Backend | Python 3.12-slim, FastAPI 0.141, Pydantic 2, SQLAlchemy 2 |
 | Datos | PostgreSQL 17-alpine, Alembic |
-| IA | Pandas, NumPy, scikit-learn |
+| Analítica e IA | Interfaces previstas; procesamiento aún no habilitado |
 | Infraestructura | Docker, Docker Compose; frontend sobre Node.js 24-alpine |
 
 ## Modulos
 
-Autenticacion, usuarios, estudiantes, gestion academica, calificaciones, asistencia, seguimiento, BI, IA, reportes e importacion.
+Autenticación, usuarios, estudiantes, cursos y asignaciones, calificaciones, asistencia, seguimiento, dashboard, reportes e importación. Analítica e IA están pendientes de implementación funcional.
 
 ## Estructura del repositorio
 
 ```text
 backend/   FastAPI, SQLAlchemy, Alembic y tests
 frontend/  Angular SPA y componentes base
-database/  SQL inicial, seeds y backups excluidos
+database/  migraciones/configuracion, respaldos y padrón escolar local excluido de Git
 ml/        estructura de IA sin modelos entrenados
 bi/        SQL, datasets y KPIs de analitica de negocio
 docs/      requisitos, arquitectura, Scrum, IA y analitica de negocio
@@ -71,6 +71,8 @@ cp .env.example .env
 ```
 
 En Windows PowerShell, usa `Copy-Item .env.example .env`. Revisa los valores locales y no subas `.env` al repositorio.
+
+El padrón escolar se entrega por separado para proteger los datos personales de los alumnos. Guárdalo en `database/local/roster.json` antes de iniciar Compose. Su estructura está descrita en [DEVELOPMENT.md](./DEVELOPMENT.md); esa carpeta está excluida de Git y no incluye datos en clones nuevos.
 
 Construye las imágenes y levanta los servicios en segundo plano:
 

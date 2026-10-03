@@ -10,14 +10,13 @@ import { ApiService } from '../../core/services/api.service';
   template: `
     <section class="login">
       <img class="logo" src="assets/logo.png" alt="Logo del colegio" />
-      <h1>Paideia</h1>
       <p>Acceso institucional para el equipo académico del colegio.</p>
       <form (ngSubmit)="login()">
         <label>Email
-          <input type="email" name="email" [(ngModel)]="email" required />
+          <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
         </label>
         <label>Contraseña
-          <input type="password" name="password" [(ngModel)]="password" required />
+          <input type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required />
         </label>
         @if (error()) {
           <p class="error">{{ error() }}</p>
@@ -28,8 +27,7 @@ import { ApiService } from '../../core/services/api.service';
   `,
   styles: [`
     .login { max-width: 420px; margin: 12vh auto; background: white; border: 1px solid var(--color-border); border-radius: 8px; padding: 28px; }
-    h1 { margin-top: 0; }
-    .logo { width: 78px; height: 78px; object-fit: contain; }
+    .logo { width: 190px; max-width: 100%; height: 82px; object-fit: contain; object-position: left center; margin-bottom: 16px; }
     form { display: grid; gap: 16px; }
     label { display: grid; gap: 8px; color: var(--color-muted-text); }
     input { border: 1px solid var(--color-border); border-radius: 6px; padding: 10px 12px; font: inherit; }
@@ -41,8 +39,8 @@ export class LoginPage {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
-  protected email = 'admin@paideia.local';
-  protected password = 'Admin123!';
+  protected email = '';
+  protected password = '';
   protected readonly error = signal('');
 
   protected login(): void {

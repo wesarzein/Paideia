@@ -41,6 +41,15 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
     op.create_table(
+        "sections",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column(
+            "grade_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("grades.id"), nullable=False
+        ),
+        sa.Column("name", sa.String(20), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+    )
+    op.create_table(
         "courses",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(120), nullable=False),
@@ -71,15 +80,6 @@ def upgrade() -> None:
         sa.Column("full_name", sa.String(200), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_table(
-        "sections",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column(
-            "grade_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("grades.id"), nullable=False
-        ),
-        sa.Column("name", sa.String(20), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
     op.create_table(
         "enrollments",

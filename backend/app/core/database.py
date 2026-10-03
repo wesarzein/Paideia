@@ -23,8 +23,6 @@ class Base(DeclarativeBase):
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-Base.metadata.create_all(bind=engine)
-
 
 def get_db() -> Generator[Session]:
     db = SessionLocal()

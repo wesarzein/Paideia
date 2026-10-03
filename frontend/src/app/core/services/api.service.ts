@@ -5,7 +5,7 @@ import { environment } from '../../../environments/environment';
 
 export interface Student {
   id: string;
-  student_code: string;
+  student_code: string | null;
   first_name: string;
   last_name: string;
   birth_date: string | null;
@@ -14,6 +14,8 @@ export interface Student {
   updated_at: string | null;
   grade_id: string | null;
   section_id: string | null;
+  student_user_id: string | null;
+  parent_user_id: string | null;
 }
 
 export interface StudentSummary {
@@ -23,7 +25,7 @@ export interface StudentSummary {
 }
 
 export interface StudentPayload {
-  student_code: string;
+  student_code?: string | null;
   first_name: string;
   last_name: string;
   birth_date?: string;
@@ -35,9 +37,10 @@ export interface StudentPayload {
 export interface AcademicCatalog {
   grades: { id: string; name: string; level: string }[];
   sections: { id: string; name: string; grade_id: string }[];
-  courses: { id: string; name: string; code: string }[];
+  courses: { id: string; name: string; code: string | null }[];
   periods: { id: string; name: string }[];
-  students: { id: string; name: string }[];
+  students: { id: string; student_code: string | null; name: string }[];
+  literal_scale: { greater_than: number; grade: string }[];
 }
 
 export interface LoginPayload {
@@ -50,6 +53,8 @@ export interface AuthUser {
   email: string;
   full_name: string;
   role: string;
+  student_id: string | null;
+  student_ids: string[];
 }
 
 export interface LoginResponse {
@@ -63,14 +68,20 @@ export interface UserPayload {
   full_name: string;
   password: string;
   role_code: string;
+  student_id?: string | null;
+  student_ids?: string[];
 }
 
 export interface GradePayload {
   student_id: string;
   course_id: string;
   period_id: string;
+  component_id?: string;
   score: number;
   qualitative_note?: string;
+  evaluation_name?: string;
+  evaluation_type?: string;
+  assessment_date?: string;
 }
 export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; qualitative_note?: string | null; }
 
@@ -82,10 +93,30 @@ export interface AttendancePayload {
   status: string;
   remarks?: string;
 }
+export interface AttendanceRecord extends AttendancePayload { id: string; }
 
 export interface CoursePayload {
   name: string;
-  code: string;
+  code?: string | null;
+  is_active?: boolean;
+}
+
+export interface AssessmentComponent {
+  id: string;
+  course_id: string;
+  name: string;
+  weight: number;
+  is_optional: boolean;
+  is_active: boolean;
+}
+
+export interface CourseAssignment {
+  id: string;
+  course_id: string;
+  grade_id: string;
+  section_id: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
 }
 
 export interface DashboardSummary {
@@ -98,10 +129,14 @@ export interface DashboardSummary {
 
 export interface RiskAlert {
   student_id: string;
+  student_code?: string;
   student_name: string;
   average_score: number;
   attendance_rate: number;
   risk_level: string;
+  risk_factors?: string[];
+  recommendation?: string;
+  detection_method?: string;
 }
 
 export interface ImportPreview {
@@ -135,18 +170,14 @@ export class ApiService {
     return this.http.get<DashboardSummary>(`${environment.apiUrl}/dashboard/summary`, { params: filters });
   }
 
-  getRiskAlerts() {
-    return this.http.get<RiskAlert[]>(`${environment.apiUrl}/dashboard/risk-alerts`);
-  }
-
   getStudents(search = '', filters: Record<string, string> = {}) {
     return this.http.get<Student[]>(`${environment.apiUrl}/students`, {
       params: search ? { search, ...filters } : filters,
     });
   }
 
-  getAcademicCatalog() {
-    return this.http.get<AcademicCatalog>(`${environment.apiUrl}/academic/catalog`);
+  getAcademicCatalog(filters: Record<string, string> = {}) {
+    return this.http.get<AcademicCatalog>(`${environment.apiUrl}/academic/catalog`, { params: filters });
   }
 
   createStudent(payload: StudentPayload) {
@@ -168,6 +199,13 @@ export class ApiService {
   listGrades(filters: Record<string, string> = {}) {
     return this.http.get<GradeRecord[]>(`${environment.apiUrl}/grades`, { params: filters });
   }
+  getMonthlyGradeSummary(filters: Record<string, string>) {
+    return this.http.get<{ thresholds: { greater_than: number; grade: string }[]; students: { student_id: string; average: number; literal: string; components_recorded: number }[] }>(`${environment.apiUrl}/grades/monthly-summary`, { params: filters });
+  }
+  listAssessmentComponents(courseId: string) { return this.http.get<AssessmentComponent[]>(`${environment.apiUrl}/courses/${courseId}/assessment-components`); }
+  listCourseAssignments(courseId: string) { return this.http.get<CourseAssignment[]>(`${environment.apiUrl}/courses/${courseId}/assignments`); }
+  createCourseAssignment(courseId: string, payload: { section_id: string; teacher_id?: string; teacher_name?: string }) { return this.http.post<CourseAssignment>(`${environment.apiUrl}/courses/${courseId}/assignments`, payload); }
+  deleteCourseAssignment(courseId: string, assignmentId: string) { return this.http.delete<void>(`${environment.apiUrl}/courses/${courseId}/assignments/${assignmentId}`); }
 
   createGrade(payload: GradePayload) {
     return this.http.post<unknown>(`${environment.apiUrl}/grades`, payload);
@@ -175,8 +213,8 @@ export class ApiService {
   updateGrade(id: string, payload: { score?: number; qualitative_note?: string }) { return this.http.patch(`${environment.apiUrl}/grades/${id}`, payload); }
   deleteGrade(id: string) { return this.http.delete<void>(`${environment.apiUrl}/grades/${id}`); }
 
-  listAttendance() {
-    return this.http.get<unknown[]>(`${environment.apiUrl}/attendance`);
+  listAttendance(filters: Record<string, string> = {}) {
+    return this.http.get<AttendanceRecord[]>(`${environment.apiUrl}/attendance`, { params: filters });
   }
 
   createAttendance(payload: AttendancePayload) {
@@ -184,20 +222,26 @@ export class ApiService {
   }
 
   listCourses() {
-    return this.http.get<unknown[]>(`${environment.apiUrl}/courses`);
+    return this.http.get<{ id: string; name: string; code: string | null; is_active: boolean }[]>(`${environment.apiUrl}/courses`);
   }
 
   getStudentReports(filters: Record<string, string> = {}) {
     return this.http.get<RiskAlert[]>(`${environment.apiUrl}/reports/students`, { params: filters });
   }
+  getIndividualReport(studentId: string, filters: Record<string, string> = {}) { return this.http.get<Record<string, unknown>>(`${environment.apiUrl}/reports/students/${studentId}`, { params: filters }); }
+  exportGroupReport(filters: Record<string, string>) { return this.http.get(`${environment.apiUrl}/reports/export.xlsx`, { params: filters, responseType: 'blob' }); }
 
-  getKpis() { return this.http.get<{ average_score: number; attendance_rate: number; grades_count: number; attendance_count: number }>(`${environment.apiUrl}/kpis`); }
-  listFollowUps() { return this.http.get<{ id: string; student_id: string; action: string; status: string }[]>(`${environment.apiUrl}/follow-ups`); }
-  createFollowUp(payload: { student_id: string; action: string; status: string }) { return this.http.post(`${environment.apiUrl}/follow-ups`, payload); }
+  listFollowUps(filters: Record<string, string> = {}) { return this.http.get<{ id: string; student_id: string; recorded_by_id: string | null; category: string; action: string; status: string }[]>(`${environment.apiUrl}/follow-ups`, { params: filters }); }
+  createFollowUp(payload: { student_id: string; category: string; action: string; status: string }) { return this.http.post(`${environment.apiUrl}/follow-ups`, payload); }
+  updateFollowUp(id: string, payload: { category?: string; action?: string; status?: string }) { return this.http.patch(`${environment.apiUrl}/follow-ups/${id}`, payload); }
+  deleteFollowUp(id: string) { return this.http.delete<void>(`${environment.apiUrl}/follow-ups/${id}`); }
 
   createCourse(payload: CoursePayload) {
-    return this.http.post<{ id: string; name: string; code: string }>(`${environment.apiUrl}/courses`, payload);
+    return this.http.post<{ id: string; name: string; code: string | null }>(`${environment.apiUrl}/courses`, payload);
   }
+  createAssessmentComponent(courseId: string, payload: { name: string; weight: number; is_optional: boolean }) { return this.http.post<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components`, payload); }
+  updateAssessmentComponent(courseId: string, componentId: string, payload: Partial<AssessmentComponent>) { return this.http.patch<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components/${componentId}`, payload); }
+  deactivateAssessmentComponent(courseId: string, componentId: string) { return this.http.delete<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components/${componentId}`); }
   updateCourse(id: string, payload: Partial<CoursePayload>) { return this.http.patch(`${environment.apiUrl}/courses/${id}`, payload); }
   deleteCourse(id: string) { return this.http.delete<void>(`${environment.apiUrl}/courses/${id}`); }
 
@@ -207,23 +251,17 @@ export class ApiService {
     return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/preview`, form);
   }
 
-  importStudents(file: File) {
-    const form = new FormData();
-    form.append('file', file);
-    return this.http.post<{ imported: number }>(`${environment.apiUrl}/imports/students`, form);
+  commitStudentRows(rows: Record<string, unknown>[], gradeId: string, sectionId: string) {
+    return this.http.post<{ processed: number; imported: number; rejected: number }>(`${environment.apiUrl}/imports/students/commit`, { rows, grade_id: gradeId, section_id: sectionId });
   }
 
-  previewGradeImport(file: File) {
+  previewGradeImport(file: File, periodId: string) {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/grades/preview`, form);
+    return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/grades/preview`, form, { params: { period_id: periodId } });
   }
 
-  importGrades(file: File, courseId: string, periodId: string) {
-    const form = new FormData();
-    form.append('file', file);
-    return this.http.post<{ imported: number }>(`${environment.apiUrl}/imports/grades`, form, {
-      params: { course_id: courseId, period_id: periodId },
-    });
+  commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string) {
+    return this.http.post<{ processed: number; imported: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId });
   }
 }
