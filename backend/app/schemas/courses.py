@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EvaluationPreviewRequest(BaseModel):
@@ -84,14 +84,24 @@ class CourseResponse(BaseModel):
     created_at: datetime | None = None
 
 
-class EnrollmentCreate(BaseModel):
+class EnrollmentStatus(BaseModel):
+    status: str = Field(default="ACTIVE", min_length=1, max_length=30)
+
+    @field_validator("status")
+    @classmethod
+    def meaningful_status(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("El estado no puede estar vacío")
+        return value.strip().upper()
+
+
+class EnrollmentCreate(EnrollmentStatus):
     student_id: UUID
     course_id: UUID
     period_id: UUID
-    status: str = Field(default="ACTIVE", min_length=1, max_length=30)
 
 
-class EnrollmentUpdate(BaseModel):
+class EnrollmentUpdate(EnrollmentStatus):
     status: str = Field(min_length=1, max_length=30)
 
 

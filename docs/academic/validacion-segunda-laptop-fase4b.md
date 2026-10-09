@@ -269,3 +269,12 @@ con padrón y 32 notas idénticos. Las entidades nuevas son una fixture explíci
 alumnos/notas, no una configuración institucional. No hay migración adicional.
 Archivo, eliminación y traslados no se implementaron en este bloque. Continuación:
 C6-matrículas, como detalla el roadmap actualizado.
+
+Matrículas: ocho casos PG nuevos y nueve regresiones de permisos aprobados, después
+de corregir tres expectativas de fixtures que no representaban un contexto nuevo/ajeno.
+Filtros por alumno/curso/periodo y altas concurrentes conservan el ámbito y producen
+un 201 y un 409. Estado vacío/null rechazado; no se inventó un enum de estados.
+Ficha Angular permite alta/consulta, sin eliminación o edición de estados: cinco
+Vitest nuevos, total **37/37**, build **31,868 s**. Playwright enrollment pasó alta,
+duplicado y recarga por ID; una asociación nueva sintética, padrón y 32 notas intactos.
+Sin migración adicional. Continuación C8/REQ-19: fecha y autor en cronología.

@@ -52,6 +52,7 @@ export interface AcademicPeriod {
 export type PeriodPayload = Omit<AcademicPeriod, 'id'>;
 export interface AcademicGrade { id: string; name: string; level: string; is_active: boolean; }
 export interface AcademicSection { id: string; name: string; grade_id: string; is_active: boolean; }
+export interface Enrollment { id: string; student_id: string; course_id: string; period_id: string; status: string; }
 
 export interface LoginPayload {
   email: string;
@@ -328,6 +329,8 @@ export class ApiService {
   }
 
   listAcademicGrades() { return this.http.get<AcademicGrade[]>(`${environment.apiUrl}/academic/grades`); }
+  listEnrollments(filters: Record<string, string> = {}) { return this.http.get<Enrollment[]>(`${environment.apiUrl}/enrollments`, { params: filters }); }
+  createEnrollment(payload: { student_id: string; course_id: string; period_id: string }) { return this.http.post<Enrollment>(`${environment.apiUrl}/enrollments`, payload); }
   createAcademicGrade(payload: { name: string; level: string }) { return this.http.post<AcademicGrade>(`${environment.apiUrl}/academic/grades`, payload); }
   updateAcademicGrade(id: string, name: string) { return this.http.patch<AcademicGrade>(`${environment.apiUrl}/academic/grades/${id}`, { name }); }
   listAcademicSections() { return this.http.get<AcademicSection[]>(`${environment.apiUrl}/academic/sections`); }

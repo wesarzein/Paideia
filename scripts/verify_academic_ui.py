@@ -46,7 +46,7 @@ def main():
         "--stage",
         choices=[
             "all", "editor", "import", "manual", "history", "matrix", "period",
-            "attendance", "cohort",
+            "attendance", "cohort", "enrollment",
         ],
         default="all",
     )
@@ -584,6 +584,52 @@ def main():
             assert api("GET", "/students") == roster
             assert preserved() == before
             passed("cohort")
+
+        if args.stage in ("all", "enrollment") and "enrollment" not in state["checks"]:
+            before = preserved()
+            roster = api("GET", "/students")
+            page.goto(base + "/estudiantes")
+            page.get_by_label("Buscar estudiante", exact=True).fill(student["student_code"])
+            page.get_by_role("button", name="Buscar", exact=True).click()
+            page.locator("tbody tr").filter(has_text=student["student_code"]).get_by_role(
+                "button", name="Ver ficha", exact=True
+            ).click()
+            manager = page.locator("app-enrollment-manager")
+            expect(manager.get_by_role("heading", name="Matrículas académicas")).to_be_visible()
+            manager.get_by_label(re.compile(r"^Curso de matrícula")).select_option(course["id"])
+            manager.get_by_label(re.compile(r"^Periodo de matrícula")).select_option(period["id"])
+            query = (
+                f"/enrollments?student_id={student['id']}&course_id={course['id']}"
+                f"&period_id={period['id']}"
+            )
+            stored = api("GET", query)
+            button = manager.get_by_role("button", name="Registrar matrícula académica", exact=True)
+            if not stored:
+                expect(button).to_be_enabled()
+                with page.expect_response(
+                    lambda r: r.request.method == "POST" and r.url.endswith("/enrollments")
+                ) as reply:
+                    button.click()
+                assert reply.value.status == 201 and reply.value.json()["status"] == "ACTIVE"
+                state["enrollment"] = reply.value.json()
+                STATE.write_text(json.dumps(state), encoding="utf-8")
+                expect(manager.get_by_role("status")).to_contain_text("registrada")
+            expect(button).to_be_disabled()
+            stored = api("GET", query)
+            assert len(stored) == 1
+            assert api("POST", "/enrollments", {
+                "student_id": student["id"], "course_id": course["id"], "period_id": period["id"]
+            }, 409)["detail"] == "La matrícula ya existe"
+            page.reload()
+            page.get_by_label("Buscar estudiante", exact=True).fill(student["student_code"])
+            page.get_by_role("button", name="Buscar", exact=True).click()
+            page.locator("tbody tr").filter(has_text=student["student_code"]).get_by_role(
+                "button", name="Ver ficha", exact=True
+            ).click()
+            expect(manager.locator("tbody tr").filter(has_text=course["name"])).to_have_count(1)
+            assert api("GET", query) == stored
+            assert api("GET", "/students") == roster and preserved() == before
+            passed("enrollment")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()

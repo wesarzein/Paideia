@@ -28,7 +28,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | C3. REQ-21: asistencia | PG/API, Vitest, build y navegador probados para registro diario | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; errores/reintentos visibles, fechas independientes y observaciones conservadas |
 | C4. REQ-07/22: grados, secciones, años y periodos | Periodos y altas/etiquetas de grados/secciones PG/UI probados; archivo/traslado pendientes | P1; B1/B2 | Gestión autorizada y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
-| C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
+| C6. REQ-08: matrículas académicas | Altas/consulta PG/API y UI probadas; edición de estado UI pendiente | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
 | C7. REQ-01/03/06: estudiantes/docentes/usuarios/roles | Flujos básicos probados; variantes parciales | P2; B1/C5 | Conservar seis roles, códigos/búsquedas/estado/asignaciones; no agregar documento personal sin requisito confirmado; pruebas de transiciones y ámbito |
 | C8. REQ-16/18/19: observaciones/acuerdos/reuniones | Registro/atribución probados; cronología UI parcial | P2; B1/B3 | Mostrar fecha/autor/categoría autorizados; conservar edición y categorías; fixture historial y UI |
 | C9. Portal estudiante/apoderado existente | Vínculos, lectura y regresión visual por alumno/apoderado probados | P0 en seguridad / P2 UX; B1 | Sin acceso a alumno ajeno ni escritura de notas; conservar portal aunque alcance excluya portal completo; pruebas por vínculo |
@@ -225,3 +225,22 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 - Continuación prioritaria independiente: C6, gestión visible de matrículas existentes
   por alumno/curso/periodo y protección de duplicados concurrentes. Conservar alcance
   por docente/rol, identidades y notas; no añadir matrículas financieras ni borrado.
+- C6: ocho casos PG nuevos aprobados. Primera ejecución 12/15 aprobados (incluye
+  nueve regresiones de autorización); tres fallaron por elegir en la prueba una
+  identidad ya matriculada o un curso autorizado. Corregidas las fixtures, esos tres
+  pasaron 3/3 en 9,62 s. Después 3/3 en 10,34 s: dos casos nuevos de estado vacío/null
+  rechazados y repetición de normalización de ACTIVE tras el cambio de esquema.
+  Filtros alumno/curso/periodo conservan ámbito correlacionado; alta concurrente produce
+  un 201 y un 409, identidad existente preservada. Normaliza espacios/mayúsculas,
+  manteniendo los estados no vacíos existentes sin inventar enum institucional.
+- C6 UI: ficha del alumno muestra matrículas, alta de asociación activa con curso/
+  periodo explícitos, lectura para director y creación para roles autorizados por API;
+  errores, carga/reintento, respuestas de ficha anterior ignoradas y duplicados locales
+  bloqueados. Cursos archivados conservan su nombre en la consulta. Sin eliminación
+  ni modificación de estados en este formulario; endpoints anteriores se conservan.
+  37/37 Vitest (cinco nuevos), build 31,868 s con caché/cap 768 MiB. Playwright enrollment
+  pasó alta/409/reload con mismo ID, padrón y 32 notas intactos, cero errores JS.
+  Se añadió una matrícula exclusivamente sintética al alumno/curso del recorrido UI.
+- Siguiente tarea: C8/REQ-19, cronología visible con fecha y autor del seguimiento;
+  conservar categorías, identidad y atribución. No ejecutar borrados ordinarios ni
+  definir conservación/retención sin política. B3, fórmulas y producción siguen pendientes.
