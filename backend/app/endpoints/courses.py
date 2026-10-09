@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,17 +16,25 @@ from app.models.academic import (
     Section,
 )
 from app.models.user import User
-from app.schemas.courses import AssessmentComponentCreate, AssessmentComponentResponse, AssessmentComponentUpdate, CourseAssignmentCreate, CourseAssignmentResponse, CourseCreate, CourseResponse, CourseUpdate
-from app.services.course_catalog import canonical_course_name, unique_course_code
 from app.schemas.courses import (
+    AssessmentComponentCreate,
+    AssessmentComponentResponse,
+    AssessmentComponentUpdate,
+    CourseAssignmentCreate,
+    CourseAssignmentResponse,
+    CourseCreate,
+    CourseResponse,
+    CourseUpdate,
     EvaluationPreviewRequest,
     EvaluationRestoreRequest,
     EvaluationRevisionWrite,
 )
+from app.services.course_catalog import canonical_course_name, unique_course_code
 from app.services.evaluation_configuration import from_document, institutional_template, preview
 from app.services.evaluation_revisions import (
     StaleEvaluationRevision,
     create_revision,
+    latest_published_revision,
     latest_revision,
     revision_payload,
 )
@@ -85,6 +93,23 @@ def _store_evaluation_revision(
     return revision_payload(revision)
 
 
+def _default_evaluation_payload(course_id: UUID, period_id: UUID) -> dict:
+    configuration = institutional_template(str(course_id), str(period_id))
+    return {
+        "id": None,
+        "course_id": str(course_id),
+        "period_id": str(period_id),
+        "version": 0,
+        "state": "default",
+        "previous_revision_id": None,
+        "configuration": configuration.document(),
+        "content_hash": configuration.fingerprint(),
+        "reason": "Plantilla institucional predeterminada",
+        "created_by_id": None,
+        "created_at": None,
+    }
+
+
 @router.get("/{course_id}/evaluation-template")
 def get_evaluation_template(
     course_id: UUID,
@@ -122,20 +147,22 @@ def get_current_evaluation_configuration(
     revision = latest_revision(db, course_id, period_id)
     if revision:
         return revision_payload(revision)
-    configuration = institutional_template(str(course_id), str(period_id))
-    return {
-        "id": None,
-        "course_id": str(course_id),
-        "period_id": str(period_id),
-        "version": 0,
-        "state": "default",
-        "previous_revision_id": None,
-        "configuration": configuration.document(),
-        "content_hash": configuration.fingerprint(),
-        "reason": "Plantilla institucional predeterminada",
-        "created_by_id": None,
-        "created_at": None,
-    }
+    return _default_evaluation_payload(course_id, period_id)
+
+
+@router.get("/{course_id}/evaluation-configurations/active")
+def get_active_evaluation_configuration(
+    course_id: UUID,
+    period_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+) -> dict:
+    """Return only a published revision; drafts never affect grade capture."""
+    _evaluation_scope(db, user, course_id, period_id)
+    revision = latest_published_revision(db, course_id, period_id)
+    return revision_payload(revision) if revision else _default_evaluation_payload(
+        course_id, period_id
+    )
 
 
 @router.get("/{course_id}/evaluation-configurations/versions")

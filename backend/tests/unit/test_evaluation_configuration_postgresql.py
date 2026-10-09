@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from threading import Barrier
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -63,9 +64,13 @@ def test_0014_upgrade_and_reversible_downgrade(sessions):
     with sessions() as db:
         inspector = inspect(db.bind)
         assert "evaluation_configuration_revisions" in inspector.get_table_names()
-        assert "evaluation_revision_id" in {
-            column["name"] for column in inspector.get_columns("grade_records")
-        }
+        grade_columns = {column["name"] for column in inspector.get_columns("grade_records")}
+        assert {
+            "evaluation_revision_id",
+            "academic_bimester",
+            "evaluation_block",
+            "evaluation_criterion_key",
+        } <= grade_columns
 
     command.downgrade(Config("alembic.ini"), "0013_grade_import_identity")
     with sessions() as db:
@@ -74,7 +79,47 @@ def test_0014_upgrade_and_reversible_downgrade(sessions):
         assert "evaluation_revision_id" not in {
             column["name"] for column in inspector.get_columns("grade_records")
         }
+        school_roster.synchronize_roster(db, roster())
+        course = db.scalar(select(Course))
+        period = db.scalar(select(AcademicPeriod))
+        student = db.scalar(select(Student))
+        component = CourseAssessmentComponent(
+            course_id=course.id, name="Componente previo a 0014", weight=3
+        )
+        db.add(component)
+        db.flush()
+        legacy_grade_id = uuid4()
+        db.execute(
+            text("""
+                INSERT INTO grade_records(
+                    id, student_id, course_id, period_id, component_id,
+                    evaluation_name, evaluation_type, assessment_date, score,
+                    assessment_weight, assessment_config
+                ) VALUES (
+                    :id, :student, :course, :period, :component,
+                    'Evaluación previa', 'Cuaderno', DATE '2026-01-28', 12,
+                    0, '{}'::json
+                )
+            """),
+            {
+                "id": legacy_grade_id,
+                "student": student.id,
+                "course": course.id,
+                "period": period.id,
+                "component": component.id,
+            },
+        )
+        db.commit()
     command.upgrade(Config("alembic.ini"), "head")
+    with sessions() as db:
+        preserved = db.get(GradeRecord, legacy_grade_id)
+        assert preserved.score == 12
+        assert preserved.assessment_weight == 3
+        assert preserved.assessment_config["component_name"] == "Componente previo a 0014"
+        assert preserved.evaluation_revision_id is None
+        assert preserved.academic_bimester is None
+        assert preserved.evaluation_block is None
+        assert preserved.evaluation_criterion_key is None
 
 
 def test_concurrent_first_revision_has_one_winner(sessions):
@@ -117,6 +162,9 @@ def test_database_preserves_grade_revision_and_append_only_history(sessions):
             course_id=course_id,
             period_id=period_id,
             component_id=component_id,
+            academic_bimester=1,
+            evaluation_block=1,
+            evaluation_criterion_key="b1_cuaderno",
             evaluation_name="Semana 4",
             evaluation_type="Cuaderno",
             assessment_date=date(2026, 1, 28),
@@ -127,6 +175,44 @@ def test_database_preserves_grade_revision_and_append_only_history(sessions):
         db.commit()
         assert grade.assessment_config["evaluation_revision_id"] == str(revision.id)
         assert grade.assessment_config["evaluation_revision_hash"] == revision.content_hash
+        assert grade.assessment_weight == 1
+
+        other_criterion = GradeRecord(
+            student_id=student_id,
+            course_id=course_id,
+            period_id=period_id,
+            component_id=component_id,
+            academic_bimester=1,
+            evaluation_block=1,
+            evaluation_criterion_key="b1_actitud",
+            evaluation_name="Semana 4",
+            evaluation_type="Cuaderno",
+            assessment_date=date(2026, 1, 28),
+            score=13,
+            evaluation_revision_id=revision.id,
+        )
+        db.add(other_criterion)
+        db.commit()
+        assert other_criterion.id != grade.id
+
+        duplicate = GradeRecord(
+            student_id=student_id,
+            course_id=course_id,
+            period_id=period_id,
+            component_id=component_id,
+            academic_bimester=1,
+            evaluation_block=1,
+            evaluation_criterion_key="b1_actitud",
+            evaluation_name="Semana 4",
+            evaluation_type="Cuaderno",
+            assessment_date=date(2026, 1, 28),
+            score=13,
+            evaluation_revision_id=revision.id,
+        )
+        db.add(duplicate)
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
 
         with pytest.raises(DBAPIError):
             db.execute(

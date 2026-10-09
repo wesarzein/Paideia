@@ -13,18 +13,18 @@ from app.models.user import AuditLog
 
 
 def identity(record, *, component=True):
-    return json.dumps(
-        [
-            str(record.student_id),
-            str(record.course_id),
-            str(record.period_id),
-            str(record.component_id) if component and record.component_id else None,
-            record.evaluation_name.strip(),
-            record.evaluation_type.strip(),
-            record.assessment_date.isoformat(),
-        ],
-        ensure_ascii=False,
-    )
+    dimensions = [
+        str(record.student_id),
+        str(record.course_id),
+        str(record.period_id),
+        str(record.component_id) if component and record.component_id else None,
+        record.evaluation_name.strip(),
+        record.evaluation_type.strip(),
+        record.assessment_date.isoformat(),
+    ]
+    if record.evaluation_criterion_key:
+        dimensions.append(record.evaluation_criterion_key)
+    return json.dumps(dimensions, ensure_ascii=False)
 
 
 def _token(user, incoming, existing):
@@ -56,7 +56,7 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
             )
     reviews, existing_records, errors, seen = [], [], [], {}
     for index, (record, raw) in enumerate(zip(incoming, raw_rows, strict=True), 1):
-        query = select(GradeRecord).where(
+        base_query = select(GradeRecord).where(
             GradeRecord.student_id == record.student_id,
             GradeRecord.course_id == record.course_id,
             GradeRecord.period_id == record.period_id,
@@ -64,6 +64,11 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
             func.trim(GradeRecord.evaluation_type) == record.evaluation_type,
             GradeRecord.assessment_date == record.assessment_date,
         )
+        query = base_query
+        if record.evaluation_criterion_key:
+            query = query.where(
+                GradeRecord.evaluation_criterion_key == record.evaluation_criterion_key
+            )
         # Missing criterion is resolved only when the match is unambiguous.
         explicit_component = "component_id" in raw and raw["component_id"] != ""
         if explicit_component:
@@ -71,6 +76,11 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
         if lock:
             query = query.with_for_update()
         matches = list(db.scalars(query))
+        if not matches and record.evaluation_criterion_key:
+            legacy_query = base_query.where(GradeRecord.evaluation_criterion_key.is_(None))
+            if lock:
+                legacy_query = legacy_query.with_for_update()
+            matches = list(db.scalars(legacy_query))
         existing = matches[0] if len(matches) == 1 else None
         item = {
             "row": index,

@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.dependencies import get_current_user
 from app.core.database import Base, get_db
 from app.endpoints.courses import router as courses_router
+from app.endpoints.grades import router as grades_router
 from app.endpoints.imports import GradeRowsImport, _prepare_grade_rows
 from app.models import base as _mapped_models  # noqa: F401 - register all foreign-key tables
 from app.models.academic import (
@@ -33,6 +34,7 @@ from app.services.evaluation_revisions import (
     latest_revision,
     revision_configuration,
 )
+from app.services.grade_import_identity import inspect_rows
 
 
 @pytest.fixture()
@@ -57,7 +59,7 @@ def db():
         )
         student = Student(student_code="SYN001", first_name="Ada", last_name="Prueba")
         component = CourseAssessmentComponent(
-            course_id=course.id, name="Cuaderno", weight=1, is_optional=False
+            course_id=course.id, name="Cuaderno", weight=2, is_optional=False
         )
         session.add_all([role, user, course, period, student])
         session.flush()
@@ -106,6 +108,9 @@ def test_new_grade_keeps_the_published_revision_snapshot(db):
         course_id=course.id,
         period_id=period.id,
         component_id=component.id,
+        academic_bimester=1,
+        evaluation_block=1,
+        evaluation_criterion_key="b1_cuaderno",
         evaluation_name="Semana 4",
         evaluation_type="Cuaderno",
         assessment_date=date(2026, 1, 28),
@@ -134,6 +139,8 @@ def test_new_grade_keeps_the_published_revision_snapshot(db):
     assert grade.assessment_config == original_snapshot
     assert grade.assessment_config["evaluation_revision_version"] == 1
     assert grade.assessment_config["evaluation_revision_hash"] == configuration.fingerprint()
+    assert grade.assessment_weight == 1
+    assert grade.assessment_config["evaluation_criterion_key"] == "b1_cuaderno"
 
 
 def test_grade_rejects_draft_or_wrong_scope_revision(db):
@@ -179,9 +186,10 @@ def test_scope_and_content_hash_are_checked_when_loading(db):
 
 
 def test_http_permissions_publication_history_and_restore(db):
-    session, teacher, course, period, _student, _component = db
+    session, teacher, course, period, student, _component = db
     application = FastAPI()
     application.include_router(courses_router, prefix="/courses")
+    application.include_router(grades_router, prefix="/grades")
 
     def session_override():
         yield session
@@ -206,6 +214,8 @@ def test_http_permissions_publication_history_and_restore(db):
     section = Section(grade_id=grade.id, name="A")
     session.add(section)
     session.flush()
+    student.grade_id = grade.id
+    student.section_id = section.id
     session.add(
         CourseAssignment(
             course_id=course.id,
@@ -221,6 +231,11 @@ def test_http_permissions_publication_history_and_restore(db):
     assert saved.status_code == 201
     assert saved.json()["state"] == "draft"
     assert saved.json()["version"] == 1
+    active_before_publish = client.get(
+        f"/courses/{course.id}/evaluation-configurations/active",
+        params={"period_id": str(period.id)},
+    )
+    assert active_before_publish.json()["state"] == "default"
 
     stale = client.post(f"/courses/{course.id}/evaluation-configurations/drafts", json=payload)
     assert stale.status_code == 409
@@ -231,6 +246,35 @@ def test_http_permissions_publication_history_and_restore(db):
     )
     assert published.status_code == 201
     assert published.json()["state"] == "published"
+    active_after_publish = client.get(
+        f"/courses/{course.id}/evaluation-configurations/active",
+        params={"period_id": str(period.id)},
+    )
+    assert active_after_publish.json()["version"] == 2
+
+    base_grade = {
+        "student_id": str(student.id),
+        "course_id": str(course.id),
+        "period_id": str(period.id),
+        "evaluation_name": "Evaluación confirmada",
+        "evaluation_type": "Criterio personalizado",
+        "assessment_date": "2026-01-28",
+        "score": 16,
+    }
+    missing_context = client.post("/grades", json=base_grade)
+    assert missing_context.status_code == 422
+    saved_grade = client.post(
+        "/grades",
+        json={
+            **base_grade,
+            "academic_bimester": 1,
+            "evaluation_block": 1,
+            "evaluation_criterion_key": "b1_cuaderno",
+        },
+    )
+    assert saved_grade.status_code == 201
+    assert saved_grade.json()["evaluation_revision_id"] == published.json()["id"]
+    assert saved_grade.json()["assessment_config"]["evaluation_criterion_key"] == "b1_cuaderno"
 
     versions = client.get(
         f"/courses/{course.id}/evaluation-configurations/versions",
@@ -333,3 +377,42 @@ def test_institutional_import_uses_published_configuration_mapping(db):
         _prepare_grade_rows(payload, session, teacher)
     assert rejected.value.status_code == 422
     assert "criterio del Excel" in rejected.value.detail["errors"][0]["error"]
+
+
+def test_configured_reimport_recognizes_matching_legacy_grade(db):
+    session, teacher, course, period, student, component = db
+    legacy = GradeRecord(
+        student_id=student.id,
+        course_id=course.id,
+        period_id=period.id,
+        component_id=component.id,
+        evaluation_name="Semana 4",
+        evaluation_type="Cuaderno",
+        assessment_date=date(2026, 1, 28),
+        score=15,
+    )
+    session.add(legacy)
+    session.commit()
+    configuration = institutional_template(str(course.id), str(period.id))
+    revision = create_revision(
+        session, configuration, teacher.id, "Publicación posterior", 0, "published"
+    )
+    session.commit()
+    incoming = GradeRecord(
+        student_id=student.id,
+        course_id=course.id,
+        period_id=period.id,
+        component_id=component.id,
+        academic_bimester=1,
+        evaluation_block=1,
+        evaluation_criterion_key="b1_cuaderno",
+        evaluation_name="Semana 4",
+        evaluation_type="Cuaderno",
+        assessment_date=date(2026, 1, 28),
+        score=15,
+        evaluation_revision_id=revision.id,
+    )
+    reviews, existing, errors = inspect_rows(session, teacher, [incoming], [{}])
+    assert errors == []
+    assert reviews[0]["status"] == "identical"
+    assert existing[0].id == legacy.id

@@ -6,14 +6,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
-from app.core.database import get_db
-from app.services.academic_access import ensure_student_course_access, ensure_student_view_access
 from app.core.academic_rules import LITERAL_GRADE_THRESHOLDS, literal_grade
-from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, CourseAssignment, GradeRecord
+from app.core.database import get_db
+from app.models.academic import (
+    AcademicPeriod,
+    Course,
+    CourseAssessmentComponent,
+    CourseAssignment,
+    GradeRecord,
+)
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.grades import GradeCreate, GradeResponse, GradeSummary, GradeUpdate
-from app.services.evaluation_revisions import latest_published_revision
+from app.services.academic_access import ensure_student_course_access, ensure_student_view_access
+from app.services.evaluation_revisions import latest_published_revision, revision_configuration
 
 router = APIRouter()
 
@@ -63,21 +69,62 @@ def create_grade(
 
     ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
 
+    revision = latest_published_revision(db, payload.course_id, payload.period_id)
+    if revision:
+        if not all(
+            value is not None
+            for value in (
+                payload.academic_bimester,
+                payload.evaluation_block,
+                payload.evaluation_criterion_key,
+            )
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Selecciona bimestre, bloque y criterio de la configuración publicada",
+            )
+        configuration = revision_configuration(revision)
+        criterion = next(
+            (
+                item
+                for item in configuration.criteria
+                if item.key == payload.evaluation_criterion_key
+            ),
+            None,
+        )
+        if (
+            criterion is None
+            or not criterion.is_active
+            or criterion.block != payload.evaluation_block
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="El criterio no está activo en el bloque seleccionado",
+            )
+        if (
+            payload.component_id
+            and criterion.legacy_component_id
+            and str(payload.component_id) != criterion.legacy_component_id
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="El componente no corresponde al criterio publicado",
+            )
+
     record = GradeRecord(
         student_id=payload.student_id,
         course_id=payload.course_id,
         period_id=payload.period_id,
         component_id=payload.component_id,
+        academic_bimester=payload.academic_bimester,
+        evaluation_block=payload.evaluation_block,
+        evaluation_criterion_key=payload.evaluation_criterion_key,
         evaluation_name=payload.evaluation_name.strip(),
         evaluation_type=payload.evaluation_type.strip(),
         assessment_date=payload.assessment_date,
         score=float(payload.score),
         qualitative_note=payload.qualitative_note,
-        evaluation_revision_id=(
-            revision.id
-            if (revision := latest_published_revision(db, payload.course_id, payload.period_id))
-            else None
-        ),
+        evaluation_revision_id=revision.id if revision else None,
     )
     db.add(record)
     try:

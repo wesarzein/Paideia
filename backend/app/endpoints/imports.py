@@ -1,12 +1,12 @@
+import re
+import unicodedata
 from datetime import date
 from io import BytesIO
 from typing import Any
-import re
-import unicodedata
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 import pandas as pd
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,16 +14,24 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, Grade, GradeRecord, Section
+from app.models.academic import (
+    AcademicPeriod,
+    Course,
+    CourseAssessmentComponent,
+    Grade,
+    GradeRecord,
+    Section,
+)
 from app.models.student import Student
 from app.models.user import User
-from app.services.academic_access import ensure_student_course_access
-from app.services.evidence_types import normalize_evidence_type
 from app.schemas.grades import GradeCreate
-from app.services.grade_import_identity import commit_rows, inspect_rows
-from app.services.institutional_excel import key as name_key, read_institutional, reference_results
+from app.services.academic_access import ensure_student_course_access
 from app.services.evaluation_configuration import source_criterion
 from app.services.evaluation_revisions import latest_published_revision, revision_configuration
+from app.services.evidence_types import normalize_evidence_type
+from app.services.grade_import_identity import commit_rows, inspect_rows
+from app.services.institutional_excel import key as name_key
+from app.services.institutional_excel import read_institutional, reference_results
 from app.services.student_codes import format_student_code, student_code_prefix
 
 router = APIRouter()
@@ -315,6 +323,9 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
     prepared: list[GradeRecord] = []
     errors = []
     for index, row in enumerate(payload.rows, 1):
+        criterion_key = str(row.get("evaluation_criterion_key") or "").strip() or None
+        row_block = row.get("evaluation_block")
+        row_bimester = row.get("academic_bimester")
         code = str(row.get("student_code", "")).strip()
         student = db.scalar(select(Student).where(Student.student_code == code)) if code else None
         if student is None:
@@ -352,6 +363,31 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
                     continue
                 if criterion.legacy_component_id and not row.get("component_id"):
                     row["component_id"] = criterion.legacy_component_id
+                criterion_key = criterion.key
+            row_block = int(block)
+            row_bimester = bimestre
+        elif published_configuration:
+            try:
+                row_block = int(row_block)
+                row_bimester = int(row_bimester)
+                criterion = next(
+                    item for item in published_configuration.criteria
+                    if item.key == criterion_key
+                )
+                if row_bimester < 1 or row_block not in (1, 2):
+                    raise ValueError
+                if not criterion.is_active or criterion.block != row_block:
+                    raise ValueError
+            except (StopIteration, TypeError, ValueError):
+                errors.append(
+                    {
+                        "row": index,
+                        "error": "Selecciona bimestre, bloque y criterio publicado para la nota",
+                    }
+                )
+                continue
+            if criterion.legacy_component_id and not row.get("component_id"):
+                row["component_id"] = criterion.legacy_component_id
         try:
             ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
         except HTTPException as error:
@@ -361,7 +397,7 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             if isinstance(row.get('score'), bool):
                 raise ValueError
             score = float(row.get("score", ""))
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError):
             errors.append({"row": index, "error": f"Nota inválida: {row.get('score')}"})
             continue
         if not 0 <= score <= 20:
@@ -390,6 +426,9 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             values = GradeCreate(
                 student_id=student.id, course_id=payload.course_id, period_id=payload.period_id,
                 component_id=row.get("component_id") or None,
+                academic_bimester=row_bimester,
+                evaluation_block=row_block,
+                evaluation_criterion_key=criterion_key,
                 evaluation_name=str(row.get("evaluation_name", "Evaluación")).strip() or "Evaluación",
                 evaluation_type=evaluation_type, assessment_date=parsed_assessment_date, score=score,
                 qualitative_note=str(row.get("qualitative_note") or "").strip() or None,

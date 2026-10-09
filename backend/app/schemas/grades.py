@@ -1,21 +1,33 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from app.services.evidence_types import EVIDENCE_TYPES, EvidenceTypeModel
+from app.services.evidence_types import EVIDENCE_TYPES, EvidenceTypeModel, normalize_evidence_type
 
 
-class GradeCreate(EvidenceTypeModel):
+class GradeCreate(BaseModel):
     student_id: UUID
     course_id: UUID
     period_id: UUID
     component_id: UUID | None = None
+    academic_bimester: int | None = Field(default=None, ge=1)
+    evaluation_block: int | None = Field(default=None, ge=1, le=2)
+    evaluation_criterion_key: str | None = Field(
+        default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$"
+    )
     evaluation_name: str = Field(default="Evaluación", min_length=1, max_length=120)
     evaluation_type: str = Field(default=EVIDENCE_TYPES[0], min_length=1, max_length=50)
     assessment_date: date = Field(default_factory=date.today)
     score: float = Field(ge=0, le=20)
     qualitative_note: str | None = Field(default=None, max_length=255)
+
+    @field_validator("evaluation_type", mode="before")
+    @classmethod
+    def validate_evaluation_type(cls, value: str, info: ValidationInfo) -> str:
+        if info.data.get("evaluation_criterion_key"):
+            return str(value).strip()
+        return normalize_evidence_type(value)
 
 
 class GradeUpdate(EvidenceTypeModel):
@@ -35,6 +47,9 @@ class GradeResponse(BaseModel):
     course_id: UUID
     period_id: UUID
     component_id: UUID | None = None
+    academic_bimester: int | None = None
+    evaluation_block: int | None = None
+    evaluation_criterion_key: str | None = None
     evaluation_name: str
     evaluation_type: str
     assessment_date: date

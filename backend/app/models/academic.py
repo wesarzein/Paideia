@@ -9,8 +9,8 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
-    Integer,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -147,6 +147,16 @@ def preserve_evaluation_revision(_mapper, _connection, _revision):
 
 class GradeRecord(Base):
     __tablename__ = "grade_records"
+    __table_args__ = (
+        CheckConstraint(
+            "academic_bimester IS NULL OR academic_bimester > 0",
+            name="grade_records_positive_bimester",
+        ),
+        CheckConstraint(
+            "evaluation_block IS NULL OR evaluation_block IN (1, 2)",
+            name="grade_records_evaluation_block",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.id"), nullable=False)
@@ -154,6 +164,11 @@ class GradeRecord(Base):
     period_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("academic_periods.id"), nullable=False)
     component_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("course_assessment_components.id"), nullable=True
+    )
+    academic_bimester: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evaluation_block: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evaluation_criterion_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
     )
     evaluation_name: Mapped[str] = mapped_column(String(120), default="Evaluación", nullable=False)
     evaluation_type: Mapped[str] = mapped_column(String(50), default="Actitud ante el área", nullable=False)
@@ -181,7 +196,6 @@ def capture_assessment_config(_mapper, connection, record):
             CourseAssessmentComponent.id == record.component_id
         )
     ).mappings().first() if record.component_id else None
-    record.assessment_weight = float(component["weight"]) if component else 1.0
     revision = connection.execute(
         select(EvaluationConfigurationRevision.__table__).where(
             EvaluationConfigurationRevision.id == record.evaluation_revision_id
@@ -195,14 +209,51 @@ def capture_assessment_config(_mapper, connection, record):
         or revision["period_id"] != record.period_id
     ):
         raise ValueError("La revisión de evaluación no está publicada para este curso y periodo")
+    criterion = None
+    if revision:
+        if (
+            record.academic_bimester is None
+            or record.academic_bimester < 1
+            or record.evaluation_block not in (1, 2)
+            or not record.evaluation_criterion_key
+        ):
+            raise ValueError("La nota configurable requiere bimestre, bloque y criterio")
+        criterion = next(
+            (
+                item
+                for item in revision["configuration"].get("criteria", [])
+                if item.get("key") == record.evaluation_criterion_key
+            ),
+            None,
+        )
+        if (
+            criterion is None
+            or criterion.get("is_active") is not True
+            or criterion.get("block") != record.evaluation_block
+        ):
+            raise ValueError("El criterio no está activo en el bloque de la revisión publicada")
+    record.assessment_weight = (
+        float(criterion["weight"])
+        if criterion is not None
+        else float(component["weight"]) if component else 1.0
+    )
     record.assessment_config = {
-        "schema_version": 1,
+        "schema_version": 2 if revision else 1,
         "algorithm": "weighted_mean_v1",
         "origin": "record_insert",
         "component_id": str(record.component_id) if record.component_id else None,
-        "component_name": component["name"] if component else None,
-        "is_optional": component["is_optional"] if component else None,
+        "component_name": (
+            criterion["name"] if criterion is not None
+            else component["name"] if component else None
+        ),
+        "is_optional": (
+            criterion["is_optional"] if criterion is not None
+            else component["is_optional"] if component else None
+        ),
         "weight": record.assessment_weight,
+        "academic_bimester": record.academic_bimester,
+        "evaluation_block": record.evaluation_block,
+        "evaluation_criterion_key": record.evaluation_criterion_key,
         "evaluation_revision_id": str(record.evaluation_revision_id) if revision else None,
         "evaluation_revision_version": revision["version"] if revision else None,
         "evaluation_revision_hash": revision["content_hash"] if revision else None,
@@ -211,7 +262,14 @@ def capture_assessment_config(_mapper, connection, record):
 
 @event.listens_for(GradeRecord, "before_update")
 def preserve_assessment_config(_mapper, _connection, record):
-    for field in ("assessment_weight", "assessment_config", "evaluation_revision_id"):
+    for field in (
+        "assessment_weight",
+        "assessment_config",
+        "evaluation_revision_id",
+        "academic_bimester",
+        "evaluation_block",
+        "evaluation_criterion_key",
+    ):
         if inspect(record).attrs[field].history.has_changes():
             raise ValueError("La configuración histórica de una nota es inmutable")
 

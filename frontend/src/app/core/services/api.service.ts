@@ -77,13 +77,16 @@ export interface GradePayload {
   course_id: string;
   period_id: string;
   component_id?: string;
+  academic_bimester?: number;
+  evaluation_block?: 1 | 2;
+  evaluation_criterion_key?: string;
   score: number;
   qualitative_note?: string;
   evaluation_name?: string;
   evaluation_type?: string;
   assessment_date?: string;
 }
-export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; qualitative_note?: string | null; }
+export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
 
 export interface AttendancePayload {
   student_id: string;
@@ -333,6 +336,9 @@ export class ApiService {
   deactivateAssessmentComponent(courseId: string, componentId: string) { return this.http.delete<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components/${componentId}`); }
   getEvaluationConfiguration(courseId: string, periodId: string) {
     return this.http.get<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/current`, { params: { period_id: periodId } });
+  }
+  getActiveEvaluationConfiguration(courseId: string, periodId: string) {
+    return this.http.get<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/active`, { params: { period_id: periodId } });
   }
   listEvaluationVersions(courseId: string, periodId: string) {
     return this.http.get<EvaluationRevision[]>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/versions`, { params: { period_id: periodId } });
