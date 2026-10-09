@@ -169,3 +169,51 @@ pruebas focalizadas por rol y curso. No iniciar módulos nuevos, IA o BI. La pol
 de opcionales incompletos y precedencia entre fórmulas/ponderaciones requiere confirmación
 institucional antes de habilitar resultados oficiales; las migraciones institucionales
 siguen fuera de esta autorización.
+
+## Continuación autónoma: cierre visual esencial y seguridad
+
+Evidencia posterior del mismo 09/10/2026. El informe anterior conserva su alcance
+histórico; sus pendientes visuales se actualizan aquí, sin revalidar el volumen viejo.
+
+Edge/Playwright pasó las etapas editor/import/manual/history sobre `SYN-UI-4B`:
+competencia, criterio opcional inactivo, orden y peso, fórmula de preview, borrador,
+publicación, XLSX con rechazo inicial/corrección/revisión/confirmación y reimportación,
+nota manual con contexto explícito, consulta tras recargar, publicación posterior,
+restauración e historial con resultados anteriores idénticos. Cero errores JavaScript;
+encabezado del editor visible con viewport móvil. Esto es un recorrido esencial,
+no una auditoría completa de accesibilidad o de todas las variantes institucionales.
+
+Se corrigió un defecto real: preview enviaba muestras de criterios desactivados y
+recibía 422; ahora solo envía criterios activos, conservando cero válido. Vitest del
+componente y build pasaron. Los errores de selectores del verificador se corrigieron
+sin modificar el producto. Estado/evidencias privados en `config/local`.
+
+Las 21 notas iniciales permanecieron idénticas; se añadieron 11 al curso visual:
+**32 notas sintéticas**. Huella API al terminar el recorrido:
+`e911927a74824a9c870b05b138d44839faaa537139e4db1887b8abcc0d8fe500`.
+4B.3 conserva su cierre técnico y ahora acredita el recorrido visual esencial;
+4B.4/4B.5 acreditan esos recorridos, manteniendo pendiente la política institucional
+de opcionales/fórmulas y sin declarar cálculo oficial ambiguo ni preparación productiva.
+
+REQ-04/33: ámbitos correlacionados por docente/curso/grado/sección y vínculos familiares
+en consultas, agregados, fichas, XLSX y matrículas. 24/24 PG focalizadas aprobadas.
+REQ-15: fechas/componentes/UUID/null validados en POST/PATCH; 27/27 PG con regresiones
+de snapshots/revisiones. Asistencia: estados existentes y periodo; 22/22 PG con permisos.
+Estos totales incluyen regresiones repetidas; no representan casos distintos adicionales.
+
+REQ-02/05: migración aditiva **0015_user_account_status** comprobada en UUID, incluido
+ciclo 0014→0015→0014→0015; 16/16 PG (cuentas e historia). Desactivación/reactivación
+conservan vínculos, asignaciones e identidad; login y JWT denegados mientras está
+inactiva; cambios auditados y carrera concurrente conserva un admin activo. DELETE
+compatible desactiva. UI ofrece estado y acciones; seis Vitest y build de 30,972 s
+pasaron, pero su recorrido de navegador específico está pendiente.
+
+0015 se aplicó solamente al laboratorio tras comparar las 16 tablas antes/después,
+sin cambio de sus filas previas (columna añadida y Alembic exceptuados). En ese momento
+todavía había 21 notas, antes de ejecutar el curso visual. No downgrade en public.
+La copia backend desde caché se solapó brevemente con el último build Angular; ambas
+operaciones terminaron sin error. Las siguientes deben mantenerse seriales.
+
+Memoria técnica versionada: `AGENTS.md` y `docs/development/roadmap.md`. Continuación:
+evidencia insuficiente y métricas (C1), conservación/auditoría ordinaria (B3, política
+pendiente) y regresión visual por roles/cuentas. No se activaron IA/BI ni servicios externos.
