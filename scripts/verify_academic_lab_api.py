@@ -62,6 +62,8 @@ def guard_host():
 
 def inside(stage):
     import httpx
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
     from sqlalchemy import text
     from sqlalchemy.engine import make_url
 
@@ -82,8 +84,8 @@ def inside(stage):
             "paideia_dev",
         )
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == (
-            "0014_evaluation_configuration_revisions"
-        )
+            ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+        ), "Synthetic schema must match the backend migration head"
 
     client = httpx.Client(base_url="http://127.0.0.1:8000/api/v1", timeout=30)
     login = client.post(
