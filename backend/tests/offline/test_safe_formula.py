@@ -42,6 +42,18 @@ class SafeFormulaTests(unittest.TestCase):
             with self.assertRaises(FormulaError):
                 parse(expression, {})
 
+    def test_tiny_exponent_cannot_allocate_large_documents(self):
+        for value in ['1e-99999999', '0e-99999999', '1e-29']:
+            with self.assertRaises(FormulaError):
+                evaluate('a', {'a': value})
+        with self.assertRaises(FormulaError):
+            evaluate('1e-9999', {})
+
+    def test_literals_keep_decimal_precision(self):
+        self.assertEqual(evaluate('0.1+0.2', {}), Decimal('0.3'))
+        self.assertEqual(evaluate('0.1234567890123456789012345678', {}),
+                         Decimal('0.1234567890123456789012345678'))
+
 
 if __name__ == "__main__":
     unittest.main()

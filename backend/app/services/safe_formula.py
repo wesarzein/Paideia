@@ -25,6 +25,8 @@ def number(value) -> Decimal:
         raise FormulaError("Número inválido") from None
     if not result.is_finite() or abs(result) > MAX_MAGNITUDE:
         raise FormulaError("Número no finito o fuera del límite")
+    if not -28 <= result.as_tuple().exponent <= 9 or len(result.as_tuple().digits) > 28:
+        raise FormulaError("Precisión numérica fuera del límite")
     return result
 
 
@@ -45,7 +47,7 @@ def parse(expression: str, allowed_names) -> tuple[ast.Expression, frozenset[str
         if isinstance(node, ast.Constant):
             if type(node.value) not in (int, float):
                 raise FormulaError("Solo se permiten constantes numéricas")
-            number(node.value)
+            node.decimal_value = number(ast.get_source_segment(expression, node).replace('_', ''))
         elif isinstance(node, ast.Name):
             if node.id not in allowed_names:
                 raise FormulaError(f"Referencia desconocida: {node.id}")
@@ -85,7 +87,7 @@ def evaluate(expression: str, values: dict) -> Decimal | None:
 
     def calculate(node):
         if isinstance(node, ast.Constant):
-            result = number(node.value)
+            result = node.decimal_value
         elif isinstance(node, ast.Name):
             result = normalized[node.id]
         elif isinstance(node, ast.UnaryOp):
