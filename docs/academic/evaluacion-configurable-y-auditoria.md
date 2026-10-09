@@ -67,6 +67,8 @@ No se afirma en este documento que competencias, reordenación, fórmulas person
 
 ## Entrega de la auditoría
 
+La importación idempotente y la protección de correcciones docentes se documentan en [Fase 4B.2](importacion-sin-duplicados-fase4b2.md). La migración 0013 reserva identidades sin eliminar notas históricas. El parser del Excel institucional sigue pendiente de Fase 4B.3 y no se considera probado por esta corrección.
+
 La corrección autorizada del recálculo por cambios de peso se documenta en [integridad histórica, Fase 4B.1](integridad-historica-fase4b1.md). Conserva una copia inmutable por nota; no representa la implementación completa de competencias, fórmulas ni versiones por curso/periodo. La migración institucional sigue pendiente de autorización.
 
 La primera ejecución quedó registrada en [auditoria-fase4a.md](auditoria-fase4a.md), con [matriz de cumplimiento](auditoria-fase4a-matriz.md) y resultados de pruebas sintéticas. Esta referencia conserva el requisito original; los hallazgos no autorizan todavía correcciones, migraciones institucionales ni importaciones reales.

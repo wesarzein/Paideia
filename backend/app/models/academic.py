@@ -9,6 +9,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     String,
+    Text,
     UniqueConstraint,
     event,
     func,
@@ -149,6 +150,18 @@ def preserve_assessment_config(_mapper, _connection, record):
     for field in ("assessment_weight", "assessment_config"):
         if inspect(record).attrs[field].history.has_changes():
             raise ValueError("La configuración histórica de una nota es inmutable")
+
+
+class GradeRecordIdentity(Base):
+    __tablename__ = "grade_record_identities"
+
+    identity_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    # NULL reserves ambiguous legacy groups without choosing or deleting a grade.
+    grade_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("grade_records.id", ondelete="CASCADE", deferrable=True, initially="DEFERRED"),
+        nullable=True,
+        index=True,
+    )
 
 
 class AttendanceRecord(Base):

@@ -144,15 +144,17 @@ def test_grade_edits_and_component_reassignment_preserve_original_basis(sessions
     ids, components = seed(sessions)
     with api(sessions) as client:
         original = add_grades(client, ids, components, 4)[0]
-        client.patch(
-            f"/courses/{ids['course_id']}/assessment-components/{components[1]}",
-            json={"weight": 9},
-        )
+        # A free criterion preserves the original purpose of this test. Reassigning
+        # to a criterion already recorded for this evaluation is now a conflict.
+        replacement = client.post(
+            f"/courses/{ids['course_id']}/assessment-components",
+            json={"name": "Criterio de corrección", "weight": 9},
+        ).json()["id"]
         response = client.patch(
             f"/grades/{original['id']}",
             json={
                 "score": 15,
-                "component_id": components[1],
+                "component_id": replacement,
                 "qualitative_note": "Corrección explícita",
                 "assessment_weight": 9,
                 "assessment_config": {"weight": 9},
@@ -161,7 +163,7 @@ def test_grade_edits_and_component_reassignment_preserve_original_basis(sessions
         assert response.status_code == 200, response.text
         edited = response.json()
         assert edited["score"] == 15
-        assert edited["component_id"] == components[1]
+        assert edited["component_id"] == replacement
         assert edited["assessment_weight"] == 1
         assert edited["assessment_config"] == original["assessment_config"]
         assert average(client, ids, 4) == 13

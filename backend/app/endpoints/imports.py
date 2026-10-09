@@ -7,17 +7,20 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import AcademicPeriod, Course, Grade, GradeRecord, Section
+from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, Grade, GradeRecord, Section
 from app.models.student import Student
 from app.models.user import User
 from app.services.academic_access import ensure_student_course_access
 from app.services.evidence_types import normalize_evidence_type
+from app.schemas.grades import GradeCreate
+from app.services.grade_import_identity import commit_rows, inspect_rows
 from app.services.student_codes import format_student_code, student_code_prefix
 
 router = APIRouter()
@@ -260,8 +263,7 @@ async def preview_grade_import(file: UploadFile = File(...), period_id: UUID | N
     return {"columns": list(frame.columns), "rows": frame.to_dict(orient="records"), "total": len(frame), "errors": errors}
 
 
-@router.post("/grades/commit")
-def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict[str, int]:
+def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> list[GradeRecord]:
     course = db.get(Course, payload.course_id)
     period = db.get(AcademicPeriod, payload.period_id)
     if course is None or period is None:
@@ -309,22 +311,43 @@ def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), u
         except ValueError as error:
             errors.append({"row": index, "error": str(error)})
             continue
-        prepared.append(GradeRecord(
-            student_id=student.id,
-            course_id=payload.course_id,
-            period_id=payload.period_id,
-            evaluation_name=str(row.get("evaluation_name", "Evaluación")).strip() or "Evaluación",
-            evaluation_type=evaluation_type,
-            assessment_date=parsed_assessment_date,
-            score=score,
-            qualitative_note=str(row.get("qualitative_note", "")).strip() or None,
-        ))
+        try:
+            values = GradeCreate(
+                student_id=student.id, course_id=payload.course_id, period_id=payload.period_id,
+                component_id=row.get("component_id") or None,
+                evaluation_name=str(row.get("evaluation_name", "Evaluación")).strip() or "Evaluación",
+                evaluation_type=evaluation_type, assessment_date=parsed_assessment_date, score=score,
+                qualitative_note=str(row.get("qualitative_note") or "").strip() or None,
+            )
+        except ValidationError:
+            errors.append({"row": index, "error": "Datos de calificación inválidos; revisa criterio y longitud de los textos"})
+            continue
+        if values.component_id:
+            component = db.get(CourseAssessmentComponent, values.component_id)
+            if component is None or component.course_id != payload.course_id:
+                errors.append({"row": index, "error": "El criterio no pertenece al curso seleccionado"})
+                continue
+        prepared.append(GradeRecord(**values.model_dump()))
     if errors:
         raise HTTPException(status_code=422, detail={"errors": errors, "rejected": len(errors)})
+    return prepared
+
+
+@router.post("/grades/review")
+def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict:
+    prepared = _prepare_grade_rows(payload, db, user)
+    rows, _records, errors = inspect_rows(db, user, prepared, payload.rows)
+    return {"rows": rows, "total": len(rows), "errors": errors}
+
+
+@router.post("/grades/commit")
+def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict[str, int]:
     try:
-        db.add_all(prepared)
-        db.commit()
-    except Exception as error:
+        prepared = _prepare_grade_rows(payload, db, user)
+        return commit_rows(db, user, prepared, payload.rows)
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as error:
         db.rollback()
         raise HTTPException(status_code=409, detail="Importación revertida completamente por un conflicto de datos") from error
-    return {"processed": len(payload.rows), "imported": len(prepared), "rejected": 0}

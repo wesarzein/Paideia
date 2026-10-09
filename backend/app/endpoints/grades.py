@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import extract, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
@@ -73,7 +74,11 @@ def create_grade(
         qualitative_note=payload.qualitative_note,
     )
     db.add(record)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe una nota para esta evaluación y criterio, o sus relaciones no son válidas") from error
     db.refresh(record)
     return record
 
@@ -129,7 +134,11 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
         if field in {"evaluation_name", "evaluation_type"} and isinstance(value, str):
             value = value.strip()
         setattr(record, field, value)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="La modificación entra en conflicto con una nota existente o una relación inválida") from error
     db.refresh(record)
     return record
 

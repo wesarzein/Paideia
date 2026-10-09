@@ -139,6 +139,21 @@ export interface RiskAlert {
   detection_method?: string;
 }
 
+export interface GradeImportReviewRow {
+  row: number;
+  status: 'new' | 'identical' | 'different' | 'ambiguous' | 'duplicate_in_file';
+  component_id: string | null;
+  existing: { id: string; score: number; qualitative_note: string | null } | null;
+  review_token: string | null;
+  decision?: 'keep' | 'update' | '';
+}
+
+export interface GradeImportReview {
+  rows: GradeImportReviewRow[];
+  total: number;
+  errors: { row: number; error: string }[];
+}
+
 export interface ImportPreview {
   columns: string[];
   rows: Record<string, unknown>[];
@@ -262,6 +277,10 @@ export class ApiService {
   }
 
   commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string) {
-    return this.http.post<{ processed: number; imported: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId });
+    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId });
+  }
+
+  reviewGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string) {
+    return this.http.post<GradeImportReview>(`${environment.apiUrl}/imports/grades/review`, { rows, course_id: courseId, period_id: periodId });
   }
 }
