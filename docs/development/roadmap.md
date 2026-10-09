@@ -25,7 +25,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | B3. HI-A/REQ-17: auditoría y conservación de historia | Snapshot/importación/versiones probados; cambios/borrados ordinarios parciales | P0; B1 y política de conservación | Registrar actor/antes/después sin datos sensibles públicos; no borrar historia por acciones ordinarias; pruebas transaccionales y permisos, migración aditiva si necesaria |
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | PG/API, Vitest, build y recorrido visual focalizado probados | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
 | C2. REQ-12/13, UX-A: matriz persistida y guardado claro | PG/API, Vitest, build y navegador de matriz probados | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
-| C3. REQ-21: asistencia | Estados/periodos/idempotencia probados; tasas sin cambios | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
+| C3. REQ-21: asistencia | PG/API, Vitest, build y navegador probados para registro diario | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; errores/reintentos visibles, fechas independientes y observaciones conservadas |
 | C4. REQ-07/22: grados, secciones, años y periodos | Periodos PG/UI probados sin año fijo; grados/secciones parciales | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
@@ -186,3 +186,16 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   ya valida fechas/estados pero el formulario existente omite los errores de POST.
   Después continuar grados/secciones de C4 y matrículas, sin declarar producción ni
   resolver por cuenta propia las decisiones institucionales pendientes de B3/fórmulas.
+- C3/D completado para registro diario: 14/14 PG en 27,99 s, incluida observación
+  conservada cuando el POST no envía `remarks` y borrado explícito solo con null.
+  Angular tipa el registro confirmado, guarda secuencialmente, muestra errores y avance
+  parcial, bloquea doble envío/carga fallida, ignora respuestas de fechas anteriores
+  y distingue consulta sin registros de presencia. Coordinación/dirección solo lectura.
+  28/28 Vitest (seis nuevas de asistencia), build 29,511 s con caché y cap 768 MiB.
+  Primer build detectó contrato `unknown`; corregido y segundo build aprobado.
+  Playwright attendance pasó: 422 visible sin escritura, tres estados, reintento con
+  mismos IDs, fecha nueva sin arrastre, recarga y 32 notas idénticas. Se corrigieron
+  dos selectores del verificador; intentos previos no se cuentan como evidencia válida.
+  Cero errores JS; huella de notas `e7998edc2fb51a66ea381f2e15207f45e6e7502df0ac29664dbe66e96f92a1b5`.
+- Próxima verificación focalizada: carrera de dos POST diarios de asistencia; después
+  continuar C4-grados/secciones, preservando códigos e identidades existentes.

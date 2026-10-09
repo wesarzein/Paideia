@@ -57,7 +57,8 @@ def create_attendance(
     if attendance is not None:
         attendance.period_id = payload.period_id
         attendance.status = payload.status.upper()
-        attendance.remarks = payload.remarks
+        if "remarks" in payload.model_fields_set:
+            attendance.remarks = payload.remarks
         db.commit()
         db.refresh(attendance)
         return attendance

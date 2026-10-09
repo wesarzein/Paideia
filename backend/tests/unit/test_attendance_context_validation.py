@@ -68,3 +68,17 @@ def test_unassigned_course_cannot_update_existing_attendance(scenario):
         == 403
     )
     assert client.get("/attendance").json() == before
+
+
+def test_daily_retry_preserves_remarks_unless_explicitly_changed(scenario):
+    client, ids, _actors, _current = scenario
+    original = client.post(
+        "/attendance", json=payload(ids, remarks="Observación sintética conservable")
+    )
+    assert original.status_code == 201
+    repeated = client.post("/attendance", json=payload(ids, status="LATE"))
+    assert repeated.status_code == 201
+    assert repeated.json()["id"] == original.json()["id"]
+    assert repeated.json()["remarks"] == original.json()["remarks"]
+    cleared = client.post("/attendance", json=payload(ids, remarks=None))
+    assert cleared.status_code == 201 and cleared.json()["remarks"] is None

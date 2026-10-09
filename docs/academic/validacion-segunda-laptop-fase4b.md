@@ -217,3 +217,44 @@ operaciones terminaron sin error. Las siguientes deben mantenerse seriales.
 Memoria técnica versionada: `AGENTS.md` y `docs/development/roadmap.md`. Continuación:
 evidencia insuficiente y métricas (C1), conservación/auditoría ordinaria (B3, política
 pendiente) y regresión visual por roles/cuentas. No se activaron IA/BI ni servicios externos.
+
+## Ampliación verificada: métricas, roles, matriz, calendario y asistencia
+
+Los pendientes de continuación anteriores avanzaron en bloques locales posteriores:
+
+- Métricas distinguen cero de ausencia de evidencia y emplean el peso histórico
+  capturado. Seis casos PostgreSQL nuevos, cuatro Vitest y recorrido visual de
+  reportes/cuentas pasaron; fallo de red muestra error y permite reintento.
+- Matriz carga la evaluación exacta y corrige por ID; no duplica al repetir guardado
+  ni altera observaciones por criterio al omitirlas. Cuatro casos PG, nueve Vitest
+  y Playwright con edición 14→15→14 pasaron; solo cambia su fecha de actualización.
+- Docente/coordinador/director/estudiante/apoderado pasaron los recorridos esenciales
+  con cuentas sintéticas. Curso ajeno rechazado, reportes/XLSX por rol y portal familiar
+  limitado al alumno vinculado; cero errores JavaScript y 32 notas conservadas.
+- Periodos: catorce casos PG, tres Vitest y navegador. Ya no hay año fijo; admin
+  crea/edita calendario sin excluir notas/asistencias, también ante escritura concurrente.
+  El calendario original no cambió; se añadió uno sintético 2027. Sin migración nueva.
+- Asistencia: 14/14 PG en 27,99 s; observaciones previas se conservan si no se envían.
+  Seis Vitest nuevos verifican errores, respuesta obsoleta, fecha independiente, reintento
+  parcial y consulta sin escritura. Playwright pasó los tres estados, error 422 de
+  fecha ajena, mismos IDs tras repetir, cambio de día y recarga. 32 notas intactas.
+
+Última suite frontend: **28/28 Vitest**, build Angular **29,511 s** con lockfile,
+caché, un trabajador y cap 768 MiB. Backend y frontend se actualizaron secuencialmente;
+los tres servicios sintéticos están saludables. Los resultados PG de cada bloque y
+sus regresiones se detallan en el roadmap, sin sumar repeticiones como casos nuevos.
+No se repitieron las 92 pruebas originales.
+
+La huella actual de las 32 notas API es
+`e7998edc2fb51a66ea381f2e15207f45e6e7502df0ac29664dbe66e96f92a1b5`.
+Las 21 iniciales permanecen idénticas; el cambio frente a la huella visual anterior
+es la actualización explícita y comprobada de la nota de matriz del curso añadido.
+El reinicio protegido tras 0015 había conservado las 32 notas y el inventario completo;
+esa evidencia precede a la edición de matriz, vínculos de roles y calendario nuevo.
+No confundir sus huellas de inventario con las posteriores ni con el volumen viejo.
+
+4B.3 tiene cierre técnico y visual esencial; 4B.4/4B.5 acreditan PostgreSQL/API y sus
+recorridos esenciales. Siguen pendientes la política institucional ambigua y las
+variantes fuera de estos recorridos; esto no declara el producto completo ni producción.
+Continuación en `docs/development/roadmap.md`: concurrencia diaria de asistencia y
+C4-grados/secciones; B3-retención y fórmulas siguen diferidos a política institucional.

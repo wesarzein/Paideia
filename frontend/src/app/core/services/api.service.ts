@@ -104,7 +104,7 @@ export interface AttendancePayload {
   period_id: string;
   attendance_date: string;
   status: string;
-  remarks?: string;
+  remarks?: string | null;
 }
 export interface AttendanceRecord extends AttendancePayload { id: string; }
 
@@ -326,7 +326,7 @@ export class ApiService {
   }
 
   createAttendance(payload: AttendancePayload) {
-    return this.http.post<unknown>(`${environment.apiUrl}/attendance`, payload);
+    return this.http.post<AttendanceRecord>(`${environment.apiUrl}/attendance`, payload);
   }
 
   listCourses() {

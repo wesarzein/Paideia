@@ -44,7 +44,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--stage",
-        choices=["all", "editor", "import", "manual", "history", "matrix", "period"],
+        choices=["all", "editor", "import", "manual", "history", "matrix", "period", "attendance"],
         default="all",
     )
     parser.add_argument(
@@ -441,6 +441,67 @@ def main():
             )
             assert preserved() == before
             passed("period")
+
+        if args.stage in ("all", "attendance") and "attendance" not in state["checks"]:
+            before = preserved()
+            page.goto(base + "/asistencia")
+            page.get_by_label(re.compile(r"^Nivel")).select_option(
+                next(g["level"] for g in catalog["grades"] if g["id"] == student["grade_id"])
+            )
+            page.get_by_label(re.compile(r"^Grado")).select_option(student["grade_id"])
+            page.get_by_label(re.compile(r"^Sección")).select_option(student["section_id"])
+            page.get_by_label(re.compile(r"^Curso")).select_option(course["id"])
+            page.get_by_label(re.compile(r"^Periodo")).select_option(period["id"])
+            page.get_by_label("Fecha", exact=True).fill("2027-04-15")
+            button = page.get_by_role("button", name="Guardar asistencia del día", exact=True)
+            expect(button).to_be_enabled()
+            with page.expect_response(
+                lambda r: r.request.method == "POST" and r.url.endswith("/attendance")
+            ) as reply:
+                button.click()
+            assert reply.value.status == 422
+            expect(page.get_by_role("alert")).to_contain_text("periodo académico")
+            page.get_by_label("Fecha", exact=True).fill("2026-04-15")
+            expect(button).to_be_enabled()
+            students = page.locator("tbody tr")
+            assert students.count() >= 3
+            students.nth(0).get_by_role("combobox").select_option("PRESENT")
+            students.nth(1).get_by_role("combobox").select_option("ABSENT")
+            students.nth(2).get_by_role("combobox").select_option("LATE")
+            total = students.count()
+            button.click()
+            expect(page.locator("section.panel").last.get_by_role("status")).to_contain_text(
+                f"{total} de {total}"
+            )
+            expect(button).to_be_enabled()
+            query = (
+                f"/attendance?course_id={course['id']}&period_id={period['id']}"
+                "&attendance_date=2026-04-15"
+            )
+            saved = api("GET", query)
+            assert len(saved) == total
+            assert {row["status"] for row in saved} == {"PRESENT", "ABSENT", "LATE"}
+            button.click()
+            expect(page.locator("section.panel").last.get_by_role("status")).to_contain_text(
+                f"{total} de {total}"
+            )
+            expect(button).to_be_enabled()
+            assert api("GET", query) == saved
+            page.get_by_label("Fecha", exact=True).fill("2026-04-16")
+            expect(button).to_be_enabled()
+            assert all(value == "PRESENT" for value in students.locator("select").evaluate_all(
+                "elements => elements.map(element => element.value)"
+            ))
+            page.get_by_label("Fecha", exact=True).fill("2026-04-15")
+            expect(button).to_be_enabled()
+            expect(students.nth(1).get_by_role("combobox")).to_have_value("ABSENT")
+            expect(students.nth(2).get_by_role("combobox")).to_have_value("LATE")
+            page.reload()
+            expect(page.get_by_role("heading", name="Asistencia", exact=True)).to_be_visible()
+            assert api("GET", query) == saved
+            assert preserved() == before
+            state["attendance"] = saved
+            passed("attendance")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()
