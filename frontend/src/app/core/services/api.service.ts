@@ -53,6 +53,7 @@ export interface AuthUser {
   email: string;
   full_name: string;
   role: string;
+  is_active?: boolean;
   student_id: string | null;
   student_ids: string[];
 }
@@ -68,6 +69,7 @@ export interface UserPayload {
   full_name: string;
   password: string;
   role_code: string;
+  is_active?: boolean;
   student_id?: string | null;
   student_ids?: string[];
 }

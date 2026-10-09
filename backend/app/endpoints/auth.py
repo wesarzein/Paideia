@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import jwt
@@ -20,7 +20,7 @@ def _create_token(user: User) -> str:
         "sub": str(user.id),
         "email": user.email,
         "role": user.role.code,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes),
+        "exp": datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
@@ -29,7 +29,7 @@ def _create_token(user: User) -> str:
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
 
-    if user is None or not verify_password(payload.password, user.password_hash):
+    if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
 
     token = _create_token(user)
