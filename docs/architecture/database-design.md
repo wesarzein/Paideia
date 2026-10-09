@@ -10,7 +10,7 @@
 - `sections`: secciones asociadas a grados.
 - `courses`: cursos.
 
-La migración `0001_initial_structure` se ejecuta automáticamente al iniciar el contenedor del backend. El MVP utiliza actualmente `students` para el alta, consulta, búsqueda, actualización y baja desde la interfaz Angular.
+Desde Fase 3 el backend inicia sin ejecutar migraciones: Alembic se aplica como operación explícita y revisada. La [guía de entornos](phase3-environments.md) describe ese procedimiento. Este documento conserva el diseño inicial; el inventario académico vigente se registra en la [auditoría de Fase 4A](../academic/auditoria-fase4a.md), sin dar por implementadas las tablas previstas.
 
 ## Modelo previsto
 

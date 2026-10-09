@@ -16,6 +16,8 @@ Incluye autenticación, usuarios, estudiantes, cursos, calificaciones, asistenci
 
 El [contexto técnico y plan de auditoría de evaluación configurable](docs/academic/evaluacion-configurable-y-auditoria.md) registra el requisito de competencias, criterios, ponderaciones y fórmulas personalizables por curso y periodo, con importación Excel, versionado y protección de historiales. Está documentado para una auditoría futura; no se declara implementado.
 
+La [auditoría académica de Fase 4A](docs/academic/auditoria-fase4a.md) registra los recorridos ejecutados con PostgreSQL sintético y navegador, la matriz de cumplimiento, las brechas del Excel institucional y la implementación parcial de configuración. No se han aplicado todavía sus correcciones funcionales.
+
 ## Arquitectura
 
 ```mermaid

@@ -1,0 +1,12 @@
+# Audit-only override; combine exclusively with docker-compose.environment.yml
+# and a fresh configuration generated for phase4a. No institutional data mounts.
+services:
+  postgres:
+    volumes: !reset []
+    tmpfs:
+      - /var/lib/postgresql/data
+    restart: "no"
+  backend:
+    restart: "no"
+  frontend:
+    restart: "no"
