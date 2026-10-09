@@ -10,6 +10,7 @@ from app.models.academic import AcademicPeriod, Course, Enrollment
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.courses import EnrollmentCreate, EnrollmentResponse, EnrollmentUpdate
+from app.services.academic_access import ensure_student_course_access, record_scope
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ def list_enrollments(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ) -> list[Enrollment]:
-    return db.scalars(select(Enrollment).order_by(Enrollment.created_at.desc())).all()
+    return db.scalars(select(Enrollment).where(record_scope(Enrollment, _user)).order_by(Enrollment.created_at.desc())).all()
 
 
 @router.post("", response_model=EnrollmentResponse, status_code=status.HTTP_201_CREATED)
@@ -34,6 +35,9 @@ def create_enrollment(
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     if not db.get(AcademicPeriod, payload.period_id):
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
+    if _user.role.code == "teacher":
+        ensure_student_course_access(db, _user, db.get(Student, payload.student_id),
+                                     payload.course_id, payload.period_id)
 
     duplicate = db.scalar(select(Enrollment).where(Enrollment.student_id == payload.student_id, Enrollment.course_id == payload.course_id, Enrollment.period_id == payload.period_id))
     if duplicate is not None:
@@ -79,4 +83,8 @@ def get_enrollment(
     enrollment = db.get(Enrollment, enrollment_id)
     if enrollment is None:
         raise HTTPException(status_code=404, detail="Matricula no encontrada")
+    if db.scalar(select(Enrollment.id).where(
+        Enrollment.id == enrollment.id, record_scope(Enrollment, _user)
+    )) is None:
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta matrícula")
     return enrollment

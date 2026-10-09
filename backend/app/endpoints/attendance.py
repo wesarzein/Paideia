@@ -7,26 +7,20 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import AcademicPeriod, AttendanceRecord, Course, CourseAssignment
+from app.models.academic import AcademicPeriod, AttendanceRecord, Course
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.attendance import AttendanceCreate, AttendanceResponse
-from app.services.academic_access import ensure_student_course_access
+from app.services.academic_access import ensure_student_course_access, record_scope
 
 router = APIRouter()
 
 
 @router.get("", response_model=list[AttendanceResponse])
 def list_attendance(grade_id: UUID | None = None, section_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, attendance_date: date | None = None, month: int | None = None, student_id: UUID | None = None, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[AttendanceRecord]:
-    statement = select(AttendanceRecord)
-    if grade_id or section_id or student_id or _user.role.code in {"teacher", "student", "parent"}:
+    statement = select(AttendanceRecord).where(record_scope(AttendanceRecord, _user))
+    if grade_id or section_id:
         statement = statement.join(Student, AttendanceRecord.student_id == Student.id)
-    if _user.role.code == "teacher":
-        statement = statement.join(CourseAssignment, (CourseAssignment.course_id == AttendanceRecord.course_id) & (CourseAssignment.section_id == Student.section_id)).where(CourseAssignment.teacher_id == _user.id)
-    elif _user.role.code == "student":
-        statement = statement.where(Student.student_user_id == _user.id)
-    elif _user.role.code == "parent":
-        statement = statement.where(Student.parent_user_id == _user.id)
     if student_id:
         statement = statement.where(AttendanceRecord.student_id == student_id)
     if grade_id: statement = statement.where(Student.grade_id == grade_id)

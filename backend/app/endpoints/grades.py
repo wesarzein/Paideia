@@ -18,7 +18,11 @@ from app.models.academic import (
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.grades import GradeCreate, GradeResponse, GradeSummary, GradeUpdate
-from app.services.academic_access import ensure_student_course_access, ensure_student_view_access
+from app.services.academic_access import (
+    ensure_student_course_access,
+    ensure_student_read_access,
+    record_scope,
+)
 from app.services.evaluation_revisions import latest_published_revision, revision_configuration
 
 router = APIRouter()
@@ -26,16 +30,9 @@ router = APIRouter()
 
 @router.get("", response_model=list[GradeResponse])
 def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, grade_id: UUID | None = None, section_id: UUID | None = None, month: int | None = None, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[GradeRecord]:
-    statement = select(GradeRecord)
-    if grade_id or section_id or user.role.code in {"teacher", "student", "parent"}:
+    statement = select(GradeRecord).where(record_scope(GradeRecord, user))
+    if grade_id or section_id:
         statement = statement.join(Student, GradeRecord.student_id == Student.id)
-    if user.role.code == "teacher":
-        statement = statement.join(CourseAssignment, (CourseAssignment.course_id == GradeRecord.course_id) & (CourseAssignment.section_id == Student.section_id)).where(CourseAssignment.teacher_id == user.id)
-    elif user.role.code in {"student", "parent"}:
-        if user.role.code == "student":
-            statement = statement.where(Student.student_user_id == user.id)
-        else:
-            statement = statement.where(Student.parent_user_id == user.id)
     if student_id: statement = statement.where(GradeRecord.student_id == student_id)
     if course_id: statement = statement.where(GradeRecord.course_id == course_id)
     if period_id: statement = statement.where(GradeRecord.period_id == period_id)
@@ -214,17 +211,11 @@ def summary_by_student(
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-    ensure_student_view_access(user, student)
-    if user.role.code == "teacher" and db.scalar(
-        select(CourseAssignment.id).where(
-            CourseAssignment.grade_id == student.grade_id,
-            CourseAssignment.section_id == student.section_id,
-            CourseAssignment.teacher_id == user.id,
-        )
-    ) is None:
-        raise HTTPException(status_code=403, detail="No tienes acceso a este estudiante")
+    ensure_student_read_access(db, user, student)
     results = db.execute(
-        select(GradeRecord.score).where(GradeRecord.student_id == student_id)
+        select(GradeRecord.score).where(
+            GradeRecord.student_id == student_id, record_scope(GradeRecord, user)
+        )
     ).scalars().all()
     if not results:
         return GradeSummary(student_id=student_id, average=0.0, count=0)

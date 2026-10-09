@@ -1,13 +1,16 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import case, extract, func, select
 from sqlalchemy.orm import Session
+
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import AttendanceRecord, GradeRecord, CourseAssignment
+from app.models.academic import AttendanceRecord, GradeRecord
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.dashboard import DashboardSummary
+from app.services.academic_access import record_scope, student_scope
 
 router = APIRouter()
 
@@ -25,23 +28,15 @@ def dashboard_summary(
     if month is not None and not 1 <= month <= 12:
         from fastapi import HTTPException
         raise HTTPException(status_code=422, detail="month debe estar entre 1 y 12")
-    students_query = select(Student).where(Student.status == "ACTIVE")
-    if user.role.code == "teacher":
-        students_query = students_query.join(
-            CourseAssignment,
-            (CourseAssignment.grade_id == Student.grade_id)
-            & (CourseAssignment.section_id == Student.section_id),
-        ).where(CourseAssignment.teacher_id == user.id).distinct()
+    students_query = select(Student).where(Student.status == "ACTIVE", student_scope(user, course_id))
     if grade_id: students_query = students_query.where(Student.grade_id == grade_id)
     if section_id: students_query = students_query.where(Student.section_id == section_id)
     students = db.scalars(students_query).all()
     student_ids = [student.id for student in students]
     grade_query = select(GradeRecord).where(GradeRecord.student_id.in_(student_ids)) if student_ids else select(GradeRecord).where(False)
     attendance_query = select(AttendanceRecord).where(AttendanceRecord.student_id.in_(student_ids)) if student_ids else select(AttendanceRecord).where(False)
-    if user.role.code == "teacher":
-        course_ids = select(CourseAssignment.course_id).where(CourseAssignment.teacher_id == user.id)
-        grade_query = grade_query.where(GradeRecord.course_id.in_(course_ids))
-        attendance_query = attendance_query.where(AttendanceRecord.course_id.in_(course_ids))
+    grade_query = grade_query.where(record_scope(GradeRecord, user))
+    attendance_query = attendance_query.where(record_scope(AttendanceRecord, user))
     if period_id:
         grade_query = grade_query.where(GradeRecord.period_id == period_id)
         attendance_query = attendance_query.where(AttendanceRecord.period_id == period_id)

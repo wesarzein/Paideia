@@ -20,7 +20,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | Tarea / fuentes | Estado real inicial | Prioridad / dependencia | Aceptación y pruebas necesarias |
 | --- | --- | --- | --- |
 | A. Importación institucional y cierre visual 4B.3–4B.5; REQ-39–44, EV-A–I, EX-A–E | PostgreSQL/API probado; Angular compilado; interfaz parcial | P0; RAM y laboratorio saludables | Playwright: XLSX, corrección/confirmación, competencia/criterio/orden/estado/peso/fórmula/preview, borrador/publicación/restauración, matriz explícita, consulta e historia estable; conservar las 21 notas |
-| B1. REQ-04/33: consultas/resúmenes/reportes/exportación por rol y ámbito | Parcial; fugas documentadas en summary | P0; independiente si A bloqueada | Docente solo cursos de su sección asignada; coordinador/director lectura coherente con UI; alumno/apoderado solo vínculos; pruebas positivas/negativas de listas, agregados, XLSX y fichas |
+| B1. REQ-04/33: consultas/resúmenes/reportes/exportación por rol y ámbito | Probado en PG para endpoints corregidos; regresión UI por roles pendiente | P0; independiente si A bloqueada | Docente solo cursos de su sección asignada; coordinador/director lectura coherente con UI; alumno/apoderado solo vínculos; pruebas positivas/negativas de listas, agregados, XLSX y fichas |
 | B2. REQ-15: integridad de UUID/componentes/fechas de notas | Parcial; fecha manual/PATCH pendiente | P0; B1 | Rechazo 404/422 de relación/fecha inválida sin cambiar notas/snapshot; PG/API con entidades válidas/ajenas/inexistentes |
 | B3. HI-A/REQ-17: auditoría y conservación de historia | Snapshot/importación/versiones probados; cambios/borrados ordinarios parciales | P0; B1 y política de conservación | Registrar actor/antes/después sin datos sensibles públicos; no borrar historia por acciones ordinarias; pruebas transaccionales y permisos, migración aditiva si necesaria |
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | Parcial; faltantes aún pueden parecer cero/riesgo | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
@@ -73,3 +73,12 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   Sus etapas editor/import/manual/history pueden reanudarse sin reset del laboratorio.
 - Tarea activa independiente mientras A esté bloqueada: B1, predicados compartidos de
   ámbito y pruebas PostgreSQL con cursos/secciones cruzados y cuentas familiares.
+- B1: 24/24 pruebas PostgreSQL en 41,28 s: nueve de autorización nuevas, siete de
+  revisiones/API, siete de snapshots y una de importación docente. Esquemas UUID;
+  no se escribieron datos de trabajo en public. Correlación curso+grado+sección en
+  notas/asistencia/matrículas/dashboard/reportes; summary de alumno y XLSX limitados
+  al ámbito; catálogos familiares limitados a vínculos; coordinador/director pueden
+  leer los reportes que ya ofrece su navegación. Seguimientos sin filas duplicadas.
+- Ruff completo pasó para servicio/tests nuevos; endpoints legados comprobados con
+  exclusión explícita de B008/E501/E701/E702 preexistentes. No se afirma lint global.
+- Siguiente independiente: B2, relaciones/fechas en creación y edición de notas.

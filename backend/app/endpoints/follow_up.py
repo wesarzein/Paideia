@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.follow_up import FollowUp
 from app.models.academic import CourseAssignment
+from app.models.follow_up import FollowUp
 from app.models.student import Student
 from app.models.user import User
+from app.services.academic_access import student_scope
 
 router = APIRouter()
 
@@ -45,13 +46,11 @@ def list_follow_ups(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ):
-    statement = select(FollowUp).join(Student)
+    statement = select(FollowUp).join(Student).where(student_scope(user))
     if grade_id:
         statement = statement.where(Student.grade_id == grade_id)
     if section_id:
         statement = statement.where(Student.section_id == section_id)
-    if user.role.code == "teacher":
-        statement = statement.join(CourseAssignment, (CourseAssignment.grade_id == Student.grade_id) & (CourseAssignment.section_id == Student.section_id)).where(CourseAssignment.teacher_id == user.id)
     return db.scalars(statement.order_by(FollowUp.created_at.desc())).all()
 
 
