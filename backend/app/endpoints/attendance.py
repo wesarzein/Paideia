@@ -44,10 +44,14 @@ def create_attendance(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     if not db.get(Course, payload.course_id):
         raise HTTPException(status_code=404, detail="Curso no encontrado")
-    if not db.get(AcademicPeriod, payload.period_id):
+    period = db.get(AcademicPeriod, payload.period_id)
+    if not period:
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
 
     ensure_student_course_access(db, user, db.get(Student, payload.student_id), payload.course_id, payload.period_id)
+
+    if not period.starts_on <= payload.attendance_date <= period.ends_on:
+        raise HTTPException(status_code=422, detail="La fecha debe pertenecer al periodo académico")
 
     attendance = db.scalar(select(AttendanceRecord).where(AttendanceRecord.student_id == payload.student_id, AttendanceRecord.course_id == payload.course_id, AttendanceRecord.attendance_date == payload.attendance_date))
     if attendance is not None:

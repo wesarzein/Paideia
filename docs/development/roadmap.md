@@ -25,7 +25,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | B3. HI-A/REQ-17: auditoría y conservación de historia | Snapshot/importación/versiones probados; cambios/borrados ordinarios parciales | P0; B1 y política de conservación | Registrar actor/antes/después sin datos sensibles públicos; no borrar historia por acciones ordinarias; pruebas transaccionales y permisos, migración aditiva si necesaria |
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | Parcial; faltantes aún pueden parecer cero/riesgo | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
 | C2. REQ-12/13, UX-A: matriz persistida y guardado claro | Lista probada, matriz parcial | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
-| C3. REQ-21: asistencia | Registro/idempotencia diaria probados; estados/periodos parciales | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
+| C3. REQ-21: asistencia | Estados/periodos/idempotencia probados; tasas sin cambios | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
 | C4. REQ-07/22: grados, secciones, años y periodos | Catálogo probado; administración parcial/año fijo | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | Alta/login probados; desactivación parcial | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
@@ -85,5 +85,12 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 
 - B2: 27/27 PostgreSQL en 48,27 s: 13 casos nuevos de contexto y 14 regresiones
   de historia/revisiones. Fechas inclusivas del periodo, UUID inexistentes, componentes
-  ajenos/inactivos y null expl?cito rechazados sin escrituras; cero real y correcci?n
-  de nota con componente archivado conservan snapshots. Sin migraci?n nueva.
+  ajenos/inactivos y null explícito rechazados sin escrituras; cero real y corrección
+  de nota con componente archivado conservan snapshots. Sin migración nueva.
+
+- C3: 22/22 PostgreSQL en 38,55 s: 13 casos de asistencia y nueve de autorización.
+  PRESENT/ABSENT/LATE y normalización preservados; estados desconocidos y fechas
+  ajenas al periodo rechazados sin modificar filas; reintentos conservan ID diario.
+  No se cambió la definición institucional de porcentajes. Sin migración nueva.
+- A sigue bloqueada: el nuevo intento se detuvo en la salvaguarda de RAM, antes
+  de arrancar Edge. Continuar con C5 (REQ-02/05), cuentas desactivables sin borrado.
