@@ -39,6 +39,8 @@ class GradeResponse(BaseModel):
     evaluation_type: str
     assessment_date: date
     score: float
+    assessment_weight: float
+    assessment_config: dict
     qualitative_note: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

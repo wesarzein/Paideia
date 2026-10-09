@@ -1,7 +1,20 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+    event,
+    func,
+    inspect,
+    select,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -102,11 +115,40 @@ class GradeRecord(Base):
     evaluation_type: Mapped[str] = mapped_column(String(50), default="Actitud ante el área", nullable=False)
     assessment_date: Mapped[datetime] = mapped_column(Date, nullable=False, default=func.now())
     score: Mapped[float] = mapped_column(nullable=False)
+    assessment_weight: Mapped[float] = mapped_column(Float, nullable=False)
+    assessment_config: Mapped[dict] = mapped_column(JSON, nullable=False)
     qualitative_note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+@event.listens_for(GradeRecord, "before_insert")
+def capture_assessment_config(_mapper, connection, record):
+    """Capture for every ORM writer, including imports; PostgreSQL also enforces this."""
+    component = connection.execute(
+        select(CourseAssessmentComponent.__table__).where(
+            CourseAssessmentComponent.id == record.component_id
+        )
+    ).mappings().first() if record.component_id else None
+    record.assessment_weight = float(component["weight"]) if component else 1.0
+    record.assessment_config = {
+        "schema_version": 1,
+        "algorithm": "weighted_mean_v1",
+        "origin": "record_insert",
+        "component_id": str(record.component_id) if record.component_id else None,
+        "component_name": component["name"] if component else None,
+        "is_optional": component["is_optional"] if component else None,
+        "weight": record.assessment_weight,
+    }
+
+
+@event.listens_for(GradeRecord, "before_update")
+def preserve_assessment_config(_mapper, _connection, record):
+    for field in ("assessment_weight", "assessment_config"):
+        if inspect(record).attrs[field].history.has_changes():
+            raise ValueError("La configuración histórica de una nota es inmutable")
 
 
 class AttendanceRecord(Base):

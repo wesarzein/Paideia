@@ -95,12 +95,11 @@ def monthly_summary(
     rows = db.execute(
         select(
             GradeRecord.student_id,
-            func.sum(GradeRecord.score * func.coalesce(CourseAssessmentComponent.weight, 1.0))
-            / func.nullif(func.sum(func.coalesce(CourseAssessmentComponent.weight, 1.0)), 0),
+            func.sum(GradeRecord.score * GradeRecord.assessment_weight)
+            / func.nullif(func.sum(GradeRecord.assessment_weight), 0),
             func.count(GradeRecord.id),
         )
         .join(Student, Student.id == GradeRecord.student_id)
-        .outerjoin(CourseAssessmentComponent, CourseAssessmentComponent.id == GradeRecord.component_id)
         .where(
             Student.grade_id == grade_id,
             Student.section_id == section_id,

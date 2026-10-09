@@ -33,7 +33,7 @@ from app.services import school_roster
 
 
 @pytest.fixture
-def sessions(monkeypatch):
+def sessions(monkeypatch, request):
     postgres_url = os.environ.get("PAIDEIA_TEST_POSTGRES_URL")
     if postgres_url:
         url = make_url(postgres_url)
@@ -54,7 +54,7 @@ def sessions(monkeypatch):
         from app.core.config import settings
 
         monkeypatch.setattr(settings, "database_url", url.render_as_string(hide_password=False))
-        command.upgrade(Config("alembic.ini"), "head")
+        command.upgrade(Config("alembic.ini"), getattr(request, "param", "head"))
         engine = create_engine(url)
         yield sessionmaker(bind=engine, autoflush=False)
         engine.dispose()

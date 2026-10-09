@@ -67,6 +67,8 @@ No se afirma en este documento que competencias, reordenación, fórmulas person
 
 ## Entrega de la auditoría
 
+La corrección autorizada del recálculo por cambios de peso se documenta en [integridad histórica, Fase 4B.1](integridad-historica-fase4b1.md). Conserva una copia inmutable por nota; no representa la implementación completa de competencias, fórmulas ni versiones por curso/periodo. La migración institucional sigue pendiente de autorización.
+
 La primera ejecución quedó registrada en [auditoria-fase4a.md](auditoria-fase4a.md), con [matriz de cumplimiento](auditoria-fase4a-matriz.md) y resultados de pruebas sintéticas. Esta referencia conserva el requisito original; los hallazgos no autorizan todavía correcciones, migraciones institucionales ni importaciones reales.
 
 Para cada capacidad, registrar `VERIFICADO`, `PARCIAL`, `NO IMPLEMENTADO` o `NO VERIFICADO`, con evidencia, prueba ejecutada, limitaciones, decisiones institucionales pendientes y tarea de corrección pequeña. Separar lo comprobado en código de lo probado en ejecución. La auditoría y cualquier implementación posterior no incluyen IA ni BI salvo autorización independiente.
