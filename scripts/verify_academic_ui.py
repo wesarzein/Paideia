@@ -258,7 +258,7 @@ def main():
             page.get_by_label(re.compile(r"^Curso")).select_option(course["id"])
             page.get_by_label(re.compile(r"^Periodo")).select_option(period["id"])
             page.get_by_label("Bimestre institucional", exact=True).fill("1")
-            page.get_by_label("Bloque de evaluación", exact=True).select_option(index=1)
+            page.get_by_label(re.compile(r"^Bloque de evaluación")).select_option(index=1)
             page.get_by_label("Nombre de evaluación", exact=True).fill("Manual visual explícita")
             page.get_by_label("Fecha de evaluación", exact=True).fill("2026-04-29")
             expect(page.get_by_label("Nota de criterio").first).to_be_visible()
@@ -275,6 +275,13 @@ def main():
             page.get_by_label("Mes de consulta", exact=True).fill("2026-04")
             expect(page.locator("section.table-wrap").last.locator("tbody tr")).to_have_count(11)
             page.reload()
+            page.get_by_label(re.compile(r"^Nivel")).select_option("Secundaria")
+            page.get_by_label(re.compile(r"^Grado")).select_option(student["grade_id"])
+            page.get_by_label(re.compile(r"^Sección")).select_option(student["section_id"])
+            page.get_by_label(re.compile(r"^Curso")).select_option(course["id"])
+            page.get_by_label(re.compile(r"^Periodo")).select_option(period["id"])
+            page.get_by_label("Mes de consulta", exact=True).fill("2026-04")
+            expect(page.locator("section.table-wrap").last.locator("tbody tr")).to_have_count(11)
             preserved()
             passed("manual")
 
@@ -301,6 +308,7 @@ def main():
             expect(panel.get_by_role("heading", name="Evaluación configurable")).to_be_visible()
             passed("history")
         final = preserved()
+        assert not errors, "Unexpected JavaScript errors during the selected journey"
         print(
             json.dumps(
                 {
