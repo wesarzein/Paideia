@@ -5,15 +5,17 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { ConfirmService } from '../../core/services/confirm.service';
 import { EvaluationConfiguratorComponent } from './evaluation-configurator.component';
 import { PeriodManagerComponent } from './period-manager.component';
+import { CohortManagerComponent } from './cohort-manager.component';
 
 type Course = { id: string; name: string; code: string | null; is_active: boolean };
 
 @Component({
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent, PeriodManagerComponent],
+  imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent, PeriodManagerComponent, CohortManagerComponent],
   template: `
     <app-page-header title="Cursos" description="Administra cursos y configura los componentes de nota propios de cada uno." />
     @if (isAdmin) { <app-period-manager (periodsChanged)="reloadCatalog()" /> }
+    @if (isAdmin) { <app-cohort-manager (catalogChanged)="reloadCatalog()" /> }
     <section class="panel">
       @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
       @if (message()) { <p class="feedback" role="status">{{ message() }}</p> }

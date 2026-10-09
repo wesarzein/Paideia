@@ -50,6 +50,8 @@ export interface AcademicPeriod {
   ends_on: string;
 }
 export type PeriodPayload = Omit<AcademicPeriod, 'id'>;
+export interface AcademicGrade { id: string; name: string; level: string; is_active: boolean; }
+export interface AcademicSection { id: string; name: string; grade_id: string; is_active: boolean; }
 
 export interface LoginPayload {
   email: string;
@@ -324,6 +326,13 @@ export class ApiService {
   listAttendance(filters: Record<string, string> = {}) {
     return this.http.get<AttendanceRecord[]>(`${environment.apiUrl}/attendance`, { params: filters });
   }
+
+  listAcademicGrades() { return this.http.get<AcademicGrade[]>(`${environment.apiUrl}/academic/grades`); }
+  createAcademicGrade(payload: { name: string; level: string }) { return this.http.post<AcademicGrade>(`${environment.apiUrl}/academic/grades`, payload); }
+  updateAcademicGrade(id: string, name: string) { return this.http.patch<AcademicGrade>(`${environment.apiUrl}/academic/grades/${id}`, { name }); }
+  listAcademicSections() { return this.http.get<AcademicSection[]>(`${environment.apiUrl}/academic/sections`); }
+  createAcademicSection(payload: { name: string; grade_id: string }) { return this.http.post<AcademicSection>(`${environment.apiUrl}/academic/sections`, payload); }
+  updateAcademicSection(id: string, name: string) { return this.http.patch<AcademicSection>(`${environment.apiUrl}/academic/sections/${id}`, { name }); }
 
   createAttendance(payload: AttendancePayload) {
     return this.http.post<AttendanceRecord>(`${environment.apiUrl}/attendance`, payload);

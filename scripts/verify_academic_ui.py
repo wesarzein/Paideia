@@ -44,7 +44,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--stage",
-        choices=["all", "editor", "import", "manual", "history", "matrix", "period", "attendance"],
+        choices=[
+            "all", "editor", "import", "manual", "history", "matrix", "period",
+            "attendance", "cohort",
+        ],
         default="all",
     )
     parser.add_argument(
@@ -502,6 +505,85 @@ def main():
             assert preserved() == before
             state["attendance"] = saved
             passed("attendance")
+
+        if args.stage in ("all", "cohort") and "cohort" not in state["checks"]:
+            before = preserved()
+            roster = api("GET", "/students")
+            page.goto(base + "/cursos")
+            manager = page.locator("app-cohort-manager")
+            manager.locator("summary").click()
+            current = state.get("synthetic_grade")
+            if current is None:
+                manager.get_by_label("Nombre del grado", exact=True).fill("99° sintético UI")
+                manager.get_by_label(re.compile(r"^Nivel del grado")).select_option("Primaria")
+                with page.expect_response(
+                    lambda r: r.request.method == "POST" and r.url.endswith("/academic/grades")
+                ) as reply:
+                    manager.get_by_role("button", name="Crear grado", exact=True).click()
+                assert reply.value.status == 201
+                current = reply.value.json()
+                state["synthetic_grade"] = current
+                STATE.write_text(json.dumps(state), encoding="utf-8")
+            manager.get_by_role(
+                "button", name="Editar grado " + current["name"] + " Primaria", exact=True
+            ).click()
+            manager.get_by_label("Nombre del grado", exact=True).fill("99° sintético UI revisado")
+            with page.expect_response(
+                lambda r: r.request.method == "PATCH"
+                and r.url.endswith("/academic/grades/" + current["id"])
+            ) as reply:
+                manager.get_by_role("button", name="Guardar etiqueta de grado", exact=True).click()
+            assert reply.value.status == 200 and reply.value.json()["id"] == current["id"]
+            current = reply.value.json()
+            state["synthetic_grade"] = current
+            STATE.write_text(json.dumps(state), encoding="utf-8")
+            manager.get_by_role(
+                "button", name="Editar grado " + current["name"] + " Primaria", exact=True
+            ).click()
+            manager.get_by_label("Nombre del grado", exact=True).fill("98° identidad ajena")
+            with page.expect_response(
+                lambda r: r.request.method == "PATCH"
+                and r.url.endswith("/academic/grades/" + current["id"])
+            ) as reply:
+                manager.get_by_role("button", name="Guardar etiqueta de grado", exact=True).click()
+            assert reply.value.status == 409
+            expect(manager.get_by_role("alert")).to_contain_text("conservar el número")
+            manager.get_by_role("button", name="Cancelar grado", exact=True).click()
+            section = state.get("synthetic_section")
+            if section is None:
+                manager.get_by_label(re.compile(r"^Grado de la sección")).select_option(
+                    current["id"]
+                )
+                manager.get_by_label("Nombre de la sección", exact=True).fill("SYN-UI")
+                with page.expect_response(
+                    lambda r: r.request.method == "POST" and r.url.endswith("/academic/sections")
+                ) as reply:
+                    manager.get_by_role("button", name="Crear sección", exact=True).click()
+                assert reply.value.status == 201
+                section = reply.value.json()
+                state["synthetic_section"] = section
+                STATE.write_text(json.dumps(state), encoding="utf-8")
+            manager.get_by_role(
+                "button",
+                name="Editar sección " + section["name"] + " " + current["name"] + " · Primaria",
+                exact=True,
+            ).click()
+            manager.get_by_label("Nombre de la sección", exact=True).fill("SYN-UI-REV")
+            with page.expect_response(
+                lambda r: r.request.method == "PATCH"
+                and r.url.endswith("/academic/sections/" + section["id"])
+            ) as reply:
+                manager.get_by_role(
+                    "button", name="Guardar etiqueta de sección", exact=True
+                ).click()
+            assert reply.value.status == 200 and reply.value.json()["id"] == section["id"]
+            state["synthetic_section"] = reply.value.json()
+            page.reload()
+            manager.locator("summary").click()
+            expect(manager.locator("tbody tr").filter(has_text="SYN-UI-REV")).to_have_count(1)
+            assert api("GET", "/students") == roster
+            assert preserved() == before
+            passed("cohort")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()

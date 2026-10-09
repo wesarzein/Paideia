@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.endpoints.academic import router as academic_router
 from app.endpoints.attendance import router as attendance_router
 from app.endpoints.auth import router as auth_router
+from app.endpoints.cohorts import router as cohorts_router
 from app.endpoints.courses import router as courses_router
 from app.endpoints.dashboard import router as dashboard_router
 from app.endpoints.enrollments import router as enrollments_router
@@ -26,6 +27,7 @@ api_router.include_router(enrollments_router, prefix="/enrollments", tags=["enro
 api_router.include_router(grades_router, prefix="/grades", tags=["grades"])
 api_router.include_router(attendance_router, prefix="/attendance", tags=["attendance"])
 api_router.include_router(academic_router, prefix="/academic", tags=["academic"])
+api_router.include_router(cohorts_router, prefix="/academic", tags=["academic"])
 api_router.include_router(periods_router, prefix="/academic/periods", tags=["academic"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(reports_router, prefix="/reports", tags=["reports"])

@@ -258,3 +258,14 @@ recorridos esenciales. Siguen pendientes la política institucional ambigua y la
 variantes fuera de estos recorridos; esto no declara el producto completo ni producción.
 Continuación en `docs/development/roadmap.md`: concurrencia diaria de asistencia y
 C4-grados/secciones; B3-retención y fórmulas siguen diferidos a política institucional.
+
+Actualización posterior: concurrencia diaria de asistencia protegida por bloqueo de
+identidad transaccional; 4/4 PG pasaron (incluida espera determinista). Grados/secciones
+añaden altas y edición de etiquetas con permisos admin, prefijos escolares estables,
+duplicados concurrentes controlados y auditoría; nueve casos PG distintos aprobaron.
+Cuatro Vitest nuevos llevan la suite frontend a **32/32**; build **28,178 s**.
+Playwright cohort aprobó alta/edición/recarga y rechazo de cambio de identidad escolar,
+con padrón y 32 notas idénticos. Las entidades nuevas son una fixture explícita sin
+alumnos/notas, no una configuración institucional. No hay migración adicional.
+Archivo, eliminación y traslados no se implementaron en este bloque. Continuación:
+C6-matrículas, como detalla el roadmap actualizado.

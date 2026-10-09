@@ -26,7 +26,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | PG/API, Vitest, build y recorrido visual focalizado probados | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
 | C2. REQ-12/13, UX-A: matriz persistida y guardado claro | PG/API, Vitest, build y navegador de matriz probados | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
 | C3. REQ-21: asistencia | PG/API, Vitest, build y navegador probados para registro diario | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; errores/reintentos visibles, fechas independientes y observaciones conservadas |
-| C4. REQ-07/22: grados, secciones, años y periodos | Periodos PG/UI probados sin año fijo; grados/secciones parciales | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
+| C4. REQ-07/22: grados, secciones, años y periodos | Periodos y altas/etiquetas de grados/secciones PG/UI probados; archivo/traslado pendientes | P1; B1/B2 | Gestión autorizada y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
 | C7. REQ-01/03/06: estudiantes/docentes/usuarios/roles | Flujos básicos probados; variantes parciales | P2; B1/C5 | Conservar seis roles, códigos/búsquedas/estado/asignaciones; no agregar documento personal sin requisito confirmado; pruebas de transiciones y ámbito |
@@ -208,3 +208,20 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   no se repitió el build ni el recorrido visual por este cambio exclusivo de API.
 - Siguiente tarea segura: C4-grados/secciones; documentar validaciones de generación
   de códigos existentes y no regenerar códigos al editar etiquetas del catálogo.
+- C4-grados/secciones: nueve casos PG distintos aprobados (8/8 en 16,17 s y nuevo
+  caso de integración con códigos 1/1 en 5,87 s). Admin crea grados/secciones y edita
+  etiquetas; otros cinco roles rechazados. Reutiliza `student_code_prefix`: niveles,
+  número y letra compatibles con el generador actual. Una edición conserva el prefijo
+  escolar y no mueve secciones entre grados ni modifica códigos/IDs del padrón.
+  Altas duplicadas serializadas en PG; auditoría de actor e ID. Sin migración/DELETE.
+  Integración probó alumno nuevo `2P001` y código estable tras editar etiqueta.
+  No se definieron rangos institucionales nuevos ni reglas de traslado/archivo.
+- UI C4: admin en Cursos, formulario de altas/etiquetas, carga/reintento y errores
+  explícitos. 32/32 Vitest (cuatro nuevos del gestor), build 28,178 s, caché/cap 768 MiB.
+  Playwright cohort pasó altas/ediciones, 409 al cambiar número escolar y recarga:
+  padrón y 32 notas idénticos, cero errores JS. Fixture `99° sintético UI revisado` /
+  `SYN-UI-REV` sin alumnos, asignaciones o notas; no representa oferta institucional.
+  Estado privado permite reanudar sin recrear ni borrar esas entidades.
+- Continuación prioritaria independiente: C6, gestión visible de matrículas existentes
+  por alumno/curso/periodo y protección de duplicados concurrentes. Conservar alcance
+  por docente/rol, identidades y notas; no añadir matrículas financieras ni borrado.
