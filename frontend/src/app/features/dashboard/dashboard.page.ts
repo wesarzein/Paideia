@@ -71,8 +71,8 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
     } @else {
       <section class="metrics" aria-label="Resumen académico">
         <article><span>Estudiantes</span><strong>{{ summary().total_students }}</strong></article>
-        <article><span>Promedio del grupo</span><strong>{{ summary().average_score | number:'1.1-1' }}</strong></article>
-        <article><span>Asistencia</span><strong>{{ summary().attendance_rate | number:'1.1-1' }}%</strong></article>
+        <article><span>Promedio del grupo</span><strong>{{ summary().average_score === null ? 'Sin datos' : (summary().average_score | number:'1.1-1') }}</strong></article>
+        <article><span>Asistencia</span><strong>{{ summary().attendance_rate === null ? 'Sin datos' : (summary().attendance_rate | number:'1.1-1') + '%' }}</strong></article>
       </section>
 
       <section class="empty" role="status">
@@ -119,8 +119,8 @@ export class DashboardPage implements OnInit {
   protected readonly summary = signal<DashboardSummary>({
     total_students: 0,
     active_students: 0,
-    average_score: 0,
-    attendance_rate: 0,
+    average_score: null,
+    attendance_rate: null,
     at_risk_count: 0,
   });
   protected readonly loading = signal(true);

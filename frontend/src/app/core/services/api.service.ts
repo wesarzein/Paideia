@@ -190,8 +190,8 @@ export interface EvaluationPreview {
 export interface DashboardSummary {
   total_students: number;
   active_students: number;
-  average_score: number;
-  attendance_rate: number;
+  average_score: number | null;
+  attendance_rate: number | null;
   at_risk_count: number;
 }
 
@@ -199,8 +199,11 @@ export interface RiskAlert {
   student_id: string;
   student_code?: string;
   student_name: string;
-  average_score: number;
-  attendance_rate: number;
+  average_score: number | null;
+  attendance_rate: number | null;
+  grade_count: number;
+  grade_weight_sum: number;
+  attendance_count: number;
   risk_level: string;
   risk_factors?: string[];
   recommendation?: string;
@@ -294,7 +297,7 @@ export class ApiService {
     return this.http.get<GradeRecord[]>(`${environment.apiUrl}/grades`, { params: filters });
   }
   getMonthlyGradeSummary(filters: Record<string, string>) {
-    return this.http.get<{ thresholds: { greater_than: number; grade: string }[]; students: { student_id: string; average: number; literal: string; components_recorded: number }[] }>(`${environment.apiUrl}/grades/monthly-summary`, { params: filters });
+    return this.http.get<{ thresholds: { greater_than: number; grade: string }[]; students: { student_id: string; average: number | null; literal: string | null; components_recorded: number }[] }>(`${environment.apiUrl}/grades/monthly-summary`, { params: filters });
   }
   listAssessmentComponents(courseId: string) { return this.http.get<AssessmentComponent[]>(`${environment.apiUrl}/courses/${courseId}/assessment-components`); }
   listCourseAssignments(courseId: string) { return this.http.get<CourseAssignment[]>(`${environment.apiUrl}/courses/${courseId}/assignments`); }

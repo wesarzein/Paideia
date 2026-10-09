@@ -24,6 +24,7 @@ from app.services.academic_access import (
     ensure_student_read_access,
     record_scope,
 )
+from app.services.academic_metrics import academic_metrics
 from app.services.evaluation_revisions import latest_published_revision, revision_configuration
 
 router = APIRouter()
@@ -170,7 +171,7 @@ def monthly_summary(
     return {
         "thresholds": [{"greater_than": threshold, "grade": label} for threshold, label in LITERAL_GRADE_THRESHOLDS],
         "students": [
-            {"student_id": str(student_id), "average": round(float(average or 0), 2), "literal": literal_grade(float(average or 0)), "components_recorded": count}
+            {"student_id": str(student_id), "average": round(float(average), 2) if average is not None else None, "literal": literal_grade(float(average)) if average is not None else None, "components_recorded": count}
             for student_id, average, count in rows
         ],
     }
@@ -231,11 +232,9 @@ def summary_by_student(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     ensure_student_read_access(db, user, student)
     results = db.execute(
-        select(GradeRecord.score).where(
+        select(GradeRecord).where(
             GradeRecord.student_id == student_id, record_scope(GradeRecord, user)
         )
     ).scalars().all()
-    if not results:
-        return GradeSummary(student_id=student_id, average=0.0, count=0)
-    average = sum(results) / len(results)
-    return GradeSummary(student_id=student_id, average=average, count=len(results))
+    metrics = academic_metrics(results, [])
+    return GradeSummary(student_id=student_id, average=metrics.average_score, count=metrics.grade_count)

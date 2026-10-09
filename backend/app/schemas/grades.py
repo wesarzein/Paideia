@@ -81,5 +81,5 @@ class GradeResponse(BaseModel):
 
 class GradeSummary(BaseModel):
     student_id: UUID
-    average: float
+    average: float | None
     count: int

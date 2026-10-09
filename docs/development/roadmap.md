@@ -23,11 +23,11 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | B1. REQ-04/33: consultas/resúmenes/reportes/exportación por rol y ámbito | Probado en PG para endpoints corregidos; regresión UI por roles pendiente | P0; independiente si A bloqueada | Docente solo cursos de su sección asignada; coordinador/director lectura coherente con UI; alumno/apoderado solo vínculos; pruebas positivas/negativas de listas, agregados, XLSX y fichas |
 | B2. REQ-15: integridad de UUID/componentes/fechas de notas | Probado en PG: relaciones/componentes/fechas manuales y PATCH | P0; B1 | Rechazo 404/422 de relación/fecha inválida sin cambiar notas/snapshot; PG/API con entidades válidas/ajenas/inexistentes |
 | B3. HI-A/REQ-17: auditoría y conservación de historia | Snapshot/importación/versiones probados; cambios/borrados ordinarios parciales | P0; B1 y política de conservación | Registrar actor/antes/después sin datos sensibles públicos; no borrar historia por acciones ordinarias; pruebas transaccionales y permisos, migración aditiva si necesaria |
-| C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | Parcial; faltantes aún pueden parecer cero/riesgo | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
+| C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | PG/API, Vitest, build y recorrido visual focalizado probados | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
 | C2. REQ-12/13, UX-A: matriz persistida y guardado claro | Lista probada, matriz parcial | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
 | C3. REQ-21: asistencia | Estados/periodos/idempotencia probados; tasas sin cambios | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
 | C4. REQ-07/22: grados, secciones, años y periodos | Catálogo probado; administración parcial/año fijo | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
-| C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest y build probados; navegador de cuentas pendiente | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
+| C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
 | C7. REQ-01/03/06: estudiantes/docentes/usuarios/roles | Flujos básicos probados; variantes parciales | P2; B1/C5 | Conservar seis roles, códigos/búsquedas/estado/asignaciones; no agregar documento personal sin requisito confirmado; pruebas de transiciones y ámbito |
 | C8. REQ-16/18/19: observaciones/acuerdos/reuniones | Registro/atribución probados; cronología UI parcial | P2; B1/B3 | Mostrar fecha/autor/categoría autorizados; conservar edición y categorías; fixture historial y UI |
@@ -115,3 +115,24 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 - Siguiente: C1 (evidencia insuficiente/resúmenes); B3 conserva dependencia de política
   de retención/recalculo. No activar fórmulas como resultados oficiales. La seguridad
   de consultas está probada en API, pero falta regresión visual por rol y cuentas.
+- Persistencia posterior a 0015 y al recorrido visual: reinicio exclusivo de PostgreSQL,
+  inventario completo y 32 filas API idénticos. Diez notas originales conservan huella
+  `062b5c8a74c0a6ce1dd400e2e875406382d658809fdf92c450cc372fba52f308`;
+  inventario `cc557050beb465a21f51a42d1364657a6daee294fcc00eff62a8795172a79f40`.
+  El verificador exige ahora head del backend en lugar de congelar 0014; el primer
+  intento se rechazó antes del reinicio por ese guard antiguo, sin escribir datos.
+- C1: 22/22 PG en 55,90 s (seis casos nuevos + permisos e historia), diez Vitest
+  y build Angular 27,628 s. Promedios de referencia usan pesos capturados; falta
+  de evidencia o denominador cero producen null, cero real sigue siendo cero.
+  Conteos/pesos agregados alinean reporte grupal con backend; asistencia conserva
+  la definición existente. Umbrales informativos de riesgo existentes se conservan;
+  sin evidencia no se infiere ALTO/BAJO y evidencia parcial se marca INCOMPLETO
+  salvo un factor observado que ya cumplía un umbral. Fórmulas siguen en preview.
+  Reportes/XLSX/dashboard/summary probados; sin migraciones nuevas.
+- Playwright de cuentas/reportes pasó: Desactivar/Reactivar, login inactivo denegado,
+  Sin datos sin riesgo fabricado, error de red separado de vacío y reintento. Cero
+  errores JS; 32 notas exactas conservadas. Cuenta sintética dedicada, credenciales
+  solo en `config/local/reports-accounts-ui.state.json`; no perfil personal.
+- Siguiente segura: C2, hidratación de matriz por contexto e identidad de edición;
+  queda regresión visual de ámbitos por roles y política B3. No repetir builds
+  ni recorridos aprobados salvo cambios que los afecten.

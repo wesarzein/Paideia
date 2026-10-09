@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import case, extract, func, select
+from sqlalchemy import extract, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
@@ -11,6 +11,7 @@ from app.models.student import Student
 from app.models.user import User
 from app.schemas.dashboard import DashboardSummary
 from app.services.academic_access import record_scope, student_scope
+from app.services.academic_metrics import academic_metrics
 
 router = APIRouter()
 
@@ -50,16 +51,17 @@ def dashboard_summary(
     attendances = db.scalars(attendance_query).all()
     total_students = len(students)
     active_students = sum(student.status == "ACTIVE" for student in students)
-    average_score = sum(item.score for item in grades) / len(grades) if grades else 0.0
-    attendance_rate = db.scalar(
-        select(func.avg(case((AttendanceRecord.status == "PRESENT", 1.0), else_=0.0))).where(AttendanceRecord.id.in_([item.id for item in attendances]))
-    ) or 0.0
+    metrics = academic_metrics(grades, attendances)
+    alerts = sum(academic_metrics(
+        [record for record in grades if record.student_id == student.id],
+        [record for record in attendances if record.student_id == student.id],
+    ).risk_level in {"ALTO", "MEDIO"} for student in students)
     return DashboardSummary(
         total_students=total_students,
         active_students=active_students,
-        average_score=float(average_score),
-        attendance_rate=float(attendance_rate) * 100,
-        at_risk_count=0,
+        average_score=metrics.average_score,
+        attendance_rate=metrics.attendance_rate,
+        at_risk_count=alerts,
     )
 
 

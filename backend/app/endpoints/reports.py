@@ -4,7 +4,7 @@ from uuid import UUID
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case, extract, func, select
+from sqlalchemy import extract, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
@@ -26,6 +26,7 @@ from app.services.academic_access import (
     record_scope,
     student_scope,
 )
+from app.services.academic_metrics import academic_metrics
 
 router = APIRouter()
 
@@ -35,23 +36,19 @@ def reports_summary(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ) -> ReportSummary:
-    total_students = db.scalar(select(func.count()).select_from(Student).where(student_scope(_user))) or 0
-    average_score = db.scalar(select(func.avg(GradeRecord.score)).where(record_scope(GradeRecord, _user))) or 0.0
-    attendance_rate = db.scalar(
-        select(func.avg(case((AttendanceRecord.status == "PRESENT", 1.0), else_=0.0))).where(record_scope(AttendanceRecord, _user))
-    ) or 0.0
-    alerts = 0
-    for student in db.scalars(select(Student).where(student_scope(_user))).all():
-        scores = db.scalars(select(GradeRecord.score).where(GradeRecord.student_id == student.id, record_scope(GradeRecord, _user))).all()
-        attendances = db.scalars(select(AttendanceRecord.status).where(AttendanceRecord.student_id == student.id, record_scope(AttendanceRecord, _user))).all()
-        avg_score = sum(scores) / len(scores) if scores else 0
-        rate = (sum(1 for status in attendances if status == "PRESENT") / len(attendances)) * 100 if attendances else 0
-        if avg_score < 12 or rate < 70:
-            alerts += 1
+    students = db.scalars(select(Student).where(Student.status == "ACTIVE", student_scope(_user))).all()
+    ids = [student.id for student in students]
+    grades = db.scalars(select(GradeRecord).where(GradeRecord.student_id.in_(ids), record_scope(GradeRecord, _user))).all()
+    attendance = db.scalars(select(AttendanceRecord).where(AttendanceRecord.student_id.in_(ids), record_scope(AttendanceRecord, _user))).all()
+    metrics = academic_metrics(grades, attendance)
+    alerts = sum(academic_metrics(
+        [record for record in grades if record.student_id == student.id],
+        [record for record in attendance if record.student_id == student.id],
+    ).risk_level in {"ALTO", "MEDIO"} for student in students)
     return ReportSummary(
-        total_students=total_students,
-        average_score=float(average_score),
-        attendance_rate=float(attendance_rate) * 100,
+        total_students=len(students),
+        average_score=metrics.average_score,
+        attendance_rate=metrics.attendance_rate,
         at_risk_count=alerts,
     )
 
@@ -73,8 +70,8 @@ def student_reports(
     if grade_id: students_query = students_query.where(Student.grade_id == grade_id)
     if section_id: students_query = students_query.where(Student.section_id == section_id)
     for student in db.scalars(students_query).all():
-        grade_query = select(GradeRecord.score).where(GradeRecord.student_id == student.id, record_scope(GradeRecord, _user))
-        attendance_query = select(AttendanceRecord.status).where(AttendanceRecord.student_id == student.id, record_scope(AttendanceRecord, _user))
+        grade_query = select(GradeRecord).where(GradeRecord.student_id == student.id, record_scope(GradeRecord, _user))
+        attendance_query = select(AttendanceRecord).where(AttendanceRecord.student_id == student.id, record_scope(AttendanceRecord, _user))
         if period_id:
             grade_query = grade_query.where(GradeRecord.period_id == period_id)
             attendance_query = attendance_query.where(AttendanceRecord.period_id == period_id)
@@ -84,24 +81,18 @@ def student_reports(
         if month is not None:
             grade_query = grade_query.where(extract("month", GradeRecord.assessment_date) == month)
             attendance_query = attendance_query.where(extract("month", AttendanceRecord.attendance_date) == month)
-        scores = db.scalars(grade_query).all()
-        attendances = db.scalars(attendance_query).all()
-        avg_score = sum(scores) / len(scores) if scores else 0
-        attendance_rate = (sum(1 for status in attendances if status == "PRESENT") / len(attendances)) * 100 if attendances else 0
-        if avg_score < 10:
-            risk_level = "ALTO"
-        elif avg_score < 12 or attendance_rate < 70:
-            risk_level = "MEDIO"
-        else:
-            risk_level = "BAJO"
+        metrics = academic_metrics(db.scalars(grade_query).all(), db.scalars(attendance_query).all())
         reports.append(
             StudentReport(
                 student_id=student.id,
                 student_code=student.student_code,
                 student_name=f"{student.last_name}, {student.first_name}",
-                average_score=avg_score,
-                attendance_rate=attendance_rate,
-                risk_level=risk_level,
+                average_score=metrics.average_score,
+                attendance_rate=metrics.attendance_rate,
+                grade_count=metrics.grade_count,
+                grade_weight_sum=metrics.grade_weight_sum,
+                attendance_count=metrics.attendance_count,
+                risk_level=metrics.risk_level,
             )
         )
     return reports

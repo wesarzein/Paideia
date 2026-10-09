@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 class DashboardSummary(BaseModel):
     total_students: int
     active_students: int
-    average_score: float
-    attendance_rate: float
+    average_score: float | None
+    attendance_rate: float | None
     at_risk_count: int
 
 
