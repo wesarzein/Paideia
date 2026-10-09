@@ -22,6 +22,8 @@ from app.services.evidence_types import normalize_evidence_type
 from app.schemas.grades import GradeCreate
 from app.services.grade_import_identity import commit_rows, inspect_rows
 from app.services.institutional_excel import key as name_key, read_institutional, reference_results
+from app.services.evaluation_configuration import source_criterion
+from app.services.evaluation_revisions import latest_published_revision, revision_configuration
 from app.services.student_codes import format_student_code, student_code_prefix
 
 router = APIRouter()
@@ -277,6 +279,11 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
     if not course.is_active:
         raise HTTPException(status_code=409, detail="No se pueden importar notas a un curso inactivo")
 
+    published_revision = latest_published_revision(db, payload.course_id, payload.period_id)
+    published_configuration = (
+        revision_configuration(published_revision) if published_revision else None
+    )
+
     institutional = any(row.get('template') == 'institutional_v1' for row in payload.rows)
     context = payload.academic_context or {}
     if institutional:
@@ -327,6 +334,24 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
                 continue
             row['assessment_date'] = blocks[block]['assessment_date']
             row['evaluation_name'] = blocks[block]['evaluation_name'].strip()
+            if published_configuration:
+                try:
+                    criterion = source_criterion(
+                        published_configuration, int(block), str(row.get("evaluation_type", ""))
+                    )
+                except ValueError as error:
+                    errors.append({"row": index, "error": str(error)})
+                    continue
+                if criterion is None:
+                    errors.append(
+                        {
+                            "row": index,
+                            "error": "El criterio del Excel no existe en la configuración publicada",
+                        }
+                    )
+                    continue
+                if criterion.legacy_component_id and not row.get("component_id"):
+                    row["component_id"] = criterion.legacy_component_id
         try:
             ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
         except HTTPException as error:
@@ -377,7 +402,12 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             if component is None or component.course_id != payload.course_id:
                 errors.append({"row": index, "error": "El criterio no pertenece al curso seleccionado"})
                 continue
-        prepared.append(GradeRecord(**values.model_dump()))
+        prepared.append(
+            GradeRecord(
+                **values.model_dump(),
+                evaluation_revision_id=(published_revision.id if published_revision else None),
+            )
+        )
     if errors:
         raise HTTPException(status_code=422, detail={"errors": errors, "rejected": len(errors)})
     return prepared

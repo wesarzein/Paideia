@@ -41,6 +41,7 @@ class GradeResponse(BaseModel):
     score: float
     assessment_weight: float
     assessment_config: dict
+    evaluation_revision_id: UUID | None = None
     qualitative_note: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

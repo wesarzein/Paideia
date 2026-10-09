@@ -13,6 +13,7 @@ from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponen
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.grades import GradeCreate, GradeResponse, GradeSummary, GradeUpdate
+from app.services.evaluation_revisions import latest_published_revision
 
 router = APIRouter()
 
@@ -72,6 +73,11 @@ def create_grade(
         assessment_date=payload.assessment_date,
         score=float(payload.score),
         qualitative_note=payload.qualitative_note,
+        evaluation_revision_id=(
+            revision.id
+            if (revision := latest_published_revision(db, payload.course_id, payload.period_id))
+            else None
+        ),
     )
     db.add(record)
     try:

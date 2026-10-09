@@ -2,16 +2,34 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, CourseAssignment, Section
+from app.models.academic import (
+    AcademicPeriod,
+    Course,
+    CourseAssessmentComponent,
+    CourseAssignment,
+    EvaluationConfigurationRevision,
+    Section,
+)
 from app.models.user import User
 from app.schemas.courses import AssessmentComponentCreate, AssessmentComponentResponse, AssessmentComponentUpdate, CourseAssignmentCreate, CourseAssignmentResponse, CourseCreate, CourseResponse, CourseUpdate
 from app.services.course_catalog import canonical_course_name, unique_course_code
-from app.schemas.courses import EvaluationPreviewRequest
+from app.schemas.courses import (
+    EvaluationPreviewRequest,
+    EvaluationRestoreRequest,
+    EvaluationRevisionWrite,
+)
 from app.services.evaluation_configuration import from_document, institutional_template, preview
+from app.services.evaluation_revisions import (
+    StaleEvaluationRevision,
+    create_revision,
+    latest_revision,
+    revision_payload,
+)
 
 router = APIRouter()
 
@@ -25,6 +43,46 @@ def _evaluation_scope(db: Session, user: User, course_id: UUID, period_id: UUID)
     if db.get(Course, course_id) is None or db.get(AcademicPeriod, period_id) is None:
         raise HTTPException(status_code=404, detail="Curso o periodo no encontrado")
     _ensure_course_access(db, user, course_id)
+
+
+def _configuration_from_payload(course_id: UUID, document: dict):
+    try:
+        configuration = from_document(document)
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=422, detail="Documento de evaluación inválido") from error
+    if configuration.course_id != str(course_id):
+        raise HTTPException(status_code=422, detail="La configuración pertenece a otro curso")
+    return configuration
+
+
+def _store_evaluation_revision(
+    db: Session,
+    user: User,
+    configuration,
+    expected_version: int,
+    reason: str,
+    state: str,
+) -> dict:
+    _evaluation_scope(db, user, UUID(configuration.course_id), UUID(configuration.period_id))
+    try:
+        revision = create_revision(
+            db, configuration, user.id, reason, expected_version, state
+        )
+        db.commit()
+        db.refresh(revision)
+    except StaleEvaluationRevision as error:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Otra edición se guardó primero; recarga la versión antes de continuar",
+        ) from error
+    return revision_payload(revision)
 
 
 @router.get("/{course_id}/evaluation-template")
@@ -45,17 +103,100 @@ def preview_evaluation_configuration(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ) -> dict:
-    try:
-        config = from_document(payload.configuration)
-    except (ValueError, KeyError, TypeError) as error:
-        raise HTTPException(status_code=422, detail="Documento de evaluación inválido") from error
-    if config.course_id != str(course_id):
-        raise HTTPException(status_code=422, detail="La configuración pertenece a otro curso")
+    config = _configuration_from_payload(course_id, payload.configuration)
     _evaluation_scope(db, user, course_id, UUID(config.period_id))
     try:
         return preview(config, payload.scores)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.get("/{course_id}/evaluation-configurations/current")
+def get_current_evaluation_configuration(
+    course_id: UUID,
+    period_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+) -> dict:
+    _evaluation_scope(db, user, course_id, period_id)
+    revision = latest_revision(db, course_id, period_id)
+    if revision:
+        return revision_payload(revision)
+    configuration = institutional_template(str(course_id), str(period_id))
+    return {
+        "id": None,
+        "course_id": str(course_id),
+        "period_id": str(period_id),
+        "version": 0,
+        "state": "default",
+        "previous_revision_id": None,
+        "configuration": configuration.document(),
+        "content_hash": configuration.fingerprint(),
+        "reason": "Plantilla institucional predeterminada",
+        "created_by_id": None,
+        "created_at": None,
+    }
+
+
+@router.get("/{course_id}/evaluation-configurations/versions")
+def list_evaluation_configuration_versions(
+    course_id: UUID,
+    period_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+) -> list[dict]:
+    _evaluation_scope(db, user, course_id, period_id)
+    revisions = db.scalars(
+        select(EvaluationConfigurationRevision)
+        .where(
+            EvaluationConfigurationRevision.course_id == course_id,
+            EvaluationConfigurationRevision.period_id == period_id,
+        )
+        .order_by(EvaluationConfigurationRevision.version.desc())
+    ).all()
+    return [revision_payload(revision) for revision in revisions]
+
+
+@router.post("/{course_id}/evaluation-configurations/drafts", status_code=status.HTTP_201_CREATED)
+def save_evaluation_configuration_draft(
+    course_id: UUID,
+    payload: EvaluationRevisionWrite,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+) -> dict:
+    configuration = _configuration_from_payload(course_id, payload.configuration)
+    return _store_evaluation_revision(
+        db, user, configuration, payload.expected_version, payload.reason, "draft"
+    )
+
+
+@router.post("/{course_id}/evaluation-configurations/publish", status_code=status.HTTP_201_CREATED)
+def publish_evaluation_configuration(
+    course_id: UUID,
+    payload: EvaluationRevisionWrite,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+) -> dict:
+    configuration = _configuration_from_payload(course_id, payload.configuration)
+    return _store_evaluation_revision(
+        db, user, configuration, payload.expected_version, payload.reason, "published"
+    )
+
+
+@router.post(
+    "/{course_id}/evaluation-configurations/restore-institutional",
+    status_code=status.HTTP_201_CREATED,
+)
+def restore_institutional_evaluation_configuration(
+    course_id: UUID,
+    payload: EvaluationRestoreRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+) -> dict:
+    configuration = institutional_template(str(course_id), str(payload.period_id))
+    return _store_evaluation_revision(
+        db, user, configuration, payload.expected_version, payload.reason, "published"
+    )
 
 
 @router.get("/{course_id}/assignments", response_model=list[CourseAssignmentResponse])

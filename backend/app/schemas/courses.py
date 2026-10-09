@@ -11,6 +11,18 @@ class EvaluationPreviewRequest(BaseModel):
     scores: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvaluationRevisionWrite(BaseModel):
+    configuration: dict[str, Any]
+    expected_version: int = Field(ge=0)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class EvaluationRestoreRequest(BaseModel):
+    period_id: UUID
+    expected_version: int = Field(ge=0)
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class CourseCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     code: str | None = Field(default=None, min_length=2, max_length=40)

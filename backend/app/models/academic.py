@@ -4,10 +4,13 @@ from datetime import datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
     ForeignKey,
+    Integer,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -102,6 +105,46 @@ class CourseAssignment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class EvaluationConfigurationRevision(Base):
+    """Append-only evaluation configuration for one course and academic period."""
+
+    __tablename__ = "evaluation_configuration_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "course_id", "period_id", "version", name="uq_evaluation_revision_scope_version"
+        ),
+        CheckConstraint("version > 0", name="evaluation_revision_positive_version"),
+        CheckConstraint(
+            "state IN ('draft', 'published')", name="evaluation_revision_state"
+        ),
+        Index("ix_evaluation_revision_scope", "course_id", "period_id", "version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    course_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    period_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("academic_periods.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    previous_revision_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("evaluation_configuration_revisions.id", ondelete="RESTRICT"), nullable=True
+    )
+    configuration: Mapped[dict] = mapped_column(JSON, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+@event.listens_for(EvaluationConfigurationRevision, "before_update")
+@event.listens_for(EvaluationConfigurationRevision, "before_delete")
+def preserve_evaluation_revision(_mapper, _connection, _revision):
+    raise ValueError("Las revisiones de evaluación son inmutables")
+
+
 class GradeRecord(Base):
     __tablename__ = "grade_records"
 
@@ -118,6 +161,11 @@ class GradeRecord(Base):
     score: Mapped[float] = mapped_column(nullable=False)
     assessment_weight: Mapped[float] = mapped_column(Float, nullable=False)
     assessment_config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    evaluation_revision_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("evaluation_configuration_revisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     qualitative_note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -134,6 +182,19 @@ def capture_assessment_config(_mapper, connection, record):
         )
     ).mappings().first() if record.component_id else None
     record.assessment_weight = float(component["weight"]) if component else 1.0
+    revision = connection.execute(
+        select(EvaluationConfigurationRevision.__table__).where(
+            EvaluationConfigurationRevision.id == record.evaluation_revision_id
+        )
+    ).mappings().first() if record.evaluation_revision_id else None
+    if record.evaluation_revision_id and revision is None:
+        raise ValueError("La revisión de evaluación no existe")
+    if revision and (
+        revision["state"] != "published"
+        or revision["course_id"] != record.course_id
+        or revision["period_id"] != record.period_id
+    ):
+        raise ValueError("La revisión de evaluación no está publicada para este curso y periodo")
     record.assessment_config = {
         "schema_version": 1,
         "algorithm": "weighted_mean_v1",
@@ -142,12 +203,15 @@ def capture_assessment_config(_mapper, connection, record):
         "component_name": component["name"] if component else None,
         "is_optional": component["is_optional"] if component else None,
         "weight": record.assessment_weight,
+        "evaluation_revision_id": str(record.evaluation_revision_id) if revision else None,
+        "evaluation_revision_version": revision["version"] if revision else None,
+        "evaluation_revision_hash": revision["content_hash"] if revision else None,
     }
 
 
 @event.listens_for(GradeRecord, "before_update")
 def preserve_assessment_config(_mapper, _connection, record):
-    for field in ("assessment_weight", "assessment_config"):
+    for field in ("assessment_weight", "assessment_config", "evaluation_revision_id"):
         if inspect(record).attrs[field].history.has_changes():
             raise ValueError("La configuración histórica de una nota es inmutable")
 
