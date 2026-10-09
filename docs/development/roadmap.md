@@ -199,3 +199,12 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   Cero errores JS; huella de notas `e7998edc2fb51a66ea381f2e15207f45e6e7502df0ac29664dbe66e96f92a1b5`.
 - Próxima verificación focalizada: carrera de dos POST diarios de asistencia; después
   continuar C4-grados/secciones, preservando códigos e identidades existentes.
+- C3 concurrencia: las dos solicitudes simultáneas pasaron antes del cambio, pero
+  el flujo consulta/INSERT todavía admitía una carrera de primera escritura. Ahora
+  PostgreSQL serializa por identidad alumno/curso/fecha, coherente con la restricción
+  única existente y sin incluir periodo en esa identidad. 4/4 PG en 10,97 s: creación
+  y actualización concurrentes con mismo ID, observaciones conservadas y prueba
+  determinista de espera por el bloqueo transaccional. Sin migración ni cambio UI;
+  no se repitió el build ni el recorrido visual por este cambio exclusivo de API.
+- Siguiente tarea segura: C4-grados/secciones; documentar validaciones de generación
+  de códigos existentes y no regenerar códigos al editar etiquetas del catálogo.

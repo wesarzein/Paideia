@@ -1,8 +1,12 @@
 """Existing daily attendance semantics with validated statuses and period boundaries."""
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Event
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import event, text
 from test_academic_authorization import scenario, sessions
 
 __all__ = ["scenario", "sessions"]
@@ -82,3 +86,58 @@ def test_daily_retry_preserves_remarks_unless_explicitly_changed(scenario):
     assert repeated.json()["remarks"] == original.json()["remarks"]
     cleared = client.post("/attendance", json=payload(ids, remarks=None))
     assert cleared.status_code == 201 and cleared.json()["remarks"] is None
+
+
+@pytest.mark.parametrize("day", ["2026-04-01", "2026-04-02"])
+def test_concurrent_daily_requests_share_one_identity(scenario, day):
+    if not os.environ.get("PAIDEIA_TEST_POSTGRES_URL"):
+        pytest.skip("Concurrent daily identity requires PostgreSQL")
+    client, ids, _actors, _current = scenario
+    start = Barrier(2)
+
+    def save(state):
+        start.wait(timeout=10)
+        return client.post("/attendance", json=payload(ids, attendance_date=day, status=state))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(save, ["PRESENT", "LATE"]))
+    assert [response.status_code for response in results] == [201, 201]
+    assert results[0].json()["id"] == results[1].json()["id"]
+    records = client.get(
+        "/attendance", params={"student_id": ids["students"][0], "attendance_date": day}
+    ).json()
+    assert len(records) == 1 and records[0]["status"] in {"PRESENT", "LATE"}
+
+
+def test_daily_write_waits_for_its_identity_lock(scenario, sessions):
+    if not os.environ.get("PAIDEIA_TEST_POSTGRES_URL"):
+        pytest.skip("Transaction identity lock requires PostgreSQL")
+    client, ids, _actors, _current = scenario
+    day = "2026-04-02"
+    key = f"attendance:{ids['students'][0]}:{ids['courses'][0]}:{day}"
+    reached = Event()
+    with sessions() as db:
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": key}
+        )
+        engine = db.bind
+
+        def waiting(_conn, _cursor, statement, _parameters, _context, _executemany):
+            if "pg_advisory_xact_lock" in statement:
+                reached.set()
+
+        event.listen(engine, "before_cursor_execute", waiting)
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                result = executor.submit(
+                    client.post, "/attendance", json=payload(ids, attendance_date=day)
+                )
+                if not reached.wait(timeout=10):
+                    db.rollback()
+                    pytest.fail("Daily POST never reached its identity lock")
+                assert not result.done(), "Daily writer bypassed the existing identity lock"
+                db.commit()
+                assert result.result(timeout=10).status_code == 201
+        finally:
+            db.rollback()
+            event.remove(engine, "before_cursor_execute", waiting)

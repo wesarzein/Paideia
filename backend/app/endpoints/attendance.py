@@ -2,7 +2,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import extract, select
+from sqlalchemy import extract, select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
@@ -52,6 +52,14 @@ def create_attendance(
 
     if not period.starts_on <= payload.attendance_date <= period.ends_on:
         raise HTTPException(status_code=422, detail="La fecha debe pertenecer al periodo académico")
+
+    # The unique daily identity excludes period_id. Serialize first-insert retries
+    # as well as updates, without changing the existing daily upsert semantics.
+    if db.bind.dialect.name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": f"attendance:{payload.student_id}:{payload.course_id}:{payload.attendance_date}"},
+        )
 
     attendance = db.scalar(select(AttendanceRecord).where(AttendanceRecord.student_id == payload.student_id, AttendanceRecord.course_id == payload.course_id, AttendanceRecord.attendance_date == payload.attendance_date))
     if attendance is not None:
