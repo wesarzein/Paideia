@@ -119,6 +119,69 @@ export interface CourseAssignment {
   teacher_name: string | null;
 }
 
+export interface EvaluationCompetency {
+  key: string;
+  name: string;
+  position: number;
+  is_active: boolean;
+}
+
+export interface EvaluationCriterion {
+  key: string;
+  name: string;
+  block: 1 | 2;
+  position: number;
+  weight: string;
+  competency_key: string | null;
+  is_active: boolean;
+  is_optional: boolean;
+  source_header: string | null;
+  legacy_component_id: string | null;
+}
+
+export interface EvaluationFormula {
+  key: string;
+  expression: string;
+}
+
+export interface EvaluationConfiguration {
+  course_id: string;
+  period_id: string;
+  competencies: EvaluationCompetency[];
+  criteria: EvaluationCriterion[];
+  formulas: EvaluationFormula[];
+  template_id: string;
+  final_formula: string;
+  schema_version: number;
+  formula_language: string;
+  weight_mode: string;
+  block_weeks: number;
+  bimester_weeks: number;
+}
+
+export interface EvaluationRevision {
+  id: string | null;
+  course_id: string;
+  period_id: string;
+  version: number;
+  state: 'default' | 'draft' | 'published';
+  previous_revision_id: string | null;
+  configuration: EvaluationConfiguration;
+  content_hash: string;
+  reason: string;
+  created_by_id: string | null;
+  created_at: string | null;
+}
+
+export interface EvaluationPreview {
+  weighted_blocks: Record<string, number | null>;
+  formula_results: Record<string, number | null>;
+  literal: string | null;
+  warnings: { block: number; missing_required: string[] }[];
+  configuration_fingerprint: string;
+  preview_only: boolean;
+}
+
 export interface DashboardSummary {
   total_students: number;
   active_students: number;
@@ -268,6 +331,24 @@ export class ApiService {
   createAssessmentComponent(courseId: string, payload: { name: string; weight: number; is_optional: boolean }) { return this.http.post<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components`, payload); }
   updateAssessmentComponent(courseId: string, componentId: string, payload: Partial<AssessmentComponent>) { return this.http.patch<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components/${componentId}`, payload); }
   deactivateAssessmentComponent(courseId: string, componentId: string) { return this.http.delete<AssessmentComponent>(`${environment.apiUrl}/courses/${courseId}/assessment-components/${componentId}`); }
+  getEvaluationConfiguration(courseId: string, periodId: string) {
+    return this.http.get<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/current`, { params: { period_id: periodId } });
+  }
+  listEvaluationVersions(courseId: string, periodId: string) {
+    return this.http.get<EvaluationRevision[]>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/versions`, { params: { period_id: periodId } });
+  }
+  previewEvaluation(courseId: string, configuration: EvaluationConfiguration, scores: Record<string, number | null>) {
+    return this.http.post<EvaluationPreview>(`${environment.apiUrl}/courses/${courseId}/evaluation-preview`, { configuration, scores });
+  }
+  saveEvaluationDraft(courseId: string, configuration: EvaluationConfiguration, expectedVersion: number, reason: string) {
+    return this.http.post<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/drafts`, { configuration, expected_version: expectedVersion, reason });
+  }
+  publishEvaluation(courseId: string, configuration: EvaluationConfiguration, expectedVersion: number, reason: string) {
+    return this.http.post<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/publish`, { configuration, expected_version: expectedVersion, reason });
+  }
+  restoreInstitutionalEvaluation(courseId: string, periodId: string, expectedVersion: number, reason: string) {
+    return this.http.post<EvaluationRevision>(`${environment.apiUrl}/courses/${courseId}/evaluation-configurations/restore-institutional`, { period_id: periodId, expected_version: expectedVersion, reason });
+  }
   updateCourse(id: string, payload: Partial<CoursePayload>) { return this.http.patch(`${environment.apiUrl}/courses/${id}`, payload); }
   deleteCourse(id: string) { return this.http.delete<void>(`${environment.apiUrl}/courses/${id}`); }
 

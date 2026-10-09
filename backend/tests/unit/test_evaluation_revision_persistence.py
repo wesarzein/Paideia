@@ -2,16 +2,16 @@ from dataclasses import replace
 from datetime import date
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies import get_current_user
-from app.core.database import Base
-from app.core.database import get_db
+from app.core.database import Base, get_db
 from app.endpoints.courses import router as courses_router
+from app.endpoints.imports import GradeRowsImport, _prepare_grade_rows
 from app.models import base as _mapped_models  # noqa: F401 - register all foreign-key tables
 from app.models.academic import (
     AcademicPeriod,
@@ -266,3 +266,70 @@ def test_http_permissions_publication_history_and_restore(db):
     assert restored.status_code == 201
     assert restored.json()["version"] == 3
     assert restored.json()["configuration"]["template_id"] == "institutional_v1"
+
+
+def test_institutional_import_uses_published_configuration_mapping(db):
+    session, teacher, course, period, student, _component = db
+    grade = Grade(name="1°", level="Secundaria")
+    session.add(grade)
+    session.flush()
+    section = Section(grade_id=grade.id, name="A")
+    session.add(section)
+    session.flush()
+    student.grade_id = grade.id
+    student.section_id = section.id
+    session.add(
+        CourseAssignment(
+            course_id=course.id,
+            grade_id=grade.id,
+            section_id=section.id,
+            teacher_id=teacher.id,
+            teacher_name=teacher.full_name,
+        )
+    )
+    configuration = institutional_template(str(course.id), str(period.id))
+    published = create_revision(
+        session, configuration, teacher.id, "Plantilla vigente", 0, "published"
+    )
+    session.commit()
+
+    rows = [{
+        "template": "institutional_v1",
+        "student_code": student.student_code,
+        "source_name": "Prueba, Ada",
+        "source_block": "1",
+        "score": 15,
+        "evaluation_type": "Cuaderno",
+        "evaluation_name": "",
+    }]
+    context = {
+        "grade_id": str(grade.id),
+        "section_id": str(section.id),
+        "school_year": 2026,
+        "bimestre": 1,
+        "confirmed": True,
+        "blocks": {
+            "1": {"assessment_date": "2026-01-28", "evaluation_name": "Semana 4"},
+            "2": {"assessment_date": "2026-02-25", "evaluation_name": "Semana 8"},
+        },
+    }
+    payload = GradeRowsImport(
+        course_id=course.id, period_id=period.id, rows=rows, academic_context=context
+    )
+    prepared = _prepare_grade_rows(payload, session, teacher)
+    assert len(prepared) == 1
+    assert prepared[0].evaluation_revision_id == published.id
+
+    changed_criteria = tuple(
+        replace(criterion, source_header="PORTAFOLIO")
+        if criterion.key == "b1_cuaderno"
+        else criterion
+        for criterion in configuration.criteria
+    )
+    changed = replace(configuration, criteria=changed_criteria, template_id="custom_v1")
+    create_revision(session, changed, teacher.id, "Mapeo personalizado", 1, "published")
+    session.commit()
+    with pytest.raises(HTTPException) as rejected:
+        _prepare_grade_rows(payload, session, teacher)
+    assert rejected.value.status_code == 422
+    assert "criterio del Excel" in rejected.value.detail["errors"][0]["error"]
