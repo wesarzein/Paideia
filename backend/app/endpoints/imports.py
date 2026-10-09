@@ -21,6 +21,7 @@ from app.services.academic_access import ensure_student_course_access
 from app.services.evidence_types import normalize_evidence_type
 from app.schemas.grades import GradeCreate
 from app.services.grade_import_identity import commit_rows, inspect_rows
+from app.services.institutional_excel import key as name_key, read_institutional, reference_results
 from app.services.student_codes import format_student_code, student_code_prefix
 
 router = APIRouter()
@@ -36,6 +37,7 @@ class GradeRowsImport(BaseModel):
     course_id: UUID
     period_id: UUID
     rows: list[dict[str, Any]]
+    academic_context: dict[str, Any] | None = None
 
 
 def _read_frame(filename: str, content: bytes) -> pd.DataFrame:
@@ -237,6 +239,10 @@ async def preview_grade_import(file: UploadFile = File(...), period_id: UUID | N
     if period_id and period is None:
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
     try:
+        if file.filename.lower().endswith('.xlsx'):
+            institutional = read_institutional(content)
+            if institutional is not None:
+                return institutional
         frame = _flatten_grade_frame(_read_frame(file.filename, content), period).fillna("")
     except Exception as error:
         raise HTTPException(status_code=422, detail=f"No se pudo leer el archivo: {error}") from error
@@ -271,6 +277,34 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
     if not course.is_active:
         raise HTTPException(status_code=409, detail="No se pueden importar notas a un curso inactivo")
 
+    institutional = any(row.get('template') == 'institutional_v1' for row in payload.rows)
+    context = payload.academic_context or {}
+    if institutional:
+        try:
+            grade_id = UUID(str(context['grade_id']))
+            section_id = UUID(str(context['section_id']))
+            section = db.get(Section, section_id)
+            if not all(re.fullmatch(r'[0-9]+', str(context[k])) for k in ('school_year', 'bimestre')):
+                raise ValueError
+            year = int(context['school_year'])
+            bimestre = int(context['bimestre'])
+            if (section is None or section.grade_id != grade_id or bimestre < 1
+                    or context.get('confirmed') is not True):
+                raise ValueError
+            blocks = context['blocks']
+            dates = []
+            for block in ('1', '2'):
+                selected = blocks[block]
+                selected_date = date.fromisoformat(selected['assessment_date'])
+                if (selected_date.year != year or not selected['evaluation_name'].strip()
+                        or not period.starts_on <= selected_date <= period.ends_on):
+                    raise ValueError
+                dates.append(selected_date)
+            if dates[1] <= dates[0]:
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=422, detail='Confirma año, grado, sección, bimestre y nombres/fechas de ambos bloques dentro del periodo') from None
+
     prepared: list[GradeRecord] = []
     errors = []
     for index, row in enumerate(payload.rows, 1):
@@ -279,12 +313,28 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
         if student is None:
             errors.append({"row": index, "error": f"Estudiante no encontrado: {code or '(sin código)'}"})
             continue
+        if institutional:
+            if student.grade_id != grade_id or student.section_id != section_id:
+                errors.append({'row': index, 'error': 'El estudiante no pertenece al grado y sección seleccionados'})
+                continue
+            actual_name = f'{student.last_name}, {student.first_name}'
+            if name_key(row.get('source_name')) != name_key(actual_name) and not row.get('student_confirmed'):
+                errors.append({'row': index, 'error': 'Nombre y código no coinciden: confirma o resuelve la correspondencia del estudiante'})
+                continue
+            block = str(row.get('source_block', ''))
+            if block not in ('1', '2'):
+                errors.append({'row': index, 'error': 'Bloque institucional no reconocido'})
+                continue
+            row['assessment_date'] = blocks[block]['assessment_date']
+            row['evaluation_name'] = blocks[block]['evaluation_name'].strip()
         try:
             ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
         except HTTPException as error:
             errors.append({"row": index, "error": error.detail})
             continue
         try:
+            if isinstance(row.get('score'), bool):
+                raise ValueError
             score = float(row.get("score", ""))
         except (TypeError, ValueError) as error:
             errors.append({"row": index, "error": f"Nota inválida: {row.get('score')}"})
@@ -337,7 +387,8 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
 def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict:
     prepared = _prepare_grade_rows(payload, db, user)
     rows, _records, errors = inspect_rows(db, user, prepared, payload.rows)
-    return {"rows": rows, "total": len(rows), "errors": errors}
+    return {"rows": rows, "total": len(rows), "errors": errors,
+            "reference_results": reference_results(payload.rows)}
 
 
 @router.post("/grades/commit")

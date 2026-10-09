@@ -149,12 +149,23 @@ export interface GradeImportReviewRow {
 }
 
 export interface GradeImportReview {
+  reference_results?: { source_row: number; monthly: Record<string, number | null>; final: number | null; literal: string | null; reference_only: boolean }[];
   rows: GradeImportReviewRow[];
   total: number;
   errors: { row: number; error: string }[];
 }
 
+export interface InstitutionalContext {
+  school_year: number | null;
+  bimestre: number | null;
+  grade_id: string;
+  section_id: string;
+  confirmed: boolean;
+  blocks: Record<string, { evaluation_name: string; assessment_date: string }>;
+}
+
 export interface ImportPreview {
+  institutional?: { template: string; sheet: string; blank_inputs: number; warning: string; students: {source_row: number; student_code: string; name: string}[]; unsupported_formula_rows: number[]; blocks: { block: string; label: string; criteria: { name: string; header: string }[] }[]; derived: { cell: string; formula: string; cached: unknown }[] };
   columns: string[];
   rows: Record<string, unknown>[];
   total: number;
@@ -276,11 +287,11 @@ export class ApiService {
     return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/grades/preview`, form, { params: { period_id: periodId } });
   }
 
-  commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string) {
-    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId });
+  commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string, academicContext?: InstitutionalContext) {
+    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId, academic_context: academicContext });
   }
 
-  reviewGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string) {
-    return this.http.post<GradeImportReview>(`${environment.apiUrl}/imports/grades/review`, { rows, course_id: courseId, period_id: periodId });
+  reviewGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string, academicContext?: InstitutionalContext) {
+    return this.http.post<GradeImportReview>(`${environment.apiUrl}/imports/grades/review`, { rows, course_id: courseId, period_id: periodId, academic_context: academicContext });
   }
 }
