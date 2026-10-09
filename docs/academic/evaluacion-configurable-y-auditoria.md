@@ -6,6 +6,12 @@ Requisito funcional incorporado por el responsable el 08/10/2026: **sistema de e
 
 Este documento es una referencia para futuras sesiones de Codex. En esta fase solo se documenta el requisito y su auditoría futura: no autoriza cambios funcionales, migraciones, importaciones reales ni modificaciones de calificaciones. Continúan siendo prioritarios el entorno colaborativo y el despliegue. Antes de implementar, auditar lo existente y conservar las implementaciones que funcionen, incluidas capacidades adicionales no enumeradas aquí.
 
+**Actualización de alcance, 09/10/2026:** el responsable autorizó iniciar progresivamente
+4B.4 con componentes y verificaciones locales, manteniendo Docker pausado y sin modificar
+datos institucionales. Avances y límites en [evaluacion-configurable-fase4b4.md](evaluacion-configurable-fase4b4.md).
+El párrafo anterior conserva el alcance histórico de la tarea documental inicial.
+4B.3 permanece implementada con su última prueba de persistencia pendiente.
+
 ## Contexto institucional y fuente de referencia
 
 Actualmente todos los cursos utilizan el mismo formato Excel institucional y los mismos criterios predeterminados. Las calificaciones existentes están en Excel externos; cero calificaciones en PostgreSQL puede ser normal y no constituye por sí solo un error o evidencia de pérdida.
@@ -67,7 +73,7 @@ No se afirma en este documento que competencias, reordenación, fórmulas person
 
 ## Entrega de la auditoría
 
-La importación idempotente y la protección de correcciones docentes se documentan en [Fase 4B.2](importacion-sin-duplicados-fase4b2.md). La migración 0013 reserva identidades sin eliminar notas históricas. El parser del Excel institucional sigue pendiente de Fase 4B.3 y no se considera probado por esta corrección.
+La importación idempotente y la protección de correcciones docentes se documentan en [Fase 4B.2](importacion-sin-duplicados-fase4b2.md). La migración 0013 reserva identidades sin eliminar notas históricas. El parser institucional quedó implementado en `81c8b89`; [4B.3](importacion-institucional-fase4b3.md) conserva la comprobación de persistencia tras reinicio pendiente y no debe declararse cerrada.
 
 La corrección autorizada del recálculo por cambios de peso se documenta en [integridad histórica, Fase 4B.1](integridad-historica-fase4b1.md). Conserva una copia inmutable por nota; no representa la implementación completa de competencias, fórmulas ni versiones por curso/periodo. La migración institucional sigue pendiente de autorización.
 

@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import Course, CourseAssessmentComponent, CourseAssignment, Section
+from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, CourseAssignment, Section
 from app.models.user import User
 from app.schemas.courses import AssessmentComponentCreate, AssessmentComponentResponse, AssessmentComponentUpdate, CourseAssignmentCreate, CourseAssignmentResponse, CourseCreate, CourseResponse, CourseUpdate
 from app.services.course_catalog import canonical_course_name, unique_course_code
+from app.schemas.courses import EvaluationPreviewRequest
+from app.services.evaluation_configuration import from_document, institutional_template, preview
 
 router = APIRouter()
 
@@ -17,6 +19,43 @@ router = APIRouter()
 def _ensure_course_access(db: Session, user: User, course_id: UUID) -> None:
     if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course_id, CourseAssignment.teacher_id == user.id)) is None:
         raise HTTPException(status_code=403, detail="No tienes este curso asignado")
+
+
+def _evaluation_scope(db: Session, user: User, course_id: UUID, period_id: UUID) -> None:
+    if db.get(Course, course_id) is None or db.get(AcademicPeriod, period_id) is None:
+        raise HTTPException(status_code=404, detail="Curso o periodo no encontrado")
+    _ensure_course_access(db, user, course_id)
+
+
+@router.get("/{course_id}/evaluation-template")
+def get_evaluation_template(
+    course_id: UUID,
+    period_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+) -> dict:
+    _evaluation_scope(db, user, course_id, period_id)
+    return institutional_template(str(course_id), str(period_id)).document()
+
+
+@router.post("/{course_id}/evaluation-preview")
+def preview_evaluation_configuration(
+    course_id: UUID,
+    payload: EvaluationPreviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+) -> dict:
+    try:
+        config = from_document(payload.configuration)
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=422, detail="Documento de evaluación inválido") from error
+    if config.course_id != str(course_id):
+        raise HTTPException(status_code=422, detail="La configuración pertenece a otro curso")
+    _evaluation_scope(db, user, course_id, UUID(config.period_id))
+    try:
+        return preview(config, payload.scores)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.get("/{course_id}/assignments", response_model=list[CourseAssignmentResponse])

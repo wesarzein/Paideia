@@ -1,7 +1,14 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class EvaluationPreviewRequest(BaseModel):
+    # Preserve raw values so the domain rejects booleans instead of coercing them to marks.
+    configuration: dict[str, Any]
+    scores: dict[str, Any] = Field(default_factory=dict)
 
 
 class CourseCreate(BaseModel):
