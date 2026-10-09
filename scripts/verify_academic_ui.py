@@ -46,7 +46,7 @@ def main():
         "--stage",
         choices=[
             "all", "editor", "import", "manual", "history", "matrix", "period",
-            "attendance", "cohort", "enrollment",
+            "attendance", "cohort", "enrollment", "followup",
         ],
         default="all",
     )
@@ -630,6 +630,64 @@ def main():
             assert api("GET", query) == stored
             assert api("GET", "/students") == roster and preserved() == before
             passed("enrollment")
+
+        if args.stage in ("all", "followup") and "followup" not in state["checks"]:
+            before = preserved()
+            page.goto(base + "/seguimiento")
+            page.get_by_label(re.compile(r"^Nivel")).select_option("Secundaria")
+            page.get_by_label(re.compile(r"^Grado")).select_option(student["grade_id"])
+            page.get_by_label(re.compile(r"^Sección")).select_option(student["section_id"])
+            expect(page.get_by_role(
+                "button", name="Registrar seguimiento", exact=True
+            )).to_be_enabled()
+            stored = state.get("followup")
+            if stored is None:
+                page.get_by_label(re.compile(r"^Estudiante")).select_option(student["id"])
+                page.get_by_label(re.compile(r"^Tipo")).select_option("MEETING")
+                page.get_by_label("Descripción", exact=True).fill(
+                    "Seguimiento sintético UI fecha autor"
+                )
+                with page.expect_response(
+                    lambda r: r.request.method == "POST" and r.url.endswith("/follow-ups")
+                ) as reply:
+                    page.get_by_role("button", name="Registrar seguimiento", exact=True).click()
+                assert reply.value.status == 201
+                stored = reply.value.json()
+                assert stored["recorded_by_name"] and stored["created_at"]
+                state["followup"] = stored
+                STATE.write_text(json.dumps(state), encoding="utf-8")
+            article = page.locator("article").filter(has_text=stored["action"])
+            expect(article).to_have_count(1)
+            expect(article.locator(".metadata")).to_contain_text(stored["recorded_by_name"])
+            expect(article.locator("time")).to_have_attribute("datetime", stored["created_at"])
+            expect(article.locator("time")).to_have_text(
+                re.compile(r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}")
+            )
+            article.get_by_role("button", name="Editar seguimiento", exact=True).click()
+            expect(page.get_by_label(re.compile(r"^Estudiante"))).to_be_disabled()
+            page.get_by_label("Descripción", exact=True).fill(
+                "Seguimiento sintético UI fecha autor revisado"
+            )
+            with page.expect_response(
+                lambda r: r.request.method == "PATCH"
+                and r.url.endswith("/follow-ups/" + stored["id"])
+            ) as reply:
+                page.get_by_role("button", name="Guardar cambios", exact=True).click()
+            assert reply.value.status == 200
+            revised = reply.value.json()
+            for field in ("id", "created_at", "recorded_by_id", "recorded_by_name", "status"):
+                assert revised[field] == stored[field]
+            state["followup"] = revised
+            STATE.write_text(json.dumps(state), encoding="utf-8")
+            page.reload()
+            page.get_by_label(re.compile(r"^Nivel")).select_option("Secundaria")
+            page.get_by_label(re.compile(r"^Grado")).select_option(student["grade_id"])
+            page.get_by_label(re.compile(r"^Sección")).select_option(student["section_id"])
+            article = page.locator("article").filter(has_text=revised["action"])
+            expect(article.locator("time")).to_have_attribute("datetime", stored["created_at"])
+            expect(article.locator(".metadata")).to_contain_text(stored["recorded_by_name"])
+            assert preserved() == before
+            passed("followup")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()

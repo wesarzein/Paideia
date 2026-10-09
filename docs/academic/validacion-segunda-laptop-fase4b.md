@@ -278,3 +278,12 @@ Ficha Angular permite alta/consulta, sin eliminación o edición de estados: cin
 Vitest nuevos, total **37/37**, build **31,868 s**. Playwright enrollment pasó alta,
 duplicado y recarga por ID; una asociación nueva sintética, padrón y 32 notas intactos.
 Sin migración adicional. Continuación C8/REQ-19: fecha y autor en cronología.
+
+Seguimiento: **14/14 PG** en 30,38 s (cinco nuevos, nueve de autorización). Fecha y
+nombre del autor en DTO/UI, cuatro categorías existentes y entrada sin autor legado
+sin atribución ficticia; edición conserva la fecha y atribución originales. UI conserva
+el estado cerrado al editar, evita respuestas de grupo anterior y muestra errores.
+**42/42 Vitest**, build **25,808 s** y Playwright followup aprobados; alta/edición/recarga
+de una entrada sintética con mismo ID, fecha y autor, 32 notas idénticas y cero errores JS.
+Sin migración ni borrado. Versiones del contenido/auditoría ordinaria (B3) y políticas
+institucionales continúan pendientes. Próximo bloque independiente: E1/CI local.

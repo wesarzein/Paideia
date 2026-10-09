@@ -30,7 +30,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | Altas/consulta PG/API y UI probadas; edición de estado UI pendiente | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
 | C7. REQ-01/03/06: estudiantes/docentes/usuarios/roles | Flujos básicos probados; variantes parciales | P2; B1/C5 | Conservar seis roles, códigos/búsquedas/estado/asignaciones; no agregar documento personal sin requisito confirmado; pruebas de transiciones y ámbito |
-| C8. REQ-16/18/19: observaciones/acuerdos/reuniones | Registro/atribución probados; cronología UI parcial | P2; B1/B3 | Mostrar fecha/autor/categoría autorizados; conservar edición y categorías; fixture historial y UI |
+| C8. REQ-16/18/19: observaciones/acuerdos/reuniones | Fecha/autor/categorías PG y cronología UI probados; versiones de contenido B3 pendientes | P2; B1/B3 | Mostrar fecha/autor/categoría autorizados; conservar edición y categorías; fixture historial y UI |
 | C9. Portal estudiante/apoderado existente | Vínculos, lectura y regresión visual por alumno/apoderado probados | P0 en seguridad / P2 UX; B1 | Sin acceso a alumno ajeno ni escritura de notas; conservar portal aunque alcance excluya portal completo; pruebas por vínculo |
 | C10. REQ-34/36/37: ficha/grupo/XLSX/impresión | Admin probado; roles/paginación parciales | P1/P2; B1/C1 | Datos y ámbitos idénticos en pantalla/exportación; conservar PDF de navegador; no asumir requisito de endpoint PDF separado |
 | D. REQ-11/23/42, UX-B: UX y accesibilidad | Parcial | P2; corregir primero fallos de A/B/C | Formularios, errores accionables, carga/vacíos, filtros/tablas/búsqueda/paginación, responsive/teclado; componentes existentes y tests por recorrido |
@@ -244,3 +244,21 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 - Siguiente tarea: C8/REQ-19, cronología visible con fecha y autor del seguimiento;
   conservar categorías, identidad y atribución. No ejecutar borrados ordinarios ni
   definir conservación/retención sin política. B3, fórmulas y producción siguen pendientes.
+- C8/REQ-19: 14/14 PG en 30,38 s (cinco nuevos y nueve regresiones de ámbitos).
+  DTO expone fecha original y nombre del usuario autor mediante join autorizado;
+  filtro por alumno, orden cronológico y desempate estable. Cuatro categorías
+  existentes probadas; edición conserva fecha y autor originales. Entrada legada
+  sin autor permanece desconocida, sin atribución inventada; portal familiar no
+  obtiene acceso nuevo al seguimiento. No se exponen email/credenciales del autor.
+- C8 UI: fecha/autor legibles, carga/error/reintento del grupo, respuesta de grupo
+  anterior ignorada y edición sin reabrir un estado existente cerrado. Edición fija
+  el estudiante y conserva las categorías. Dirección no ofrece edición/borrado
+  rechazados por su rol API; sus funciones de creación/consulta siguen disponibles.
+  42/42 Vitest (cinco nuevos), build 25,808 s con caché/cap 768 MiB. Playwright followup
+  pasó registro/fecha/autor/edición/recarga; mismo ID, fecha, atribución y estado.
+  Entrada nueva exclusivamente sintética, sin borrados; 32 notas idénticas.
+  Esto no acredita versiones del texto ni resuelve B3/retención por mostrar cronología.
+- Siguiente bloque independiente: E1, comprobar que CI incorpora estas pruebas y
+  versiones fijadas, con validación local focalizada y sin push/ejecución remota.
+  B3 permanece pendiente: conservar antes/después es un alcance técnico posible;
+  la política institucional debe definir archivo, borrado y duración de retención.

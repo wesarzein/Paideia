@@ -53,6 +53,7 @@ export type PeriodPayload = Omit<AcademicPeriod, 'id'>;
 export interface AcademicGrade { id: string; name: string; level: string; is_active: boolean; }
 export interface AcademicSection { id: string; name: string; grade_id: string; is_active: boolean; }
 export interface Enrollment { id: string; student_id: string; course_id: string; period_id: string; status: string; }
+export interface FollowUp { id: string; student_id: string; recorded_by_id: string | null; recorded_by_name: string | null; created_at: string | null; category: string; action: string; status: string; }
 
 export interface LoginPayload {
   email: string;
@@ -351,7 +352,7 @@ export class ApiService {
   getIndividualReport(studentId: string, filters: Record<string, string> = {}) { return this.http.get<Record<string, unknown>>(`${environment.apiUrl}/reports/students/${studentId}`, { params: filters }); }
   exportGroupReport(filters: Record<string, string>) { return this.http.get(`${environment.apiUrl}/reports/export.xlsx`, { params: filters, responseType: 'blob' }); }
 
-  listFollowUps(filters: Record<string, string> = {}) { return this.http.get<{ id: string; student_id: string; recorded_by_id: string | null; category: string; action: string; status: string }[]>(`${environment.apiUrl}/follow-ups`, { params: filters }); }
+  listFollowUps(filters: Record<string, string> = {}) { return this.http.get<FollowUp[]>(`${environment.apiUrl}/follow-ups`, { params: filters }); }
   createFollowUp(payload: { student_id: string; category: string; action: string; status: string }) { return this.http.post(`${environment.apiUrl}/follow-ups`, payload); }
   updateFollowUp(id: string, payload: { category?: string; action?: string; status?: string }) { return this.http.patch(`${environment.apiUrl}/follow-ups/${id}`, payload); }
   deleteFollowUp(id: string) { return this.http.delete<void>(`${environment.apiUrl}/follow-ups/${id}`); }
