@@ -287,3 +287,11 @@ el estado cerrado al editar, evita respuestas de grupo anterior y muestra errore
 de una entrada sintética con mismo ID, fecha y autor, 32 notas idénticas y cero errores JS.
 Sin migración ni borrado. Versiones del contenido/auditoría ordinaria (B3) y políticas
 institucionales continúan pendientes. Próximo bloque independiente: E1/CI local.
+
+CI local: YAML y ambos comandos Ruff aprobaron; frontend prueba componentes antes
+del build con heap 512 MiB/un trabajador y backend incluye el lint académico focalizado.
+Tokens de workflows limitados a lectura. No hubo ejecución remota ni segundo laboratorio.
+La colección confirmó **110 casos PG distintos**, aprobados a lo largo de los bloques
+descritos (94 nuevos y 16 regresiones); no se repitieron por ese recuento. Frontend final
+42/42 y build 25,808 s. Cierre de esta ejecución y continuación B3 constan en el roadmap:
+captura aditiva de cambios antes/después, sin inventar historia o retención institucional.

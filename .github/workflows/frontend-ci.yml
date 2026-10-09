@@ -5,9 +5,15 @@ on:
   push:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=512
+      NG_BUILD_MAX_WORKERS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,9 +21,10 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: frontend
+      - name: Component regressions
+        run: npm test -- --maxWorkers=1
         working-directory: frontend
       - run: npm run build
-        working-directory: frontend
-      - run: npm test -- --run
         working-directory: frontend

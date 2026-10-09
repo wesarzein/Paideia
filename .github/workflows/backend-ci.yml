@@ -5,6 +5,9 @@ on:
   push:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,6 +20,16 @@ jobs:
       - run: pip install -r backend/requirements.lock
       - name: Lint infrastructure and persistence changes
         run: ruff check scripts backend/app/core/config.py backend/app/seed_dev.py backend/app/import_roster.py backend/app/inspect_database.py backend/app/services/school_roster.py backend/migrations/env.py backend/tests/unit/test_roster_persistence.py backend/tests/unit/test_environment_config.py
+      - name: Lint academic services and focused regressions
+        working-directory: backend
+        run: >-
+          ruff check app/services/academic_access.py app/services/academic_metrics.py
+          app/schemas/periods.py app/schemas/cohorts.py app/endpoints/cohorts.py
+          tests/unit/test_academic_authorization.py tests/unit/test_grade_context_validation.py
+          tests/unit/test_attendance_context_validation.py tests/unit/test_user_account_status.py
+          tests/unit/test_academic_metrics.py tests/unit/test_grade_matrix_context.py
+          tests/unit/test_academic_periods.py tests/unit/test_academic_cohorts.py
+          tests/unit/test_enrollment_context.py tests/unit/test_follow_up_chronology.py
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml build
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T migrate
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T tests

@@ -34,7 +34,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | C9. Portal estudiante/apoderado existente | Vínculos, lectura y regresión visual por alumno/apoderado probados | P0 en seguridad / P2 UX; B1 | Sin acceso a alumno ajeno ni escritura de notas; conservar portal aunque alcance excluya portal completo; pruebas por vínculo |
 | C10. REQ-34/36/37: ficha/grupo/XLSX/impresión | Admin probado; roles/paginación parciales | P1/P2; B1/C1 | Datos y ámbitos idénticos en pantalla/exportación; conservar PDF de navegador; no asumir requisito de endpoint PDF separado |
 | D. REQ-11/23/42, UX-B: UX y accesibilidad | Parcial | P2; corregir primero fallos de A/B/C | Formularios, errores accionables, carga/vacíos, filtros/tablas/búsqueda/paginación, responsive/teclado; componentes existentes y tests por recorrido |
-| E1. Dependencias y CI | Locks/entornos probados; auditoría dev y CI remoto parciales | P1/P2; hitos A–D | Builds seriales, tests focalizados e integración; revisar avisos conocidos sin audit fix --force; CI local validado, remoto sin push autorizado no comprobable |
+| E1. Dependencias y CI | Locks, comandos y YAML locales probados; auditoría dev y CI remoto pendientes | P1/P2; hitos A–D | Builds seriales, tests focalizados e integración; revisar avisos conocidos sin audit fix --force; CI local validado, remoto sin push autorizado no comprobable |
 | E2. Despliegue/backups/recuperación | Recuperación histórica probada; producción pendiente | P1; B/C/E1 y autorización externa | Secretos/TLS/servidor/backup cifrado/restauración/monitoreo/rollback verificados; no declarar producción lista por healthcheck |
 | F. REQ-24–32: IA/BI | Interfaces informativas; procesamiento pendiente | P2 diferida; módulos principales estables | Refinar diseños existentes sin servicios externos, claves/costos o nuevas reglas; no habilitar ahora |
 
@@ -262,3 +262,26 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   versiones fijadas, con validación local focalizada y sin push/ejecución remota.
   B3 permanece pendiente: conservar antes/después es un alcance técnico posible;
   la política institucional debe definir archivo, borrado y duración de retención.
+- E1: workflow frontend ejecuta los componentes antes del build, un trabajador y
+  heap 512 MiB; conserva Node 24 y lockfile. Workflow backend añade lint de servicios,
+  esquemas y diez archivos de regresión académica desde su directorio correcto.
+  Ambos tokens CI solo necesitan lectura de contenido. YAML/orden/flags y comandos
+  Ruff existentes/nuevos pasaron localmente; formato de una cadena SQL de prueba
+  corregido sin cambio semántico. Los comandos frontend ya pasaron en el build 42/42;
+  no se volvió a compilar ni ejecutar la suite de 92 por editar estos workflows.
+  CI remoto no ejecutado: no hubo push/merge. La receta PostgreSQL de CI pertenece
+  al runner remoto; no se levantó un segundo laboratorio ni su Compose en esta laptop.
+- Recuento de evidencia: **110 casos PG distintos aprobados por bloques** (94 nuevos,
+  16 regresiones de historia/revisiones/XLSX). `--collect-only` confirmó 110 en 4,92 s
+  sin ejecutar otra vez los casos. No equivalen a una ejecución conjunta nueva de 110
+  ni incluyen como extras los reintentos. Frontend final: 42/42 y build 25,808 s.
+  Playwright pasó diez etapas académicas y los verificadores de cuentas/reportes y
+  cinco roles. 32 notas actuales; las 21 iniciales y sus snapshots siguen idénticos.
+- Punto de continuidad conservado al límite de esta ejecución: **B3**, diseñar e
+  implementar captura aditiva de antes/después de correcciones ordinarias de notas
+  y seguimiento, con actor y ámbito autorizados, pruebas PG en UUID y preservación
+  de las 32 notas. No reconstruir valores previos desconocidos ni habilitar eliminación
+  de historia o políticas de retención no confirmadas. Después C7/D (variantes por rol,
+  estados/búsquedas/paginación), C10 y dependencias dev. El nombre de alumno inactivo
+  en cronología aún puede caer al UUID por el catálogo activo; corregir sin ampliar
+  ámbitos. Producción, CI remoto, archivo/traslados y reglas de cálculo siguen pendientes.

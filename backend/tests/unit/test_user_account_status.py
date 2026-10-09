@@ -169,7 +169,8 @@ def test_account_status_migration_preserves_existing_users_and_roundtrip(session
         )
         db.execute(
             text(
-                "INSERT INTO users (id,role_id,email,password_hash,full_name) VALUES (:id,:role,'migration@paideia.local','synthetic','Histórico')"
+                "INSERT INTO users (id,role_id,email,password_hash,full_name) "
+                "VALUES (:id,:role,'migration@paideia.local','synthetic','Histórico')"
             ),
             {"id": user_id, "role": role_id},
         )
