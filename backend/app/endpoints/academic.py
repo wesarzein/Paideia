@@ -69,7 +69,7 @@ def academic_catalog(
         )
         course_query = course_query.where(Course.id.in_(assigned_course_ids.union(enrolled_course_ids)))
     courses = db.scalars(course_query.order_by(Course.name)).all()
-    periods = db.scalars(select(AcademicPeriod).where(AcademicPeriod.name == "Año escolar 2026").order_by(AcademicPeriod.starts_on)).all()
+    periods = db.scalars(select(AcademicPeriod).order_by(AcademicPeriod.starts_on, AcademicPeriod.name, AcademicPeriod.id)).all()
     students = []
     if grade_id and section_id:
         student_query = select(Student).where(

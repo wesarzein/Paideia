@@ -63,7 +63,7 @@ def create_grade(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     if not db.get(Course, payload.course_id):
         raise HTTPException(status_code=404, detail="Curso no encontrado")
-    period = db.get(AcademicPeriod, payload.period_id)
+    period = db.get(AcademicPeriod, payload.period_id, with_for_update={"read": True})
     if not period:
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
 
@@ -191,7 +191,7 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
     ensure_student_course_access(db, user, student, record.course_id, record.period_id)
     changes = payload.model_dump(exclude_unset=True)
     if "assessment_date" in changes:
-        period = db.get(AcademicPeriod, record.period_id)
+        period = db.get(AcademicPeriod, record.period_id, with_for_update={"read": True})
         if period is None:
             raise HTTPException(status_code=404, detail="Periodo no encontrado")
         validate_assessment_date(period, changes["assessment_date"])

@@ -4,14 +4,16 @@ import { AcademicCatalog, ApiService, AssessmentComponent, AuthUser, CourseAssig
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { EvaluationConfiguratorComponent } from './evaluation-configurator.component';
+import { PeriodManagerComponent } from './period-manager.component';
 
 type Course = { id: string; name: string; code: string | null; is_active: boolean };
 
 @Component({
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent],
+  imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent, PeriodManagerComponent],
   template: `
     <app-page-header title="Cursos" description="Administra cursos y configura los componentes de nota propios de cada uno." />
+    @if (isAdmin) { <app-period-manager (periodsChanged)="reloadCatalog()" /> }
     <section class="panel">
       @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
       @if (message()) { <p class="feedback" role="status">{{ message() }}</p> }
@@ -79,6 +81,7 @@ export class CoursesPage {
     if (this.isAdmin) this.api.listUsers().subscribe({ next: (users) => this.teachers.set(users.filter((user) => user.role === 'teacher')) });
   }
   protected loadCourses(): void { this.api.listCourses().subscribe({ next: (data) => { this.courses.set(data); this.error.set(''); }, error: () => this.error.set('No se pudieron cargar los cursos. Verifica tu conexión e intenta nuevamente.') }); }
+  protected reloadCatalog(): void { this.api.getAcademicCatalog().subscribe({ next: (data) => this.catalog.set(data) }); }
   protected editCourse(course: Course): void { this.editingCourseId = course.id; this.form = { name: course.name, code: course.code }; }
   protected resetCourse(): void { this.editingCourseId = null; this.form = { name: '' }; }
   protected saveCourse(): void {

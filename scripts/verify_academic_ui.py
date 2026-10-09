@@ -43,7 +43,9 @@ def free_memory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--stage", choices=["all", "editor", "import", "manual", "history", "matrix"], default="all"
+        "--stage",
+        choices=["all", "editor", "import", "manual", "history", "matrix", "period"],
+        default="all",
     )
     parser.add_argument(
         "--browser", default="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
@@ -370,6 +372,75 @@ def main():
                 key: value for key, value in original.items() if key not in {"score", "updated_at"}
             }
             passed("matrix")
+
+        if args.stage in ("all", "period") and "period" not in state["checks"]:
+            before = preserved()
+            page.goto(base + "/cursos")
+            manager = page.locator("app-period-manager")
+            expect(manager.get_by_role("heading", name="Periodos académicos")).to_be_visible()
+            periods_before = api("GET", "/academic/periods")
+            current = next(
+                (
+                    item
+                    for item in periods_before
+                    if item["name"].startswith("Calendario sintético UI2027")
+                ),
+                None,
+            )
+            if current is None:
+                manager.get_by_label("Nombre del periodo", exact=True).fill(
+                    "Calendario sintético UI2027"
+                )
+                manager.get_by_label("Inicio del periodo", exact=True).fill("2027-01-01")
+                manager.get_by_label("Fin del periodo", exact=True).fill("2026-12-31")
+                manager.get_by_role("button", name="Crear periodo", exact=True).click()
+                expect(manager.get_by_role("alert")).to_contain_text("orden cronológico")
+                assert api("GET", "/academic/periods") == periods_before
+                manager.get_by_label("Fin del periodo", exact=True).fill("2027-12-31")
+                with page.expect_response(
+                    lambda response: response.request.method == "POST"
+                    and response.url.endswith("/academic/periods")
+                ) as reply:
+                    manager.get_by_role("button", name="Crear periodo", exact=True).click()
+                assert reply.value.status == 201
+                current = reply.value.json()
+                state["synthetic_period"] = current
+                STATE.write_text(json.dumps(state), encoding="utf-8")
+            manager.get_by_role(
+                "button", name="Editar periodo " + current["name"], exact=True
+            ).click()
+            manager.get_by_label("Nombre del periodo", exact=True).fill(
+                "Calendario sintético UI2027 revisado"
+            )
+            manager.get_by_label("Inicio del periodo", exact=True).fill("2027-02-01")
+            with page.expect_response(
+                lambda response: response.request.method == "PATCH"
+                and response.url.endswith("/academic/periods/" + current["id"])
+            ) as reply:
+                manager.get_by_role("button", name="Guardar periodo", exact=True).click()
+            assert reply.value.status == 200 and reply.value.json()["id"] == current["id"]
+            state["synthetic_period"] = reply.value.json()
+            original = next(item for item in periods_before if item["id"] == period["id"])
+            manager.get_by_role(
+                "button", name="Editar periodo " + original["name"], exact=True
+            ).click()
+            manager.get_by_label("Inicio del periodo", exact=True).fill("2026-04-30")
+            with page.expect_response(
+                lambda response: response.request.method == "PATCH"
+                and response.url.endswith("/academic/periods/" + original["id"])
+            ) as reply:
+                manager.get_by_role("button", name="Guardar periodo", exact=True).click()
+            assert reply.value.status == 422
+            expect(manager.get_by_role("alert")).to_contain_text("excluirían notas")
+            manager.get_by_role("button", name="Cancelar edición de periodo", exact=True).click()
+            assert (
+                next(
+                    item for item in api("GET", "/academic/periods") if item["id"] == original["id"]
+                )
+                == original
+            )
+            assert preserved() == before
+            passed("period")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()

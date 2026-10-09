@@ -43,6 +43,14 @@ export interface AcademicCatalog {
   literal_scale: { greater_than: number; grade: string }[];
 }
 
+export interface AcademicPeriod {
+  id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+}
+export type PeriodPayload = Omit<AcademicPeriod, 'id'>;
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -299,6 +307,9 @@ export class ApiService {
   getMonthlyGradeSummary(filters: Record<string, string>) {
     return this.http.get<{ thresholds: { greater_than: number; grade: string }[]; students: { student_id: string; average: number | null; literal: string | null; components_recorded: number }[] }>(`${environment.apiUrl}/grades/monthly-summary`, { params: filters });
   }
+  listPeriods() { return this.http.get<AcademicPeriod[]>(`${environment.apiUrl}/academic/periods`); }
+  createPeriod(payload: PeriodPayload) { return this.http.post<AcademicPeriod>(`${environment.apiUrl}/academic/periods`, payload); }
+  updatePeriod(id: string, payload: Partial<PeriodPayload>) { return this.http.patch<AcademicPeriod>(`${environment.apiUrl}/academic/periods/${id}`, payload); }
   listAssessmentComponents(courseId: string) { return this.http.get<AssessmentComponent[]>(`${environment.apiUrl}/courses/${courseId}/assessment-components`); }
   listCourseAssignments(courseId: string) { return this.http.get<CourseAssignment[]>(`${environment.apiUrl}/courses/${courseId}/assignments`); }
   createCourseAssignment(courseId: string, payload: { section_id: string; teacher_id?: string; teacher_name?: string }) { return this.http.post<CourseAssignment>(`${environment.apiUrl}/courses/${courseId}/assignments`, payload); }

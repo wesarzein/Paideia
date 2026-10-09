@@ -44,7 +44,7 @@ def create_attendance(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     if not db.get(Course, payload.course_id):
         raise HTTPException(status_code=404, detail="Curso no encontrado")
-    period = db.get(AcademicPeriod, payload.period_id)
+    period = db.get(AcademicPeriod, payload.period_id, with_for_update={"read": True})
     if not period:
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
 

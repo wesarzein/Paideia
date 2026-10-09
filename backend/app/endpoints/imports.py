@@ -281,7 +281,7 @@ async def preview_grade_import(file: UploadFile = File(...), period_id: UUID | N
 
 def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> list[GradeRecord]:
     course = db.get(Course, payload.course_id)
-    period = db.get(AcademicPeriod, payload.period_id)
+    period = db.get(AcademicPeriod, payload.period_id, with_for_update={"read": True})
     if course is None or period is None:
         raise HTTPException(status_code=404, detail="Curso o periodo no encontrado")
     if not course.is_active:

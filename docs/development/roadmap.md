@@ -17,7 +17,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 
 ## Orden y aceptación
 
-| Tarea / fuentes | Estado real inicial | Prioridad / dependencia | Aceptación y pruebas necesarias |
+| Tarea / fuentes | Estado comprobado | Prioridad / dependencia | Aceptación y pruebas necesarias |
 | --- | --- | --- | --- |
 | A. Importación institucional y cierre visual 4B.3–4B.5; REQ-39–44, EV-A–I, EX-A–E | PostgreSQL/API y recorrido esencial Playwright probados | P0; RAM y laboratorio saludables | Playwright: XLSX, corrección/confirmación, competencia/criterio/orden/estado/peso/fórmula/preview, borrador/publicación/restauración, matriz explícita, consulta e historia estable; conservar las 21 notas |
 | B1. REQ-04/33: consultas/resúmenes/reportes/exportación por rol y ámbito | PG/API y regresión visual por roles probados para alcance corregido | P0; independiente si A bloqueada | Docente solo cursos de su sección asignada; coordinador/director lectura coherente con UI; alumno/apoderado solo vínculos; pruebas positivas/negativas de listas, agregados, XLSX y fichas |
@@ -26,7 +26,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | PG/API, Vitest, build y recorrido visual focalizado probados | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
 | C2. REQ-12/13, UX-A: matriz persistida y guardado claro | PG/API, Vitest, build y navegador de matriz probados | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
 | C3. REQ-21: asistencia | Estados/periodos/idempotencia probados; tasas sin cambios | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
-| C4. REQ-07/22: grados, secciones, años y periodos | Catálogo probado; administración parcial/año fijo | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
+| C4. REQ-07/22: grados, secciones, años y periodos | Periodos PG/UI probados sin año fijo; grados/secciones parciales | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
 | C6. REQ-08: matrículas académicas | API/seed implementados; UI parcial | P2; C4/B1 | Asociación alumno/curso/periodo, acceso consistente; validar duplicados y matrícula activa sin matrícula financiera |
 | C7. REQ-01/03/06: estudiantes/docentes/usuarios/roles | Flujos básicos probados; variantes parciales | P2; B1/C5 | Conservar seis roles, códigos/búsquedas/estado/asignaciones; no agregar documento personal sin requisito confirmado; pruebas de transiciones y ámbito |
@@ -166,3 +166,23 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 - Tarea activa: C4, eliminar el año fijo y permitir gestión de periodos con fechas
   coherentes y protección de notas/asistencias existentes. Grados/secciones y otras
   variantes de C4 siguen pendientes; no declarar el catálogo completo por este bloque.
+- C4-periodos: 41/41 PG en 78,99 s (13 casos de calendario + relaciones/fechas de notas,
+  asistencia y dos regresiones XLSX). Después 2/2 en 7,65 s: nuevo caso de edición de
+  calendario concurrente con inserción de nota y repetición necesaria del caso de alta
+  concurrente tras ajustar la prueba. Calendario editable por admin, legible por seis
+  roles, nombres duplicados/fechas/null rechazados. Cambiar fechas no puede excluir
+  notas/asistencias; nota/manual/Excel/asistencia toman bloqueo compartido de periodo
+  para que una edición concurrente valide también sus escrituras ya confirmadas.
+  Catálogo incluye periodos de otros años en orden cronológico, conservando identidades.
+  Auditoría de altas/ediciones; no DELETE ni política de archivo nueva. Sin migración.
+- Frontend C4: 22/22 Vitest, tres de periodos, build 25,253 s; operaciones seriales y
+  caché/cap 768 MiB. Formulario admin en Cursos: fechas claras, errores accionables,
+  carga/reintento, edición por ID, catálogo actualizado. Playwright period pasó:
+  inversión rechazada antes de enviar, alta/edición sintética 2027, 422 al intentar
+  excluir notas del calendario original y conservación de sus fechas y las 32 notas.
+  Periodo nuevo/evidencia privados en `academic-ui.state.json`; no se aplicó ningún
+  cambio al calendario original ni a la instalación institucional.
+- Siguiente segura: C3/D, feedback de errores y guardado de asistencia en UI; la API
+  ya valida fechas/estados pero el formulario existente omite los errores de POST.
+  Después continuar grados/secciones de C4 y matrículas, sin declarar producción ni
+  resolver por cuenta propia las decisiones institucionales pendientes de B3/fórmulas.
