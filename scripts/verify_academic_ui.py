@@ -43,7 +43,7 @@ def free_memory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--stage", choices=["all", "editor", "import", "manual", "history"], default="all"
+        "--stage", choices=["all", "editor", "import", "manual", "history", "matrix"], default="all"
     )
     parser.add_argument(
         "--browser", default="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
@@ -284,6 +284,92 @@ def main():
             expect(page.locator("section.table-wrap").last.locator("tbody tr")).to_have_count(11)
             preserved()
             passed("manual")
+
+        if args.stage in ("all", "matrix") and "matrix" not in state["checks"]:
+            assert "manual" in state["checks"], "Complete the initial manual journey first"
+            before = preserved()
+            original = next(record for record in before if record["id"] == state["manual"]["id"])
+            page.goto(base + "/calificaciones")
+            page.get_by_label(re.compile(r"^Nivel")).select_option("Secundaria")
+            page.get_by_label(re.compile(r"^Grado")).select_option(student["grade_id"])
+            page.get_by_label(re.compile(r"^Sección")).select_option(student["section_id"])
+            page.get_by_label(re.compile(r"^Curso")).select_option(course["id"])
+            page.get_by_label(re.compile(r"^Periodo")).select_option(period["id"])
+            page.get_by_label("Bimestre institucional", exact=True).fill(
+                str(original["academic_bimester"])
+            )
+            page.get_by_label(re.compile(r"^Bloque de evaluación")).select_option(
+                index=original["evaluation_block"] - 1
+            )
+            page.get_by_label("Nombre de evaluación", exact=True).fill(original["evaluation_name"])
+            page.get_by_label("Fecha de evaluación", exact=True).fill(original["assessment_date"])
+            page.get_by_label("Mes de consulta", exact=True).click()
+            active = api(
+                "GET", scope + "/evaluation-configurations/active?period_id=" + period["id"]
+            )
+            criteria = sorted(
+                (
+                    criterion
+                    for criterion in active["configuration"]["criteria"]
+                    if criterion["is_active"] and criterion["block"] == original["evaluation_block"]
+                ),
+                key=lambda criterion: criterion["position"],
+            )
+            index = next(
+                index
+                for index, criterion in enumerate(criteria)
+                if criterion["key"] == original["evaluation_criterion_key"]
+            )
+            row = (
+                page.locator("section.table-wrap")
+                .first.locator("tbody tr")
+                .filter(has_text=student["student_code"])
+            )
+            cell = row.get_by_label("Nota de criterio").nth(index)
+            expect(cell).to_have_value(str(int(original["score"])))
+            save = page.get_by_role("button", name="Guardar matriz", exact=True)
+            expect(save).to_be_enabled()
+            writes = []
+            page.on(
+                "request",
+                lambda request: writes.append(request.url)
+                if request.method in ("POST", "PATCH") and "/grades" in request.url
+                else None,
+            )
+            save.click()
+            expect(page.get_by_role("status")).to_contain_text("Sin cambios")
+            assert not writes
+            for score in (15 if original["score"] != 15 else 16, 14):
+                cell.fill(str(score))
+                with page.expect_response(
+                    lambda response: response.request.method == "PATCH"
+                    and response.url.endswith("/grades/" + original["id"])
+                ) as reply:
+                    save.click()
+                assert reply.value.status == 200
+                expect(save).to_be_enabled()
+                state["manual"] = reply.value.json()
+                assert state["manual"]["assessment_config"] == original["assessment_config"]
+                assert (
+                    state["manual"]["evaluation_revision_id"] == original["evaluation_revision_id"]
+                )
+            save.click()
+            expect(page.get_by_role("status")).to_contain_text("Sin cambios")
+            assert len(writes) == 2 and all(
+                url.endswith("/grades/" + original["id"]) for url in writes
+            )
+            after = preserved()
+            assert [record for record in after if record["id"] != original["id"]] == [
+                record for record in before if record["id"] != original["id"]
+            ]
+            assert {
+                key: value
+                for key, value in state["manual"].items()
+                if key not in {"score", "updated_at"}
+            } == {
+                key: value for key, value in original.items() if key not in {"score", "updated_at"}
+            }
+            passed("matrix")
 
         if args.stage in ("all", "history") and "history" not in state["checks"]:
             panel = editor()

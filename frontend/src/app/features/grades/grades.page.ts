@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { concatMap, finalize, forkJoin, from, tap } from 'rxjs';
 
 import {
   AcademicCatalog,
@@ -36,11 +37,11 @@ type MatrixCriterion = {
       <label>Sección<select [(ngModel)]="sectionId" (ngModelChange)="courseId = ''; loadCatalog()" [disabled]="!gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) {<option [value]="section.id">{{ gradeName(section.grade_id) }} · {{ section.name }}</option>}</select></label>
       <label>Curso<select [(ngModel)]="courseId" (ngModelChange)="loadAcademicSetup()" [disabled]="!sectionId"><option value="">Seleccionar curso</option>@for (course of catalog().courses; track course.id) {<option [value]="course.id">{{ course.name }}</option>}</select></label>
       <label>Periodo<select [(ngModel)]="periodId" (ngModelChange)="loadAcademicSetup()" [disabled]="!sectionId"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) {<option [value]="period.id">{{ period.name }}</option>}</select></label>
-      <label>Bimestre institucional<input type="number" min="1" step="1" [(ngModel)]="academicBimester" placeholder="Seleccionar" /></label>
-      <label>Bloque de evaluación<select [(ngModel)]="evaluationBlock" (ngModelChange)="scores = {}"><option [ngValue]="1">Primer bloque · semana 4</option><option [ngValue]="2">Segundo bloque · semana 8</option></select></label>
-      <label>Nombre de evaluación<input [(ngModel)]="evaluationName" maxlength="120" placeholder="Nombre confirmado por el docente" /></label>
-      <label>Fecha de evaluación<input type="date" [(ngModel)]="assessmentDate" /></label>
-      <label>Tipo de evidencia legado<select [(ngModel)]="legacyEvidenceType">@for (type of evidenceTypes; track type) {<option [value]="type">{{ type }}</option>}</select></label>
+      <label>Bimestre institucional<input type="number" min="1" step="1" [(ngModel)]="academicBimester" (ngModelChange)="loadMatrix()" placeholder="Seleccionar" /></label>
+      <label>Bloque de evaluación<select [(ngModel)]="evaluationBlock" (ngModelChange)="loadMatrix()"><option [ngValue]="1">Primer bloque · semana 4</option><option [ngValue]="2">Segundo bloque · semana 8</option></select></label>
+      <label>Nombre de evaluación<input [(ngModel)]="evaluationName" (change)="loadMatrix()" maxlength="120" placeholder="Nombre confirmado por el docente" /></label>
+      <label>Fecha de evaluación<input type="date" [(ngModel)]="assessmentDate" (ngModelChange)="loadMatrix()" /></label>
+      <label>Tipo de evidencia legado<select [(ngModel)]="legacyEvidenceType" (ngModelChange)="loadMatrix()">@for (type of evidenceTypes; track type) {<option [value]="type">{{ type }}</option>}</select></label>
       <label>Mes de consulta<input type="month" [(ngModel)]="consultationMonth" (ngModelChange)="loadGrades()" /></label>
     </section>
 
@@ -71,7 +72,9 @@ type MatrixCriterion = {
           </tbody>
         </table>
         @if (!catalog().students.length) { <p>No hay alumnos cargados para esta sección. Importa el padrón institucional para continuar.</p> }
-        <button type="button" (click)="saveAll()" [disabled]="!catalog().students.length">Guardar matriz</button>
+        <p>Al corregir notas registradas se conserva su versión y peso histórico.</p>
+        @if (matrixLoading()) { <p role="status">Cargando notas de la evaluación...</p> }
+        <button type="button" (click)="saveAll()" [disabled]="!catalog().students.length || matrixLoading() || matrixError() || saving()">{{ saving() ? 'Guardando...' : 'Guardar matriz' }}</button>
       </section>
       <section class="panel table-wrap">
         <h2>Notas registradas del mes consultado</h2>
@@ -109,6 +112,14 @@ export class GradesPage {
   protected consultationMonth = new Date().toISOString().slice(0, 7);
   protected scores: Record<string, number | null> = {};
   protected notes: Record<string, string> = {};
+  protected readonly matrixLoading = signal(false);
+  protected readonly matrixError = signal(false);
+  protected readonly saving = signal(false);
+  private persisted: Record<string, GradeRecord> = {};
+  private loadedNotes: Record<string, string> = {};
+  private loadedContext = '';
+  private matrixRequest = 0;
+  private setupRequest = 0;
 
   constructor() { this.loadCatalog(); }
   protected levels(): string[] { return [...new Set(this.catalog().grades.map((item) => item.level))]; }
@@ -145,28 +156,38 @@ export class GradesPage {
     if (this.sectionId) filters['section_id'] = this.sectionId;
     this.api.getAcademicCatalog(filters).subscribe({ next: (catalog) => this.catalog.set(catalog) });
     if (!this.sectionId) {
+      ++this.setupRequest;
       this.courseId = '';
       this.periodId = '';
       this.components.set([]);
       this.activeRevision.set(null);
       this.grades.set([]);
+      this.loadMatrix();
     }
   }
 
   protected loadAcademicSetup(): void {
+    const request = ++this.setupRequest;
     this.scores = {};
     this.components.set([]);
     this.activeRevision.set(null);
-    if (this.courseId) {
-      this.api.listAssessmentComponents(this.courseId).subscribe({
-        next: (items) => this.components.set(items),
-      });
-    }
+    this.matrixLoading.set(true);
     if (this.courseId && this.periodId) {
-      this.api.getActiveEvaluationConfiguration(this.courseId, this.periodId).subscribe({
-        next: (revision) => this.activeRevision.set(revision),
-        error: () => this.message.set('No se pudo consultar la configuración de evaluación vigente.'),
+      forkJoin({ components: this.api.listAssessmentComponents(this.courseId), revision: this.api.getActiveEvaluationConfiguration(this.courseId, this.periodId) }).subscribe({
+        next: ({ components, revision }) => {
+          if (request !== this.setupRequest) return;
+          this.components.set(components);
+          this.activeRevision.set(revision);
+          this.loadMatrix();
+        },
+        error: () => {
+          if (request !== this.setupRequest) return;
+          this.matrixLoading.set(false); this.matrixError.set(true);
+          this.message.set('No se pudo consultar la configuración de evaluación vigente.');
+        },
       });
+    } else {
+      this.loadMatrix();
     }
     this.loadGrades();
   }
@@ -182,7 +203,7 @@ export class GradesPage {
 
   protected average(studentId: string): number | null {
     const entries = this.matrixCriteria().map((criterion) => ({
-      score: this.scores[this.scoreKey(studentId, criterion.key)], weight: criterion.weight,
+      score: this.scores[this.scoreKey(studentId, criterion.key)], weight: this.persisted[this.scoreKey(studentId, criterion.key)]?.assessment_weight ?? criterion.weight,
     })).filter((item) => item.score !== null && item.score !== undefined
       && !this.invalidScore(item.score) && item.weight > 0);
     const weight = entries.reduce((sum, item) => sum + item.weight, 0);
@@ -215,7 +236,75 @@ export class GradesPage {
     this.api.listGrades(filters).subscribe({ next: (items) => this.grades.set(items) });
   }
 
+  private matrixContext(): string {
+    return JSON.stringify([this.gradeId, this.sectionId, this.courseId, this.periodId,
+      this.academicBimester, this.evaluationBlock, this.evaluationName.trim(), this.assessmentDate,
+      this.activeRevision()?.id, this.legacyEvidenceType]);
+  }
+
+  protected loadMatrix(): void {
+    const request = ++this.matrixRequest;
+    const context = this.matrixContext();
+    if (context !== this.loadedContext) {
+      this.scores = {}; this.notes = {}; this.persisted = {}; this.loadedNotes = {};
+      this.loadedContext = context;
+    }
+    this.matrixError.set(false);
+    if (!this.sectionId || !this.courseId || !this.periodId || !this.academicBimester || !this.evaluationName.trim() || !this.assessmentDate) {
+      this.matrixLoading.set(false);
+      return;
+    }
+    this.matrixLoading.set(true);
+    const filters: Record<string, string> = {
+      grade_id: this.gradeId, section_id: this.sectionId, course_id: this.courseId,
+      period_id: this.periodId, academic_bimester: String(this.academicBimester),
+      evaluation_block: String(this.evaluationBlock), evaluation_name: this.evaluationName.trim(),
+      assessment_date: this.assessmentDate,
+    };
+    if (this.activeRevision()?.state !== 'published') filters['evaluation_type'] = this.legacyEvidenceType;
+    this.api.listGrades(filters).subscribe({ next: (records) => {
+      if (request !== this.matrixRequest || context !== this.matrixContext()) return;
+      const persisted: Record<string, GradeRecord> = {};
+      const loadedNotes: Record<string, string> = {};
+      for (const record of records) {
+        const criterion = this.matrixCriteria().find((item) => item.configurable
+          ? item.key === record.evaluation_criterion_key : item.componentId === record.component_id);
+        if (!criterion) continue;
+        const key = this.scoreKey(record.student_id, criterion.key);
+        if (persisted[key]) {
+          this.matrixError.set(true); this.matrixLoading.set(false);
+          this.message.set('Hay notas ambiguas para este contexto; revisa la consulta antes de guardar.');
+          return;
+        }
+        persisted[key] = record;
+        if (!(key in this.scores) || this.scores[key] === this.persisted[key]?.score) this.scores[key] = record.score;
+        if (!(record.student_id in loadedNotes)) {
+          loadedNotes[record.student_id] = record.qualitative_note ?? '';
+          if (!(record.student_id in this.notes) || this.notes[record.student_id] === this.loadedNotes[record.student_id]) this.notes[record.student_id] = loadedNotes[record.student_id];
+        }
+      }
+      for (const key of Object.keys(this.persisted)) {
+        if (!(key in persisted)) {
+          if (this.scores[key] !== this.persisted[key].score) {
+            this.matrixError.set(true); this.matrixLoading.set(false);
+            this.message.set('Una nota editada ya no existe en este contexto; vuelve a seleccionar la evaluación.');
+            return;
+          }
+          delete this.scores[key];
+        }
+      }
+      this.persisted = persisted;
+      this.loadedNotes = loadedNotes;
+      this.matrixLoading.set(false);
+    }, error: () => {
+      if (request !== this.matrixRequest) return;
+      this.matrixError.set(true); this.matrixLoading.set(false);
+      this.message.set('No se pudo cargar la evaluación; reintenta antes de guardar.');
+    } });
+  }
+
   protected saveAll(): void {
+    if (this.saving() || this.matrixLoading() || this.matrixError()) return;
     if (!this.academicBimester || !this.evaluationName.trim() || !this.assessmentDate) {
       this.message.set('Selecciona bimestre, bloque, nombre y fecha de la evaluación.');
       return;
@@ -231,33 +320,39 @@ export class GradesPage {
       this.message.set('Corrige las notas marcadas: la escala permitida es 0–20.');
       return;
     }
+    const context = this.matrixContext();
+    const common = { course_id: this.courseId, period_id: this.periodId,
+      academic_bimester: this.academicBimester, evaluation_block: this.evaluationBlock,
+      evaluation_name: this.evaluationName.trim(), assessment_date: this.assessmentDate };
+    const writes = entries.map(({ student, criterion, score }) => {
+      const key = this.scoreKey(student.id, criterion.key);
+      const existing = this.persisted[key];
+      const noteChanged = this.notes[student.id] !== this.loadedNotes[student.id];
+      const note = noteChanged ? this.notes[student.id] || '' : existing?.qualitative_note ?? '';
+      return { key, existing, score, note, noteChanged, payload: { ...common, student_id: student.id,
+        component_id: criterion.componentId ?? undefined,
+        evaluation_criterion_key: criterion.configurable ? criterion.key : undefined,
+        evaluation_type: criterion.configurable ? criterion.name : this.legacyEvidenceType,
+        score, qualitative_note: this.notes[student.id] || undefined } };
+    }).filter((entry) => !entry.existing || entry.score !== entry.existing.score || entry.note !== (entry.existing.qualitative_note ?? ''));
+    if (!writes.length) { this.message.set('Sin cambios: las notas registradas ya coinciden.'); return; }
+    this.saving.set(true);
     let saved = 0;
-    entries.forEach(({ student, criterion, score }) => this.api.createGrade({
-      student_id: student.id,
-      course_id: this.courseId,
-      period_id: this.periodId,
-      component_id: criterion.componentId ?? undefined,
-      academic_bimester: this.academicBimester ?? undefined,
-      evaluation_block: this.evaluationBlock,
-      evaluation_criterion_key: criterion.configurable ? criterion.key : undefined,
-      evaluation_name: this.evaluationName.trim(),
-      evaluation_type: criterion.configurable ? criterion.name : this.legacyEvidenceType,
-      assessment_date: this.assessmentDate,
-      score,
-      qualitative_note: this.notes[student.id] || undefined,
-    }).subscribe({
-      next: () => {
+    from(writes).pipe(concatMap((entry) => (entry.existing
+      ? this.api.updateGrade(entry.existing.id, { score: entry.score, qualitative_note: entry.noteChanged ? entry.note : undefined })
+      : this.api.createGrade(entry.payload)).pipe(tap((record) => {
         saved += 1;
-        this.message.set(`${saved} de ${entries.length} notas guardadas.`);
-        if (saved === entries.length) {
-          this.consultationMonth = this.assessmentDate.slice(0, 7);
-          this.loadGrades();
-        }
+        if (context === this.matrixContext()) this.persisted[entry.key] = record;
+      }))), finalize(() => this.saving.set(false))).subscribe({
+      complete: () => {
+        this.message.set(`${saved} de ${writes.length} notas guardadas.`);
+        if (context === this.matrixContext()) this.consultationMonth = common.assessment_date.slice(0, 7);
+        this.loadGrades(); this.loadMatrix();
       },
-      error: (error: { error?: { detail?: string } }) => this.message.set(
-        error.error?.detail ?? 'No se pudo guardar la matriz; revisa contexto y permisos.',
-      ),
-    }));
+      error: (error: { error?: { detail?: string } }) => {
+        this.message.set(`${saved} de ${writes.length} notas guardadas. ${error.error?.detail ?? 'No se pudo completar el guardado; reintenta las restantes.'}`);
+      },
+    });
   }
 
   protected studentName(id: string): string {
@@ -272,13 +367,13 @@ export class GradesPage {
     this.api.updateGrade(grade.id, {
       score: Number(grade.score), qualitative_note: grade.qualitative_note ?? '',
     }).subscribe({
-      next: () => { this.message.set('Nota actualizada.'); this.loadGrades(); },
+      next: () => { this.message.set('Nota actualizada.'); this.loadGrades(); this.loadMatrix(); },
     });
   }
 
   protected async remove(grade: GradeRecord): Promise<void> {
     if (await this.confirm.ask('¿Eliminar esta calificación?')) {
-      this.api.deleteGrade(grade.id).subscribe({ next: () => this.loadGrades() });
+      this.api.deleteGrade(grade.id).subscribe({ next: () => { this.loadGrades(); this.loadMatrix(); } });
     }
   }
 }

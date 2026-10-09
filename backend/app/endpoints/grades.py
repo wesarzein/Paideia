@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -31,7 +31,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[GradeResponse])
-def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, grade_id: UUID | None = None, section_id: UUID | None = None, month: int | None = None, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[GradeRecord]:
+def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, grade_id: UUID | None = None, section_id: UUID | None = None, month: int | None = None, academic_bimester: int | None = Query(default=None, ge=1), evaluation_block: int | None = Query(default=None, ge=1, le=2), evaluation_name: str | None = None, evaluation_type: str | None = None, assessment_date: date | None = None, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[GradeRecord]:
     statement = select(GradeRecord).where(record_scope(GradeRecord, user))
     if grade_id or section_id:
         statement = statement.join(Student, GradeRecord.student_id == Student.id)
@@ -40,6 +40,11 @@ def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, p
     if period_id: statement = statement.where(GradeRecord.period_id == period_id)
     if grade_id: statement = statement.where(Student.grade_id == grade_id)
     if section_id: statement = statement.where(Student.section_id == section_id)
+    if academic_bimester is not None: statement = statement.where(GradeRecord.academic_bimester == academic_bimester)
+    if evaluation_block is not None: statement = statement.where(GradeRecord.evaluation_block == evaluation_block)
+    if evaluation_name is not None: statement = statement.where(func.trim(GradeRecord.evaluation_name) == evaluation_name.strip())
+    if evaluation_type is not None: statement = statement.where(func.trim(GradeRecord.evaluation_type) == evaluation_type.strip())
+    if assessment_date is not None: statement = statement.where(GradeRecord.assessment_date == assessment_date)
     if month is not None:
         if not 1 <= month <= 12:
             raise HTTPException(status_code=422, detail="month debe estar entre 1 y 12")

@@ -88,7 +88,7 @@ export interface GradePayload {
   evaluation_type?: string;
   assessment_date?: string;
 }
-export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
+export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; component_id: string | null; assessment_weight: number; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
 
 export interface AttendancePayload {
   student_id: string;
@@ -305,9 +305,9 @@ export class ApiService {
   deleteCourseAssignment(courseId: string, assignmentId: string) { return this.http.delete<void>(`${environment.apiUrl}/courses/${courseId}/assignments/${assignmentId}`); }
 
   createGrade(payload: GradePayload) {
-    return this.http.post<unknown>(`${environment.apiUrl}/grades`, payload);
+    return this.http.post<GradeRecord>(`${environment.apiUrl}/grades`, payload);
   }
-  updateGrade(id: string, payload: { score?: number; qualitative_note?: string }) { return this.http.patch(`${environment.apiUrl}/grades/${id}`, payload); }
+  updateGrade(id: string, payload: { score?: number; qualitative_note?: string }) { return this.http.patch<GradeRecord>(`${environment.apiUrl}/grades/${id}`, payload); }
   deleteGrade(id: string) { return this.http.delete<void>(`${environment.apiUrl}/grades/${id}`); }
 
   listAttendance(filters: Record<string, string> = {}) {

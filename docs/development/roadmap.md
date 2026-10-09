@@ -24,7 +24,7 @@ describen automáticamente el código posterior: se actualizan con evidencia foc
 | B2. REQ-15: integridad de UUID/componentes/fechas de notas | Probado en PG: relaciones/componentes/fechas manuales y PATCH | P0; B1 | Rechazo 404/422 de relación/fecha inválida sin cambiar notas/snapshot; PG/API con entidades válidas/ajenas/inexistentes |
 | B3. HI-A/REQ-17: auditoría y conservación de historia | Snapshot/importación/versiones probados; cambios/borrados ordinarios parciales | P0; B1 y política de conservación | Registrar actor/antes/después sin datos sensibles públicos; no borrar historia por acciones ordinarias; pruebas transaccionales y permisos, migración aditiva si necesaria |
 | C1. REQ-20/35/38: evidencia insuficiente y resúmenes coherentes | PG/API, Vitest, build y recorrido visual focalizado probados | P1; B1 | Distinguir falta de evidencia/cero válido; usar snapshots en ponderación existente; no inventar fórmula oficial; backend/frontend/exports con conjunto vacío y cero |
-| C2. REQ-12/13, UX-A: matriz persistida y guardado claro | Lista probada, matriz parcial | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
+| C2. REQ-12/13, UX-A: matriz persistida y guardado claro | PG/API, Vitest, build y navegador de matriz probados | P1; A/B2 | Cargar contexto exacto sin sobrescribir borrador; reintento no duplica; filtros existentes + evaluación; pruebas API y navegador |
 | C3. REQ-21: asistencia | Estados/periodos/idempotencia probados; tasas sin cambios | P1; B1 | Validar estados existentes, fechas/relaciones; PRESENT/ABSENT/LATE y atajos conservados; fixtures con repetición y rechazo de valores desconocidos |
 | C4. REQ-07/22: grados, secciones, años y periodos | Catálogo probado; administración parcial/año fijo | P1; B1/B2 | CRUD autorizado y fechas coherentes sin regenerar códigos/identidades; migraciones aditivas solo si hacen falta; PG/API + UI focalizada |
 | C5. REQ-02/05: usuarios y estado de cuenta | PG/API, Vitest, build y navegador de cuentas probados | P1; B1 | Desactivar/reactivar preserva relaciones; cuenta inactiva no autentica; no borrar usuarios con historia; pruebas JWT/roles/migración |
@@ -136,3 +136,20 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 - Siguiente segura: C2, hidratación de matriz por contexto e identidad de edición;
   queda regresión visual de ámbitos por roles y política B3. No repetir builds
   ni recorridos aprobados salvo cambios que los afecten.
+- C2: 26/26 PG en 44,37 s (cuatro consultas de contexto + permisos/contexto de escritura);
+  19/19 Vitest, nueve de matriz, y build final 24,400 s. Contexto exacto de bimestre,
+  bloque, nombre/tipo y fecha en GET; matriz hidrata notas, conserva peso histórico,
+  edita por ID, omite cambios inexistentes y serializa guardado. Respuestas obsoletas,
+  carga fallida, identidades ambiguas y eliminación con edición local bloquean escritura;
+  reintento parcial conserva identidades ya insertadas. No reemplaza un borrador local
+  al refrescar el mismo contexto. Observaciones de cada criterio se conservan salvo
+  cambio explícito de la observación de fila. Sin migraciones nuevas.
+- Playwright matrix pasó: carga de nota existente, dos PATCH al mismo ID (14→15→14),
+  guardados sin cambios sin POST/PATCH, snapshot/revisión/observación estables y 31
+  notas restantes exactas. Las 21 iniciales siguen intactas. Solo updated_at de la
+  nota visual corregida cambió como consecuencia esperada; huella API actual:
+  `e7998edc2fb51a66ea381f2e15207f45e6e7502df0ac29664dbe66e96f92a1b5`.
+  El inventario anterior acredita el reinicio previo a esta corrección, no su timestamp nuevo.
+- Siguiente P0: regresión visual por roles de B1/C9, sobre cuentas sintéticas y curso
+  visual; no alterar notas iniciales. Después C4 (periodos/catálogos), con B3 aún sujeto
+  a política de retención. Las reglas ambiguas de cálculo permanecen pendientes.
