@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -56,15 +57,17 @@ def create_grade(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     if not db.get(Course, payload.course_id):
         raise HTTPException(status_code=404, detail="Curso no encontrado")
-    if not db.get(AcademicPeriod, payload.period_id):
+    period = db.get(AcademicPeriod, payload.period_id)
+    if not period:
         raise HTTPException(status_code=404, detail="Periodo no encontrado")
+
+    ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
+    validate_assessment_date(period, payload.assessment_date)
 
     if payload.component_id:
         component = db.get(CourseAssessmentComponent, payload.component_id)
         if component is None or component.course_id != payload.course_id or not component.is_active:
             raise HTTPException(status_code=422, detail="El componente no está activo para este curso")
-
-    ensure_student_course_access(db, user, student, payload.course_id, payload.period_id)
 
     revision = latest_published_revision(db, payload.course_id, payload.period_id)
     if revision:
@@ -180,7 +183,17 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Calificación no encontrada")
     student = db.get(Student, record.student_id)
     ensure_student_course_access(db, user, student, record.course_id, record.period_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    if "assessment_date" in changes:
+        period = db.get(AcademicPeriod, record.period_id)
+        if period is None:
+            raise HTTPException(status_code=404, detail="Periodo no encontrado")
+        validate_assessment_date(period, changes["assessment_date"])
+    if changes.get("component_id"):
+        component = db.get(CourseAssessmentComponent, changes["component_id"])
+        if component is None or component.course_id != record.course_id or not component.is_active:
+            raise HTTPException(status_code=422, detail="El componente no está activo para este curso")
+    for field, value in changes.items():
         if field in {"evaluation_name", "evaluation_type"} and isinstance(value, str):
             value = value.strip()
         setattr(record, field, value)
@@ -191,6 +204,11 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
         raise HTTPException(status_code=409, detail="La modificación entra en conflicto con una nota existente o una relación inválida") from error
     db.refresh(record)
     return record
+
+
+def validate_assessment_date(period: AcademicPeriod, assessment_date: date) -> None:
+    if not period.starts_on <= assessment_date <= period.ends_on:
+        raise HTTPException(status_code=422, detail="La fecha debe pertenecer al periodo académico")
 
 
 @router.delete("/{grade_id}", status_code=status.HTTP_204_NO_CONTENT)
