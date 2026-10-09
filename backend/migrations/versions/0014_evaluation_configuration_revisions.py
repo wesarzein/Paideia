@@ -10,6 +10,12 @@ depends_on = None
 
 
 def upgrade():
+    # Alembic defaults to VARCHAR(32); preserve this revision's existing identity.
+    # Keep the wider bookkeeping column on downgrade: Alembic updates it only
+    # after downgrade() returns, while it still contains this long revision ID.
+    op.alter_column(
+        "alembic_version", "version_num", existing_type=sa.String(32), type_=sa.String(64)
+    )
     op.create_table(
         "evaluation_configuration_revisions",
         sa.Column("id", sa.UUID(), primary_key=True),
@@ -22,7 +28,9 @@ def upgrade():
         sa.Column("content_hash", sa.String(length=64), nullable=False),
         sa.Column("reason", sa.String(length=500), nullable=False),
         sa.Column("created_by_id", sa.UUID(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint("version > 0", name="ck_evaluation_revision_positive_version"),
         sa.CheckConstraint(
             "state IN ('draft', 'published')", name="ck_evaluation_revision_state"
@@ -141,17 +149,18 @@ def upgrade():
             END IF;
             SELECT weight, name, is_optional INTO c
             FROM course_assessment_components WHERE id = NEW.component_id FOR SHARE;
+            -- Assign a tuple shape even for legacy grades without a revision.
+            SELECT id, course_id, period_id, version, state, content_hash, configuration INTO r
+            FROM evaluation_configuration_revisions
+            WHERE id = NEW.evaluation_revision_id FOR SHARE;
             IF NEW.evaluation_revision_id IS NOT NULL THEN
-                SELECT id, course_id, period_id, version, state, content_hash, configuration INTO r
-                FROM evaluation_configuration_revisions
-                WHERE id = NEW.evaluation_revision_id FOR SHARE;
                 IF NOT FOUND OR r.state <> 'published'
                    OR r.course_id <> NEW.course_id OR r.period_id <> NEW.period_id
                 THEN
                     RAISE EXCEPTION 'Invalid published evaluation revision for grade';
                 END IF;
                 IF NEW.academic_bimester IS NULL OR NEW.academic_bimester < 1
-                   OR NEW.evaluation_block NOT IN (1, 2)
+                   OR NEW.evaluation_block IS NULL OR NEW.evaluation_block NOT IN (1, 2)
                    OR NEW.evaluation_criterion_key IS NULL
                 THEN
                     RAISE EXCEPTION 'Configurable grade requires bimester, block and criterion';

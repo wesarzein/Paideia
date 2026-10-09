@@ -12,7 +12,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from test_roster_persistence import roster
 from test_roster_persistence import sessions as _sessions
@@ -415,10 +415,12 @@ def test_migration_preserves_and_reserves_historical_duplicate_groups(sessions):
                 )
             )
         db.commit()
-        before = [dict(row) for row in db.execute(select(GradeRecord.__table__)).mappings()]
+        # The pre-0014 schema has no configurable-context columns yet.
+        before = db.execute(text("SELECT * FROM grade_records ORDER BY id")).mappings().all()
     command.upgrade(Config("alembic.ini"), "head")
     with sessions() as db:
-        assert [dict(row) for row in db.execute(select(GradeRecord.__table__)).mappings()] == before
+        after = db.execute(text("SELECT * FROM grade_records ORDER BY id")).mappings().all()
+        assert [{key: row[key] for key in before[0]} for row in after] == before
         assert db.scalar(select(GradeRecordIdentity)).grade_id is None
     with client_for(sessions) as client:
         assert (

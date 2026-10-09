@@ -52,9 +52,7 @@ def seed(sessions):
         course = db.scalar(select(Course))
         period = db.scalar(select(AcademicPeriod))
         student = db.scalar(select(Student))
-        component = CourseAssessmentComponent(
-            course_id=course.id, name="Cuaderno 4B.4", weight=2
-        )
+        component = CourseAssessmentComponent(course_id=course.id, name="Cuaderno 4B.4", weight=2)
         db.add(component)
         db.commit()
         return user.id, course.id, period.id, student.id, component.id
@@ -63,6 +61,8 @@ def seed(sessions):
 def test_0014_upgrade_and_reversible_downgrade(sessions):
     with sessions() as db:
         inspector = inspect(db.bind)
+        version_column = inspector.get_columns("alembic_version")[0]
+        assert version_column["type"].length >= len("0014_evaluation_configuration_revisions")
         assert "evaluation_configuration_revisions" in inspector.get_table_names()
         grade_columns = {column["name"] for column in inspector.get_columns("grade_records")}
         assert {
@@ -216,7 +216,9 @@ def test_database_preserves_grade_revision_and_append_only_history(sessions):
 
         with pytest.raises(DBAPIError):
             db.execute(
-                text("UPDATE evaluation_configuration_revisions SET reason='alterado' WHERE id=:id"),
+                text(
+                    "UPDATE evaluation_configuration_revisions SET reason='alterado' WHERE id=:id"
+                ),
                 {"id": revision.id},
             )
             db.commit()
@@ -225,6 +227,27 @@ def test_database_preserves_grade_revision_and_append_only_history(sessions):
             db.execute(
                 text("UPDATE grade_records SET evaluation_revision_id=NULL WHERE id=:id"),
                 {"id": grade.id},
+            )
+            db.commit()
+        db.rollback()
+
+        # Raw SQL must enforce the same explicit context as the HTTP/ORM path.
+        with pytest.raises(DBAPIError):
+            db.execute(
+                GradeRecord.__table__.insert().values(
+                    id=uuid4(),
+                    student_id=student_id,
+                    course_id=course_id,
+                    period_id=period_id,
+                    evaluation_revision_id=revision.id,
+                    academic_bimester=1,
+                    evaluation_block=None,
+                    evaluation_criterion_key="b1_cuaderno",
+                    evaluation_name="Sin bloque",
+                    evaluation_type="Cuaderno",
+                    assessment_date=date(2026, 1, 28),
+                    score=10,
+                )
             )
             db.commit()
         db.rollback()

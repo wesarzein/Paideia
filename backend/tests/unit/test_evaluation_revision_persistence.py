@@ -4,12 +4,11 @@ from datetime import date
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from test_roster_persistence import sessions as _sessions
 
 from app.api.dependencies import get_current_user
-from app.core.database import Base, get_db
+from app.core.database import get_db
 from app.endpoints.courses import router as courses_router
 from app.endpoints.grades import router as grades_router
 from app.endpoints.imports import GradeRowsImport, _prepare_grade_rows
@@ -36,16 +35,13 @@ from app.services.evaluation_revisions import (
 )
 from app.services.grade_import_identity import inspect_rows
 
+sessions = _sessions
+
 
 @pytest.fixture()
-def db():
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
+def db(sessions):
+    # The shared fixture provisions a UUID schema for an opted-in synthetic PG.
+    with sessions() as session:
         role = Role(code="teacher", name="Docente")
         user = User(
             role=role,
@@ -122,15 +118,11 @@ def test_new_grade_keeps_the_published_revision_snapshot(db):
     original_snapshot = dict(grade.assessment_config)
 
     changed_criteria = tuple(
-        replace(criterion, weight=4)
-        if criterion.key == "b1_cuaderno"
-        else criterion
+        replace(criterion, weight=4) if criterion.key == "b1_cuaderno" else criterion
         for criterion in configuration.criteria
     )
     changed = replace(configuration, criteria=changed_criteria, template_id="custom_v1")
-    newer = create_revision(
-        session, changed, user.id, "Nueva ponderación", 1, "published"
-    )
+    newer = create_revision(session, changed, user.id, "Nueva ponderación", 1, "published")
     session.commit()
     session.refresh(grade)
 
@@ -241,9 +233,7 @@ def test_http_permissions_publication_history_and_restore(db):
     assert stale.status_code == 409
 
     payload.update(expected_version=1, reason="Publicación explícita")
-    published = client.post(
-        f"/courses/{course.id}/evaluation-configurations/publish", json=payload
-    )
+    published = client.post(f"/courses/{course.id}/evaluation-configurations/publish", json=payload)
     assert published.status_code == 201
     assert published.json()["state"] == "published"
     active_after_publish = client.get(
@@ -337,15 +327,17 @@ def test_institutional_import_uses_published_configuration_mapping(db):
     )
     session.commit()
 
-    rows = [{
-        "template": "institutional_v1",
-        "student_code": student.student_code,
-        "source_name": "Prueba, Ada",
-        "source_block": "1",
-        "score": 15,
-        "evaluation_type": "Cuaderno",
-        "evaluation_name": "",
-    }]
+    rows = [
+        {
+            "template": "institutional_v1",
+            "student_code": student.student_code,
+            "source_name": "Prueba, Ada",
+            "source_block": "1",
+            "score": 15,
+            "evaluation_type": "Cuaderno",
+            "evaluation_name": "",
+        }
+    ]
     context = {
         "grade_id": str(grade.id),
         "section_id": str(section.id),
