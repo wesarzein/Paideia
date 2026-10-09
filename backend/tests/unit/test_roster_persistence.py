@@ -38,13 +38,16 @@ def sessions(monkeypatch, request):
     if postgres_url:
         url = make_url(postgres_url)
         # Never allow this opt-in fixture to target an institutional database.
-        if (
-            url.drivername != "postgresql+psycopg"
-            or url.host != "paideia-phase2-testdb"
-            or url.database != "paideia_phase2_test"
-            or url.username != "phase2_test"
-        ):
-            pytest.fail("PostgreSQL tests require the dedicated phase2 container/database")
+        target = (url.host, url.database, url.username)
+        allowed = {
+            ("paideia-phase2-testdb", "paideia_phase2_test", "phase2_test"),
+        }
+        if os.environ.get("PAIDEIA_TEST_PROJECT") == "paideia-dev-phase4b3ui":
+            allowed.add(("postgres", "paideia_dev_phase4b3ui", "paideia_dev"))
+        if url.drivername != "postgresql+psycopg" or target not in allowed:
+            pytest.fail(
+                "PostgreSQL tests require an explicitly named disposable/synthetic target"
+            )
         schema = f"phase2_{uuid4().hex}"
         provisioner = create_engine(url)
         with provisioner.begin() as connection:

@@ -22,6 +22,11 @@ recuperable. Una futura alternativa ligera API/PostgreSQL deberá comparar las d
 notas, sus identificadores, valores, snapshots y el inventario antes/después de un
 reinicio autorizado, y distinguirla de una nueva prueba de navegador.
 
+**Actualización 4B.5, 09/10/2026:** esa alternativa ligera ya está implementada en
+`scripts/verify_phase4b3_persistence.py`, restringida a `paideia-dev-phase4b3ui` y sin
+Playwright. No se ejecutó porque Docker estaba detenido y solo había 0,49 GiB de RAM
+disponible. Por tanto, la fase continúa pendiente y no cerrada.
+
 Docker permanece pausado intencionalmente por el responsable. No reactivarlo,
 crear laboratorios ni usar la instalación institucional para completar esta prueba.
 Las migraciones 0012/0013 no se ejecutaron en la base institucional en esta fase.

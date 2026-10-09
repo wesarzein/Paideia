@@ -5,6 +5,9 @@ Docker permaneció pausado y no se utilizó la instalación institucional. Esta 
 cierra [4B.3](importacion-institucional-fase4b3.md): continúa pendiente comprobar la
 persistencia de sus diez notas después de reiniciar el laboratorio sintético.
 
+La integración posterior del contexto manual, la identidad de criterios y el plan de
+validación consolidado están en [Fase 4B.5](integracion-estabilizacion-fase4b5.md).
+
 ## Estado comprobable
 
 | Componente | Implementación | Evidencia disponible |
@@ -35,6 +38,8 @@ upgrade y downgrade, pero la migración no se ejecutó en PostgreSQL.
 - `POST /courses/{course_id}/evaluation-preview`: validación y cálculo sin persistencia.
 - `GET /courses/{course_id}/evaluation-configurations/current`: última revisión o plantilla
   predeterminada con versión cero.
+- `GET /courses/{course_id}/evaluation-configurations/active`: última revisión publicada o
+  plantilla predeterminada; los borradores no afectan el registro de notas.
 - `GET /courses/{course_id}/evaluation-configurations/versions`: historial completo del ámbito.
 - `POST /courses/{course_id}/evaluation-configurations/drafts`: nueva revisión de borrador.
 - `POST /courses/{course_id}/evaluation-configurations/publish`: publicación explícita.
@@ -73,7 +78,8 @@ Excel contra la publicación vigente.
 También se comprobó:
 
 - compilación bytecode del backend;
-- generación OpenAPI de las cinco rutas nuevas de configuración/versionado;
+- generación OpenAPI de las ocho rutas de plantilla, vista previa y
+  configuración/versionado;
 - cadena Alembic con 0014 como `head`;
 - generación offline del SQL PostgreSQL de upgrade y downgrade de 0014;
 - Ruff para los módulos puros, la migración y las pruebas nuevas;
@@ -87,8 +93,8 @@ en el entorno local disponible.
 ## Ejecución PostgreSQL preparada
 
 `backend/tests/unit/test_evaluation_configuration_postgresql.py` queda omitido salvo que
-exista `PAIDEIA_TEST_POSTGRES_URL`. Reutiliza la salvaguarda existente que solo admite el
-host `paideia-phase2-testdb`, base `paideia_phase2_test` y usuario `phase2_test`. En una
+exista `PAIDEIA_TEST_POSTGRES_URL`. Reutiliza una salvaguarda que admite el laboratorio
+phase2 o, con selección explícita adicional, esquemas aislados de `phase4b3ui`. En una
 única ejecución posterior comprobará:
 
 1. upgrade y downgrade real de 0014 en un esquema sintético;
@@ -104,10 +110,10 @@ importador institucional, seguidas por compilación frontend y un recorrido de n
 - La persistencia y los triggers no están validados en PostgreSQL real.
 - La interfaz no está compilada ni probada en navegador; sus contratos HTTP sí aparecen
   en OpenAPI, pero eso no acredita el recorrido visual.
-- El registro manual actual selecciona componentes y mes calendario. Vincula la última
-  revisión publicada al snapshot, pero todavía usa el peso legado del componente. No se
-  puede elegir con seguridad el bloque configurable sin añadir al formulario el bimestre
-  y bloque institucional explícitos; no se infirió esa relación desde la fecha.
+- La integración 4B.5 ya añadió bimestre y bloque institucional explícitos al registro
+  manual, selecciona criterios de la publicación activa y captura su peso en el snapshot.
+  Esta ruta todavía requiere compilación Angular y ejecución integrada con PostgreSQL;
+  no se infirió el contexto académico desde la fecha ni desde el mes calendario.
 - El Excel sí aporta bloque explícito y ya valida su correspondencia con la configuración
   publicada. Falta ejecutar el XLSX completo con PostgreSQL para acreditar guardado,
   idempotencia y consulta con 0014.
