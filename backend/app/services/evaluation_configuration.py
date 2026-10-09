@@ -9,7 +9,7 @@ import json
 import re
 import unicodedata
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -176,7 +176,7 @@ def from_document(document: dict) -> Configuration:
         raise ValueError("Versión o política de configuración no soportada")
     body = {key: value for key, value in document.items() if key not in metadata}
     for field, maximum in [('competencies', 32), ('criteria', 64), ('formulas', 32)]:
-        if not isinstance(body.get(field), (list, tuple)) or len(body[field]) > maximum:
+        if not isinstance(body.get(field), list | tuple) or len(body[field]) > maximum:
             raise ValueError('Documento demasiado grande o con estructura inválida')
     body["competencies"] = tuple(Competency(**value) for value in body["competencies"])
     body["criteria"] = tuple(Criterion(**value) for value in body["criteria"])
@@ -365,5 +365,5 @@ def next_revision(config: Configuration, actor_id: str, reason: str,
             return previous
     return Revision(str(uuid4()), config.course_id, config.period_id,
                     previous.number + 1 if previous else 1, previous.id if previous else None,
-                    actor_id, reason.strip(), datetime.now(timezone.utc).isoformat(),
+                    actor_id, reason.strip(), datetime.now(UTC).isoformat(),
                     config.canonical(), config.fingerprint())

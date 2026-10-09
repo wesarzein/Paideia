@@ -1,110 +1,119 @@
-# Fase 4B.4: componentes iniciales sin Docker
+# Fase 4B.4: evaluación configurable
 
-Fecha: 09/10/2026. Rama: `dev/phase4b4-evaluation-offline`.
-Autorización: desarrollar progresivamente con pruebas locales ligeras, manteniendo
-Docker pausado y sin tocar la instalación institucional. Esto no cierra [4B.3](importacion-institucional-fase4b3.md).
+Fecha de actualización: 09/10/2026. Rama: `dev/phase4b4-evaluation-offline`.
+Docker permaneció pausado y no se utilizó la instalación institucional. Esta fase no
+cierra [4B.3](importacion-institucional-fase4b3.md): continúa pendiente comprobar la
+persistencia de sus diez notas después de reiniciar el laboratorio sintético.
 
-## Alcance implementado y evidencia
+## Estado comprobable
 
-| Componente | Implementación | Validación actual |
+| Componente | Implementación | Evidencia disponible |
 | --- | --- | --- |
-| Competencias | Identificador estable, nombre, orden, estado; asociación de criterios y rechazo de referencias a competencias inactivas/inexistentes | Pruebas de dominio en memoria |
-| Criterios | Adición/edición mediante nuevos documentos, dos bloques, orden, peso, opcionalidad, desactivación lógica, encabezado Excel y vínculo opcional al componente existente | Pruebas de dominio; conserva objetos anteriores |
-| Ponderaciones | Reutiliza rango existente 0–100 y pesos relativos; denominador positivo por bloque; rechaza negativos, booleanos y no finitos | Pruebas de dominio; sin nuevas reglas de suma 100 |
-| Fórmulas | Lenguaje numérico acotado, validación de referencias/ciclos y previsualización; operaciones +, −, ×, ÷; SUM, MEAN, MIN, MAX, ROUND | Pruebas de seguridad y aritmética |
-| Plantilla | Dos bloques, cinco criterios por bloque, media mensual/final a un decimal y literal institucional existente | Comparación aritmética con fórmulas inspeccionadas de 4B.3 |
-| Conversión de componentes | Copia componentes adicionales, opcionales e inactivos, conservando sus UUID; no escribe ni sustituye los originales | Pruebas de dominio |
-| Revisiones | Curso/periodo, actor, motivo, fecha UTC, versión anterior, JSON inmutable y huella SHA-256; rechazo de revisión obsoleta/cambio de ámbito; restablecimiento produce otra revisión | Pruebas de dominio; **no persistido en PostgreSQL** |
-| Compatibilidad Excel | Correspondencia por bloque y encabezado normalizado; nombres repetidos entre bloques permitidos; columnas derivadas excluidas | Pruebas de mapeo; **sin integración nueva en el importador** |
-| API de plantilla/previsualización | Dos rutas en el router de cursos, reutilizando roles de lectura y asignaciones docentes existentes | Sintaxis y revisión estática; **HTTP/permisos no ejecutados** |
+| Competencias | Clave estable, nombre, orden, estado y asociación opcional con criterios | Pruebas de dominio locales |
+| Criterios | Alta, edición, orden por bloque, desactivación lógica, opcionalidad, peso, encabezado Excel y vínculo al componente legado | Pruebas de dominio locales |
+| Ponderaciones | Rango 0–100 y cálculo relativo compatible con componentes actuales; denominador positivo por bloque | Pruebas de dominio locales; no se impuso suma 100 |
+| Fórmulas | Intérprete decimal restringido para `+`, `-`, `*`, `/`, `SUM`, `MEAN`, `MIN`, `MAX` y `ROUND`; referencias, ciclos y complejidad validados | Pruebas de seguridad y aritmética |
+| Plantilla institucional | Dos bloques de cuatro semanas, cinco criterios por bloque, promedios mensuales/final y literal existente | Pruebas con estructura anonimizada de 4B.3 |
+| Versionado | Revisiones anexadas por curso/periodo con estado, versión anterior, autor, fecha, motivo, JSON y SHA-256 | SQLite aislado; PostgreSQL pendiente |
+| Concurrencia | Versión base obligatoria y unicidad `(course_id, period_id, version)`; una carrera devuelve conflicto | Lógica y 409 probados localmente; carrera PostgreSQL preparada |
+| Publicación | Guardar borrador, publicar y restablecer la plantilla generan revisiones inmutables; ninguna acción recalcula notas previas | API FastAPI con SQLite aislado |
+| Permisos | Lectura para roles existentes; escritura para admin/coordinator y docente asignado; director solo lectura | Docente permitido/denegado y director denegado probados localmente |
+| Historial de notas | Las notas nuevas pueden guardar la revisión publicada; el snapshot registra ID, versión y huella; el vínculo es inmutable | SQLite aislado; trigger PostgreSQL pendiente |
+| Importación Excel | Si existe una publicación, el importador relaciona bloque y encabezado con esa versión; rechaza criterios sin correspondencia | Prueba sintética local; recorrido XLSX/PG pendiente |
+| Interfaz | Editor dentro de Cursos para competencias, criterios, orden, estados, pesos, fórmulas, vista previa, borrador, publicación, historial y restauración | Código preparado; compilación y navegador pendientes |
 
-No se incorporaron pantallas nuevas, publicación persistente, migraciones ni recálculos
-de notas. Las funciones anteriores de cursos, componentes, pesos e importación siguen
-en sus rutas existentes. Las notas continúan usando `weighted_mean_v1` y los snapshots
-de 0012; la identidad y la confirmación de 0013 no se modificaron.
+Las migraciones 0012 y 0013 no se modificaron. La nueva migración
+`0014_evaluation_configuration_revisions` es aditiva: crea el historial, añade a
+`grade_records` una referencia nullable a la revisión y reemplaza el trigger de 0012
+para incluir esa referencia en snapshots nuevos. El downgrade restaura la función de
+0012 antes de retirar exclusivamente las estructuras de 0014. Se generó SQL offline de
+upgrade y downgrade, pero la migración no se ejecutó en PostgreSQL.
 
-## Archivos y contratos
+## Contratos implementados
 
-- `backend/app/services/safe_formula.py`: intérprete limitado, sin ejecución de código.
-- `backend/app/services/evaluation_configuration.py`: documentos, plantilla,
-  conversión, mapeo Excel, previsualización y construcción de revisiones.
-- `backend/app/schemas/courses.py`: `EvaluationPreviewRequest` conserva valores crudos
-  para rechazar booleanos en lugar de convertirlos en notas.
-- `backend/app/endpoints/courses.py`: `GET /courses/{course_id}/evaluation-template?period_id=...`
-  y `POST /courses/{course_id}/evaluation-preview` con `{configuration, scores}`.
-  Las rutas no publican configuraciones ni escriben calificaciones.
-- `backend/tests/offline/`: pruebas exclusivamente con biblioteca estándar.
+- `GET /courses/{course_id}/evaluation-template`: plantilla institucional para un periodo.
+- `POST /courses/{course_id}/evaluation-preview`: validación y cálculo sin persistencia.
+- `GET /courses/{course_id}/evaluation-configurations/current`: última revisión o plantilla
+  predeterminada con versión cero.
+- `GET /courses/{course_id}/evaluation-configurations/versions`: historial completo del ámbito.
+- `POST /courses/{course_id}/evaluation-configurations/drafts`: nueva revisión de borrador.
+- `POST /courses/{course_id}/evaluation-configurations/publish`: publicación explícita.
+- `POST /courses/{course_id}/evaluation-configurations/restore-institutional`: nueva
+  publicación basada en la plantilla, sin eliminar el historial.
 
-El documento indica `schema_version=1`, `formula_language=paideia_numeric_v1`,
-`weight_mode=relative_legacy`, cuatro semanas por bloque y ocho por bimestre.
-No asigna fechas de calendario ni identifica automáticamente un bimestre.
-Los criterios conservan su clave al reordenarse; las posiciones no generan IDs.
-No se inventaron nombres de competencias institucionales.
+Cada escritura exige `expected_version` y un motivo. El documento se valida otra vez en
+backend. Las revisiones no se actualizan ni eliminan: ORM y migración PostgreSQL las
+protegen. La restricción única resuelve el caso en que dos solicitudes observan la misma
+versión; una debe recargar antes de reintentar.
 
-## Reglas y límites explícitos
+## Reglas que se mantienen
 
-- Vacío se representa como `None`, nunca como cero. Cero explícito es un dato válido.
-  Falta de criterio obligatorio con peso positivo bloquea el resultado final de vista previa.
-- La media ponderada de diagnóstico y las fórmulas son resultados separados.
-  **Modificar pesos no reescribe una fórmula explícita.** El docente deberá revisar ambas;
-  la previsualización no publica ni consolida resultados académicos.
-- Se conservan opcionalidad y criterios adicionales existentes. El promedio de
-  diagnóstico omite opcionales ausentes; una fórmula que los referencia permanece
-  incompleta. La política institucional de entradas parciales/optativas debe confirmarse
-  antes de integrar publicación y cálculo oficial.
-- `ROUND` admite 0–4 decimales, con redondeo decimal de mitad hacia arriba, contrastado
-  con el caso institucional. Las expresiones no son cadenas Excel ejecutables: no
-  hay macros, acceso al sistema, atributos, índices, importaciones ni funciones arbitrarias.
-- Máximo 512 caracteres, 128 nodos y profundidad 20 por expresión; magnitud numérica
-  hasta 1e9, precisión limitada y exponentes entre −28 y 9. Configuraciones con hasta
-  64 criterios, 32 competencias y 32 fórmulas; esos límites no garantizan que cualquier
-  combinación quepa en una sola fórmula. No se descartan componentes para hacerla caber.
-- La huella detecta cambios de contenido; **no es una firma de autenticación ni una
-  garantía transaccional**. La comparación de revisión anterior es local al dominio;
-  la publicación concurrente exigirá garantías PostgreSQL.
-- Los permisos actuales de modificación no se ampliaron. Las rutas nuevas son de
-  lectura/previsualización: admin, coordinator, director y docentes con el curso asignado.
-  Los permisos de publicación/restablecimiento y restricciones institucionales están pendientes.
+- Vacío es `None`; cero explícito es una nota válida. Un criterio obligatorio ausente
+  deja incompleto el resultado de la previsualización.
+- Los pesos siguen siendo relativos. Cambiar un peso no reescribe automáticamente una
+  fórmula; la interfaz muestra ambos resultados para revisión.
+- `ROUND` admite de cero a cuatro decimales con redondeo decimal de mitad hacia arriba.
+  No se ejecutan fórmulas Excel, macros, `eval`, atributos, índices ni código arbitrario.
+- Los documentos admiten hasta 64 criterios, 32 competencias y 32 fórmulas. Las
+  expresiones admiten hasta 512 caracteres, 128 nodos y profundidad 20.
+- Los criterios usan claves estables; cambiar la posición no cambia su identidad.
+- No se asignan fechas ni bimestres desde la fecha de importación. El importador usa el
+  bloque y el contexto académico que el docente confirmó en 4B.3.
+- Los snapshots anteriores permanecen sin referencia de revisión (`NULL`) y conservan
+  exactamente la evidencia capturada por 0012. No se intenta reconstruir historia desconocida.
 
-## Pruebas realizadas
+## Validación realizada sin Docker
 
-**26 pruebas locales aprobadas**, 0,034 segundos en la última ejecución: nueve del
-motor y diecisiete de configuración. Casos: fórmulas institucionales, precisión y
-redondeos, expresiones inseguras, límites de complejidad/exponentes, ceros/vacíos,
-escala, ponderaciones, adición/edición/orden/desactivación, encabezados repetidos,
-componentes adicionales, ciclos, serialización, cambios de ámbito, revisiones obsoletas,
-conservación de contenido anterior y restablecimiento como nueva revisión.
+Se aprobaron **32 pruebas locales** en 1,60 segundos en la ejecución final: 26 del motor/documento y seis de
+persistencia/API con SQLite aislado. Cubren seguridad de fórmulas, ceros y vacíos,
+competencias, criterios, orden, desactivación, pesos, serialización, revisiones, edición
+obsoleta, permisos, publicación/restauración, conservación del snapshot y mapeo del
+Excel contra la publicación vigente.
 
-Reproducción desde la raíz, sin instalar dependencias ni iniciar aplicaciones:
+También se comprobó:
 
-```powershell
-$env:PYTHONPATH = 'backend'
-python -B -m unittest discover -s backend/tests/offline -v
-```
+- compilación bytecode del backend;
+- generación OpenAPI de las cinco rutas nuevas de configuración/versionado;
+- cadena Alembic con 0014 como `head`;
+- generación offline del SQL PostgreSQL de upgrade y downgrade de 0014;
+- Ruff para los módulos puros, la migración y las pruebas nuevas;
+- codificación UTF-8 y balance básico de las plantillas TypeScript;
+- `git diff --check`.
 
-También se comprobó sintaxis Python mediante AST y `git diff --check`.
-FastAPI, Pydantic, SQLAlchemy y Ruff no están instalados en los intérpretes locales
-revisados; no se descargaron dependencias para esta sesión. No se ejecutaron las
-92 pruebas anteriores ni pruebas Docker, PostgreSQL o navegador.
+No se repitieron las 92 pruebas anteriores. No se ejecutaron PostgreSQL, Docker,
+navegador ni compilación Angular. Node y las dependencias frontend no están instalados
+en el entorno local disponible.
 
-## Tareas siguientes, pequeñas y ordenadas
+## Ejecución PostgreSQL preparada
 
-1. Probar las dos rutas con FastAPI y datos aislados: autenticación, roles, asignaciones,
-   curso/periodo ajenos, documentos inválidos y ausencia de escrituras.
-2. Preparar almacenamiento de revisiones PostgreSQL: documento completo por curso/periodo,
-   versiones anexadas, referencia a la anterior, autor/motivo, unicidad y control concurrente.
-   Diseñar y probar migración aditiva posterior a 0013. **Todavía no hay migración nueva.**
-3. Implementar publicación/restablecimiento explícitos con vista previa y permisos
-   institucionales; confirmar tratamiento de opcionales/parciales y fórmulas frente a pesos.
-4. Asociar notas nuevas a la revisión correspondiente. Resolver el trigger de captura
-   de 0012 mediante una migración posterior probada; conservar los snapshots anteriores.
-   No retocar retrospectivamente 0012/0013 ni reconstruir configuración histórica desconocida.
-5. Incorporar edición de documentos en la pantalla de cursos conservando las opciones
-   existentes; comprobar formularios y recorrido en navegador cuando sea seguro.
-6. Conectar el mapeo de criterios con el parser/importador existente, preservando
-   identidad, confirmación de diferencias, fechas explícitas y rollback.
-7. Validar PostgreSQL aislado, concurrencia, publicación/versionado, consultas históricas
-   y reinicio. Retomar también la persistencia pendiente de 4B.3.
+`backend/tests/unit/test_evaluation_configuration_postgresql.py` queda omitido salvo que
+exista `PAIDEIA_TEST_POSTGRES_URL`. Reutiliza la salvaguarda existente que solo admite el
+host `paideia-phase2-testdb`, base `paideia_phase2_test` y usuario `phase2_test`. En una
+única ejecución posterior comprobará:
 
-Los pasos que requieren Docker o datos persistentes permanecen pendientes de un entorno
-seguro. El código implementado en esta entrega no acredita funcionamiento completo de 4B.4.
+1. upgrade y downgrade real de 0014 en un esquema sintético;
+2. una sola ganadora entre dos publicaciones concurrentes;
+3. trigger append-only del historial;
+4. captura e inmutabilidad de la revisión en el snapshot de una nota nueva.
+
+En esa misma ejecución deben correrse las regresiones PostgreSQL de 0012, 0013 y el
+importador institucional, seguidas por compilación frontend y un recorrido de navegador.
+
+## Límites pendientes
+
+- La persistencia y los triggers no están validados en PostgreSQL real.
+- La interfaz no está compilada ni probada en navegador; sus contratos HTTP sí aparecen
+  en OpenAPI, pero eso no acredita el recorrido visual.
+- El registro manual actual selecciona componentes y mes calendario. Vincula la última
+  revisión publicada al snapshot, pero todavía usa el peso legado del componente. No se
+  puede elegir con seguridad el bloque configurable sin añadir al formulario el bimestre
+  y bloque institucional explícitos; no se infirió esa relación desde la fecha.
+- El Excel sí aporta bloque explícito y ya valida su correspondencia con la configuración
+  publicada. Falta ejecutar el XLSX completo con PostgreSQL para acreditar guardado,
+  idempotencia y consulta con 0014.
+- La política institucional para opcionales incompletos y la relación normativa entre
+  pesos y fórmulas sigue pendiente de confirmación antes de convertir la previsualización
+  en cálculo oficial de resultados.
+
+El código está preparado para la validación integrada, pero 4B.4 continúa **implementada
+parcialmente y no validada de extremo a extremo**.

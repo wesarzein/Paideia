@@ -69,7 +69,12 @@ Puntos de partida para A1, **pendientes de auditoría funcional de este requisit
 - `frontend/src/app/features/courses/courses.page.ts`, `grades/grades.page.ts`, `imports/imports.page.ts` y `frontend/src/app/core/services/api.service.ts`: interfaz y contratos.
 - `backend/tests/unit/` y `frontend/tests/`: cobertura existente que debe revisarse antes de ampliar pruebas.
 
-No se afirma en este documento que competencias, reordenación, fórmulas personalizadas, versionado o importación adaptable estén implementados o hayan pasado pruebas.
+El estado inicial anterior queda conservado como referencia de auditoría. Al 09/10/2026
+ya existe implementación local de competencias, orden, fórmulas restringidas, versiones,
+API, editor e integración inicial con el importador. Su evidencia y sus límites están en
+[evaluacion-configurable-fase4b4.md](evaluacion-configurable-fase4b4.md). PostgreSQL,
+migración real, compilación frontend y navegador continúan pendientes; por ello no se
+considera funcionalidad validada de extremo a extremo.
 
 ## Entrega de la auditoría
 

@@ -15,7 +15,7 @@ class FormulaError(ValueError):
 
 
 def number(value) -> Decimal:
-    if isinstance(value, bool) or not isinstance(value, (int, float, str, Decimal)):
+    if isinstance(value, bool) or not isinstance(value, int | float | str | Decimal):
         raise FormulaError("Se requiere un número finito")
     if len(str(value)) > 64:
         raise FormulaError("Número demasiado largo")
@@ -53,11 +53,11 @@ def parse(expression: str, allowed_names) -> tuple[ast.Expression, frozenset[str
                 raise FormulaError(f"Referencia desconocida: {node.id}")
             references.add(node.id)
         elif isinstance(node, ast.BinOp) and isinstance(
-            node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)
+            node.op, ast.Add | ast.Sub | ast.Mult | ast.Div
         ):
             validate(node.left, depth + 1)
             validate(node.right, depth + 1)
-        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.UAdd | ast.USub):
             validate(node.operand, depth + 1)
         elif isinstance(node, ast.Call):
             if (not isinstance(node.func, ast.Name) or node.func.id not in FUNCTIONS
