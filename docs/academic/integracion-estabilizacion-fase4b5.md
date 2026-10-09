@@ -1,5 +1,16 @@
 # Fase 4B.5: integración y estabilización académica
 
+**Actualización segunda laptop, 09/10/2026:** 4B.3 tiene cierre técnico en el volumen
+nuevo. PostgreSQL real, contexto manual explícito, configuración publicada frente
+a borradores, snapshots estables, identidad de criterios e importación/reimportación
+XLSX comprobados. Angular compiló y el laboratorio completo responde saludable en
+`127.0.0.1:14211`. La interfaz sigue sin recorrido visual nuevo por RAM insuficiente;
+**4B.5 no tiene cierre integral todavía**. Véase
+[informe de validación, correcciones y continuación](validacion-segunda-laptop-fase4b.md).
+
+El texto siguiente conserva las condiciones y pendientes de la sesión anterior,
+actualizados por el informe enlazado; no describe el estado actual de esta laptop.
+
 Fecha: 09/10/2026. Rama: `dev/phase4b5-academic-stabilization`.
 
 ## Condición de ejecución

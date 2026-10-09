@@ -1,4 +1,14 @@
-# Fase 4B.3: implementada, cierre pendiente
+# Fase 4B.3: cierre técnico en la segunda laptop
+
+**Actualización 09/10/2026:** escenario de diez notas reproducido mediante XLSX/API
+en PostgreSQL nuevo, independiente y autorizado. Corrección explícita, IDs, valores,
+snapshots e inventario permanecieron idénticos tras reiniciar exclusivamente PostgreSQL;
+la reimportación posterior omitió diez sin duplicados. **Cierre técnico comprobado en
+este laboratorio nuevo**, sin afirmar verificación del volumen anterior ni un nuevo
+recorrido visual. Evidencia, hashes y comandos en
+[validación de la segunda laptop](validacion-segunda-laptop-fase4b.md).
+
+## Antecedentes: sesión anterior, sustituida por la evidencia anterior
 
 Implementación conservada en `81c8b89`, rama `dev/phase4b3-institutional-excel`.
 **No declarar cerrada esta fase:** falta evidencia concluyente de persistencia después

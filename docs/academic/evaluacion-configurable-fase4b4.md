@@ -1,5 +1,16 @@
 # Fase 4B.4: evaluación configurable
 
+**Actualización segunda laptop, 09/10/2026:** PostgreSQL real y migraciones 0012–0014
+validados en el laboratorio único, con correcciones mínimas de 0014. Pasaron las tres
+pruebas PostgreSQL pendientes y los casos de revisiones/API, permisos, restauración,
+snapshots e integración XLSX. Angular compiló con Node 24 y lockfile. **Pendiente
+recorrido visual** por memoria insuficiente y decisiones institucionales sobre cálculo
+oficial. No declarar cierre integral. Véase
+[evidencia y resultados actuales](validacion-segunda-laptop-fase4b.md).
+
+Los estados de PostgreSQL/compilación pendientes del texto siguiente describen la
+sesión anterior; esta actualización los sustituye sin borrar sus antecedentes.
+
 Fecha de actualización: 09/10/2026. Rama: `dev/phase4b4-evaluation-offline`.
 Docker permaneció pausado y no se utilizó la instalación institucional. Esta fase no
 cierra [4B.3](importacion-institucional-fase4b3.md): continúa pendiente comprobar la

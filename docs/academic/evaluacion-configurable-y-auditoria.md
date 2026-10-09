@@ -69,6 +69,11 @@ Puntos de partida para A1, **pendientes de auditoría funcional de este requisit
 - `frontend/src/app/features/courses/courses.page.ts`, `grades/grades.page.ts`, `imports/imports.page.ts` y `frontend/src/app/core/services/api.service.ts`: interfaz y contratos.
 - `backend/tests/unit/` y `frontend/tests/`: cobertura existente que debe revisarse antes de ampliar pruebas.
 
+La [validación de la segunda laptop](validacion-segunda-laptop-fase4b.md) acredita
+PostgreSQL real, migraciones, integración académica y compilación Angular. El recorrido
+visual nuevo y las reglas institucionales pendientes aún impiden un cierre integral.
+Los párrafos siguientes conservan el estado documental anterior a esa validación.
+
 El estado inicial anterior queda conservado como referencia de auditoría. Al 09/10/2026
 ya existe implementación local de competencias, orden, fórmulas restringidas, versiones,
 API, editor e integración inicial con el importador. Su evidencia y sus límites están en
