@@ -308,7 +308,10 @@ export class EvaluationConfiguratorComponent implements OnChanges {
     if (!this.configuration) return;
     this.busy.set(true);
     this.error.set('');
-    this.api.previewEvaluation(this.courseId, this.configuration, this.sampleScores).subscribe({
+    const activeScores = Object.fromEntries(
+      this.activeCriteria().map((criterion) => [criterion.key, this.sampleScores[criterion.key] ?? null]),
+    );
+    this.api.previewEvaluation(this.courseId, this.configuration, activeScores).subscribe({
       next: (result) => {
         this.previewResult.set(result);
         this.busy.set(false);

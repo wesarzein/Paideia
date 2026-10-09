@@ -62,4 +62,14 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
 
 - Inicio: commits `b156d12` y `7984ad4`, Git limpio; servicios sintéticos saludables.
 - RAM inicial: aproximadamente 2,29 GiB libres; cierre visual viable con una página Edge.
-- Siguiente tarea activa: A, recorrer UI con fixture nueva, sin modificar las 21 notas.
+- A: el navegador detectó 422 al previsualizar con un criterio desactivado. Corregido
+  filtrando muestras activas; 2/2 Vitest (incluye regresión real de componente) y build
+  Angular aprobado en 21,501 s con caché, un trabajador y límite 768 MiB.
+  `frontend/vitest.config.ts` permite decoradores Angular en la prueba JIT.
+- El frontend corregido está publicado únicamente en el laboratorio local. El
+  reintento de Edge se bloqueó antes de arrancar por RAM menor a 1,5 GiB.
+- Reanudación A: `config/local/browser-venv/Scripts/python.exe -B
+  scripts/verify_academic_ui.py`; conserva evidencia privada y el curso `SYN-UI-4B`.
+  Sus etapas editor/import/manual/history pueden reanudarse sin reset del laboratorio.
+- Tarea activa independiente mientras A esté bloqueada: B1, predicados compartidos de
+  ámbito y pruebas PostgreSQL con cursos/secciones cruzados y cuentas familiares.
