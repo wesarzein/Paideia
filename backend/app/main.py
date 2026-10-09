@@ -9,7 +9,6 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import Role, User
-from app.services.school_roster import load_roster, synchronize_roster
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -71,12 +70,6 @@ def create_app() -> FastAPI:
             else:
                 logger.info("No se configuró el alta inicial de administrador; se conserva la gestión de cuentas existentes")
             db.commit()
-            roster = load_roster()
-            if roster is None:
-                logger.warning("Padrón local no encontrado; se omite la conciliación de estudiantes y cursos")
-            else:
-                counts = synchronize_roster(db, roster)
-                logger.info("Padrón 2026 sincronizado desde archivo local: %s", counts)
 
     return app
 

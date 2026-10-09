@@ -1,0 +1,10 @@
+{
+  "school_year": 2026,
+  "sections": [
+    {
+      "level": "Secundaria", "grade": "1°", "section": "A",
+      "students": ["Ficticio Uno, Alumno", "Ficticio Dos, Alumna", "Ficticio Tres, Alumno"],
+      "courses": [{"name": "Matemática"}, {"name": "Comunicación"}]
+    }
+  ]
+}

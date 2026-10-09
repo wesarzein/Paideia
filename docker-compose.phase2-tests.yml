@@ -1,0 +1,40 @@
+# Independent synthetic environment. No institutional volumes, env_file or ports.
+services:
+  testdb:
+    image: postgres:17-alpine
+    hostname: paideia-phase2-testdb
+    environment:
+      POSTGRES_DB: paideia_phase2_test
+      POSTGRES_USER: phase2_test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      isolated:
+        aliases:
+          - paideia-phase2-testdb
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "phase2_test", "-d", "paideia_phase2_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    image: paideia-backend:latest
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["tests/unit/test_roster_persistence.py", "-q", "-p", "no:cacheprovider"]
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql+psycopg://phase2_test@paideia-phase2-testdb:5432/paideia_phase2_test
+      PAIDEIA_TEST_POSTGRES_URL: postgresql+psycopg://phase2_test@paideia-phase2-testdb:5432/paideia_phase2_test
+      JWT_SECRET_KEY: isolated-phase2-test-secret-at-least-32-characters
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./backend:/app:ro
+    networks:
+      - isolated
+    depends_on:
+      testdb:
+        condition: service_healthy
+networks:
+  isolated:
+    internal: true

@@ -1,0 +1,42 @@
+name: paideia-synthetic-tests
+x-test-backend: &test-backend
+  image: ${PAIDEIA_TEST_IMAGE:-paideia-synthetic-tests-backend}
+  build:
+    context: ./backend
+  environment:
+    ENVIRONMENT: test
+    DATABASE_URL: postgresql+psycopg://phase2_test@paideia-phase2-testdb:5432/paideia_phase2_test
+    PAIDEIA_TEST_POSTGRES_URL: postgresql+psycopg://phase2_test@paideia-phase2-testdb:5432/paideia_phase2_test
+    JWT_SECRET_KEY: isolated-test-secret-at-least-32-characters
+    PYTHONDONTWRITEBYTECODE: "1"
+  networks: [isolated]
+  depends_on:
+    testdb:
+      condition: service_healthy
+services:
+  testdb:
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    tmpfs: [/var/lib/postgresql/data]
+    environment:
+      POSTGRES_DB: paideia_phase2_test
+      POSTGRES_USER: phase2_test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "phase2_test", "-d", "paideia_phase2_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks:
+      isolated:
+        aliases: [paideia-phase2-testdb]
+  migrate:
+    <<: *test-backend
+    entrypoint: ["python", "-m", "alembic"]
+    command: ["upgrade", "head"]
+  tests:
+    <<: *test-backend
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["tests", "-q", "-p", "no:cacheprovider", "--tb=short"]
+networks:
+  isolated:
+    internal: true

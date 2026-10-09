@@ -2,6 +2,8 @@
 
 Paideia usa una arquitectura modular simple orientada a mantener un producto escalable y mantenible.
 
+El [contexto operativo de Fase 3](docs/architecture/phase3-environments.md) distingue instalaciones históricas, desarrollo independiente y despliegue. La SPA nueva consume `/api/v1` a través de Nginx; la API y PostgreSQL no publican puertos en el Compose nuevo. Configuración y dependencias están separadas por entorno; migraciones y seed se ejecutan explícitamente.
+
 ```mermaid
 flowchart LR
   UI[Angular 20.3 SPA] --> API[FastAPI REST API]
@@ -19,7 +21,7 @@ SPA Angular con standalone components, Router, lazy loading, HttpClient, guards,
 
 ## Backend
 
-FastAPI expone `/api/v1`. La estructura separa endpoints, servicios, repositorios, schemas, modelos y modulos. La primera fase implementa solo health check y configuracion.
+FastAPI expone `/api/v1`. El código actual contiene endpoints, servicios, schemas y modelos para los módulos operativos. Varios endpoints usan SQLAlchemy directamente: el diagrama expresa capas conceptuales y no demuestra una capa de repositorios completa ni funcionamiento verificado de todos los módulos. La auditoría funcional detallada sigue pendiente.
 
 ## Base de datos
 

@@ -1,0 +1,88 @@
+# Standalone configuration. Never combine with the legacy/recovery Compose files.
+name: ${COMPOSE_PROJECT_NAME:?Generate or provide a dedicated environment file}
+
+x-backend: &backend
+  image: ${COMPOSE_PROJECT_NAME}-backend
+  build:
+    context: ./backend
+  env_file:
+    - ${PAIDEIA_ENV_FILE:?Set the private environment file path}
+  networks:
+    - application
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set database name}
+      POSTGRES_USER: ${POSTGRES_USER:?Set database user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set database password}
+      TZ: America/Lima
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    networks:
+      - application
+    restart: unless-stopped
+
+  backend:
+    <<: *backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/db')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  frontend:
+    image: ${COMPOSE_PROJECT_NAME}-frontend
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:?Set frontend port}:4200"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:4200/api/v1/health/db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - application
+      - web
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    profiles: [operations]
+    entrypoint: ["python", "-m", "alembic"]
+    command: ["upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    <<: *backend
+    profiles: [development]
+    entrypoint: ["python", "-m", "app.seed_dev"]
+    volumes:
+      - ./database/seeds/roster.synthetic.json:/fixtures/roster.synthetic.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+networks:
+  application:
+    internal: true
+  web:
