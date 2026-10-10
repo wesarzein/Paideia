@@ -69,7 +69,7 @@ activación explícita y rollback al anterior conservaron íntegra su metadata y
 
 Integración BI: conteos, cobertura, versión y fecha demostrativos en sección
 independiente; 50/50 componentes en 23,05 s y build 25,897 s. Pendiente recorrido
-visual de esa sección: **aprobado** con 240 casos ficticios separados de 32 notas,
+visual de esa sección **aprobado** con 240 casos ficticios separados de 32 notas,
 cobertura/versionado/fecha, filtros, vacío, error/reintento y móvil; cero errores JS.
 Consulta integrada observada 0,581 s. Entrenamiento API sin Edge reserva mínimo 1 GiB y comparte
 el límite duro del backend 768 MiB; navegador/entrenamiento combinado mantiene
@@ -77,7 +77,8 @@ el límite duro del backend 768 MiB; navegador/entrenamiento combinado mantiene
 
 Regresión focalizada posterior: 8/8 PG en 15,19 s (siete BI + nuevo caso de modo
 institucional/umbrales invertidos/motivo vacío rechazados). Total de este bloque:
-22 casos PG distintos (7 BI + 15 IA), aprobados por etapas; no es una ejecución
+22 casos focalizados distintos (7 BI + 15 IA): 19 usan PostgreSQL y tres son
+pruebas puras de features/suficiencia, aprobados por etapas; no es una ejecución
 conjunta nueva. Cuatro unittest de infraestructura y Ruff scripts/BI/IA aprobaron.
 
 No push ni PR todavía: requieren auditoría del historial saliente y aceptación
