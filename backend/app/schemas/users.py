@@ -22,6 +22,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    is_active: bool | None = None
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
     password: str | None = Field(default=None, min_length=8, max_length=128)
     role_code: str | None = None
@@ -36,6 +37,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: str
+    is_active: bool
     student_id: UUID | None = None
     student_ids: list[UUID] = Field(default_factory=list)
     created_at: datetime | None = None

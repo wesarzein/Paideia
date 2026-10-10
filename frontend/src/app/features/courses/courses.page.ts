@@ -3,14 +3,19 @@ import { FormsModule } from '@angular/forms';
 import { AcademicCatalog, ApiService, AssessmentComponent, AuthUser, CourseAssignment, CoursePayload } from '../../core/services/api.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { EvaluationConfiguratorComponent } from './evaluation-configurator.component';
+import { PeriodManagerComponent } from './period-manager.component';
+import { CohortManagerComponent } from './cohort-manager.component';
 
 type Course = { id: string; name: string; code: string | null; is_active: boolean };
 
 @Component({
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent],
+  imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent, PeriodManagerComponent, CohortManagerComponent],
   template: `
     <app-page-header title="Cursos" description="Administra cursos y configura los componentes de nota propios de cada uno." />
+    @if (isAdmin) { <app-period-manager (periodsChanged)="reloadCatalog()" /> }
+    @if (isAdmin) { <app-cohort-manager (catalogChanged)="reloadCatalog()" /> }
     <section class="panel">
       @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
       @if (message()) { <p class="feedback" role="status">{{ message() }}</p> }
@@ -35,6 +40,10 @@ type Course = { id: string; name: string; code: string | null; is_active: boolea
         <div class="table-wrap"><table><thead><tr><th>Componente</th><th>Peso</th><th>Opcional</th><th>Estado</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
           @for (component of components(); track component.id) {<tr [class.inactive]="!component.is_active"><td>{{ component.name }}</td><td><input class="weight" type="number" min="0" max="100" step="0.1" [(ngModel)]="component.weight" /></td><td>{{ component.is_optional ? 'Sí' : 'No' }}</td><td>{{ component.is_active ? 'Activo' : 'Inactivo' }}</td><td class="actions-cell"><button class="icon-action" type="button" (click)="updateComponent(component)" title="Guardar peso" aria-label="Guardar peso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2Z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/></svg></button>@if (component.is_active) {<button class="icon-action danger-icon" type="button" (click)="deactivateComponent(component)" title="Desactivar componente" aria-label="Desactivar componente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6"/></svg></button>}</td></tr>}
         </tbody></table></div>
+        <app-evaluation-configurator
+          [courseId]="selectedCourse()!.id"
+          [periods]="catalog().periods"
+        />
       </section>
       <section class="panel">
         <h2>Asignación a grado y sección</h2>
@@ -74,6 +83,7 @@ export class CoursesPage {
     if (this.isAdmin) this.api.listUsers().subscribe({ next: (users) => this.teachers.set(users.filter((user) => user.role === 'teacher')) });
   }
   protected loadCourses(): void { this.api.listCourses().subscribe({ next: (data) => { this.courses.set(data); this.error.set(''); }, error: () => this.error.set('No se pudieron cargar los cursos. Verifica tu conexión e intenta nuevamente.') }); }
+  protected reloadCatalog(): void { this.api.getAcademicCatalog().subscribe({ next: (data) => this.catalog.set(data) }); }
   protected editCourse(course: Course): void { this.editingCourseId = course.id; this.form = { name: course.name, code: course.code }; }
   protected resetCourse(): void { this.editingCourseId = null; this.form = { name: '' }; }
   protected saveCourse(): void {

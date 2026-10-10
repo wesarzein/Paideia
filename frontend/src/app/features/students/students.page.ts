@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { AcademicCatalog, ApiService, Student } from '../../core/services/api.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { EnrollmentManagerComponent } from './enrollment-manager.component';
 
 @Component({
   standalone: true,
-  imports: [DatePipe, FormsModule, PageHeaderComponent],
+  imports: [DatePipe, FormsModule, PageHeaderComponent, EnrollmentManagerComponent],
   template: `
     <app-page-header title="Estudiantes" description="Registro base para el seguimiento académico institucional." />
     <section class="toolbar">
@@ -51,7 +52,7 @@ import { ConfirmService } from '../../core/services/confirm.service';
         </table>
       </div>
     }
-    @if (selectedStudent(); as profile) { <section class="form profile"><button class="close" type="button" (click)="selectedStudent.set(null)" aria-label="Cerrar ficha">×</button><h2>Ficha del estudiante</h2><p><strong>{{ profile.last_name }}, {{ profile.first_name }}</strong></p><dl><dt>Código</dt><dd>{{ profile.student_code }}</dd><dt>Nivel y grado</dt><dd>{{ gradeName(profile.grade_id) }}</dd><dt>Sección</dt><dd>{{ sectionName(profile.section_id) }}</dd><dt>Estado</dt><dd>{{ profile.status }}</dd><dt>Fecha de nacimiento</dt><dd>{{ profile.birth_date ?? 'No registrada' }}</dd></dl></section> }
+    @if (selectedStudent(); as profile) { <section class="form profile"><button class="close" type="button" (click)="selectedStudent.set(null)" aria-label="Cerrar ficha">×</button><h2>Ficha del estudiante</h2><p><strong>{{ profile.last_name }}, {{ profile.first_name }}</strong></p><dl><dt>Código</dt><dd>{{ profile.student_code }}</dd><dt>Nivel y grado</dt><dd>{{ gradeName(profile.grade_id) }}</dd><dt>Sección</dt><dd>{{ sectionName(profile.section_id) }}</dd><dt>Estado</dt><dd>{{ profile.status }}</dd><dt>Fecha de nacimiento</dt><dd>{{ profile.birth_date ?? 'No registrada' }}</dd></dl><app-enrollment-manager [student]="profile" /></section> }
   `,
   styles: [`
     .toolbar, .form { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 18px; }

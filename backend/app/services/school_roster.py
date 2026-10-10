@@ -1,3 +1,5 @@
+"""Explicit, additive roster import. The caller owns commit/rollback."""
+
 import json
 import re
 import unicodedata
@@ -6,14 +8,20 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.models.academic import AcademicPeriod, AttendanceRecord, Course, CourseAssignment, Enrollment, Grade, GradeRecord, Section
-from app.models.follow_up import FollowUp
-from app.models.student import Student
+from app.models.base import (
+    AcademicPeriod,
+    Course,
+    CourseAssignment,
+    Enrollment,
+    Grade,
+    Section,
+    Student,
+)
 from app.services.course_catalog import canonical_course_name, unique_course_code
-from app.services.student_codes import format_student_code
+from app.services.student_codes import format_student_code, student_code_prefix
 
 ROSTER_PATH = Path("/app/local-data/roster.json")
 
@@ -28,173 +36,220 @@ def load_roster(path: Path = ROSTER_PATH) -> dict[str, Any] | None:
         return None
     with path.open(encoding="utf-8") as roster_file:
         data = json.load(roster_file)
-    if not isinstance(data.get("sections"), list) or not data["sections"]:
-        raise ValueError("El padrón local no contiene secciones")
+    if (
+        not isinstance(data, dict)
+        or not isinstance(data.get("sections"), list)
+        or not data["sections"]
+    ):
+        raise ValueError("El padrón debe contener una lista no vacía de secciones")
     return data
 
 
-def synchronize_roster(db: Session, roster: dict[str, Any]) -> dict[str, int]:
-    wanted_students: set[UUID] = set()
-    wanted_courses: dict[str, Course] = {}
-    wanted_assignments: set[tuple[str, str]] = set()
-    wanted_grade_sections: set[tuple[str, str, str]] = set()
+def _student_names(raw: Any) -> tuple[str, str]:
+    if isinstance(raw, str):
+        surname, separator, given = raw.partition(",")
+        if not separator:
+            raise ValueError("Un estudiante debe tener formato 'APELLIDOS, NOMBRES'")
+    elif isinstance(raw, dict):
+        surname, given = raw.get("last_name"), raw.get("first_name")
+    else:
+        raise ValueError("Formato de estudiante no válido")
+    if (
+        not isinstance(surname, str)
+        or not isinstance(given, str)
+        or not surname.strip()
+        or not given.strip()
+    ):
+        raise ValueError("Cada estudiante requiere apellidos y nombres")
+    return surname.strip(), given.strip()
 
+
+def _resolve_student(db: Session, raw: Any, surname: str, given: str) -> Student | None:
+    if isinstance(raw, dict) and (raw.get("id") or raw.get("student_code")):
+        student = (
+            db.get(Student, UUID(str(raw["id"])))
+            if raw.get("id")
+            else db.scalar(select(Student).where(Student.student_code == raw["student_code"]))
+        )
+        if student is None:
+            raise ValueError("El identificador indicado no corresponde a un estudiante existente")
+        if raw.get("student_code") and student.student_code != raw["student_code"]:
+            raise ValueError("El UUID y el código de estudiante no coinciden")
+        return student
+    matches = [
+        item
+        for item in db.scalars(select(Student)).all()
+        if _key(f"{item.last_name}, {item.first_name}") == _key(f"{surname}, {given}")
+    ]
+    if len(matches) > 1:
+        raise ValueError("Identidad ambigua; indique UUID o código estable del estudiante")
+    return matches[0] if matches else None
+
+
+def _new_student_code(db: Session, grade: Grade, section: Section) -> str:
+    prefix = student_code_prefix(grade, section)
+    codes = db.scalars(select(Student.student_code).where(Student.student_code.like(f"{prefix}%")))
+    suffixes = [
+        int(code[len(prefix) :]) for code in codes if code and code[len(prefix) :].isdigit()
+    ]
+    return format_student_code(grade, section, max(suffixes, default=0) + 1)
+
+
+def synchronize_roster(
+    db: Session,
+    roster: dict[str, Any],
+    *,
+    update_existing: bool = False,
+) -> dict[str, int]:
+    """Add missing entries; update student names/group only with explicit identity and opt-in.
+
+    Absence never means withdrawal. Existing codes, status, courses, assignments,
+    enrollments, assessments and histories are never reset. Errors must roll back
+    the entire transaction, including additions flushed before the error.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(20261008)"))
     school_year = int(roster["school_year"])
+    sections = roster.get("sections")
+    if not isinstance(sections, list) or not sections:
+        raise ValueError("El padrón debe contener secciones")
+    counts = dict.fromkeys(
+        ("sections", "students", "courses", "assignments", "enrollments", "updated_students"), 0
+    )
     period_name = f"Año escolar {school_year}"
-    period = db.scalar(select(AcademicPeriod).where(AcademicPeriod.name == period_name))
+    periods = db.scalars(select(AcademicPeriod).where(AcademicPeriod.name == period_name)).all()
+    if len(periods) > 1:
+        raise ValueError("Periodo ambiguo; concilie el catálogo antes de importar")
+    period = periods[0] if periods else None
     if period is None:
-        period = AcademicPeriod(name=period_name, starts_on=date(school_year, 1, 1), ends_on=date(school_year, 12, 31))
+        period = AcademicPeriod(
+            name=period_name, starts_on=date(school_year, 1, 1), ends_on=date(school_year, 12, 31)
+        )
         db.add(period)
         db.flush()
-
-    seeded_students = db.scalars(select(Student).where(Student.student_code.in_(["STU-1001", *[f"2026-{index:03d}" for index in range(1, 11)]]))).all()
-    for seeded in seeded_students:
-        db.execute(delete(FollowUp).where(FollowUp.student_id == seeded.id))
-        db.execute(delete(GradeRecord).where(GradeRecord.student_id == seeded.id))
-        db.execute(delete(AttendanceRecord).where(AttendanceRecord.student_id == seeded.id))
-        db.execute(delete(Enrollment).where(Enrollment.student_id == seeded.id))
-        db.delete(seeded)
-
-    sections_in_source: list[tuple[dict[str, Any], Grade, Section]] = []
-    for section_data in roster["sections"]:
-        level = str(section_data["level"]).strip()
-        grade_name = str(section_data["grade"]).strip()
-        section_name = str(section_data["section"]).strip()
-        grade = db.scalar(select(Grade).where(Grade.level == level, Grade.name == grade_name))
+    seen_students: set[UUID] = set()
+    for section_data in sections:
+        level, grade_name, section_name = (
+            str(section_data[key]).strip() for key in ("level", "grade", "section")
+        )
+        if not all((level, grade_name, section_name)):
+            raise ValueError("Nivel, grado y sección son obligatorios")
+        grade = db.scalars(
+            select(Grade).where(Grade.level == level, Grade.name == grade_name)
+        ).one_or_none()
         if grade is None:
             grade = Grade(level=level, name=grade_name)
             db.add(grade)
             db.flush()
-        section = db.scalar(select(Section).where(Section.grade_id == grade.id, Section.name == section_name))
+        section = db.scalars(
+            select(Section).where(Section.grade_id == grade.id, Section.name == section_name)
+        ).one_or_none()
         if section is None:
             section = Section(grade_id=grade.id, name=section_name)
             db.add(section)
             db.flush()
-        wanted_grade_sections.add((level, grade_name, section_name))
-        sections_in_source.append((section_data, grade, section))
-
-    db.flush()
-    wanted_grade_ids = {grade.id for _, grade, _ in sections_in_source}
-    wanted_section_ids = {section.id for _, _, section in sections_in_source}
-    for grade in db.scalars(select(Grade)).all():
-        grade.is_active = grade.id in wanted_grade_ids
-    for section in db.scalars(select(Section)).all():
-        section.is_active = section.id in wanted_section_ids
-    known_students = db.scalars(select(Student)).all()
-    roster_student_keys = {
-        _key(str(raw_name))
-        for section_data, _, _ in sections_in_source
-        for raw_name in section_data.get("students", [])
-    }
-    for known_student in known_students:
-        if _key(f"{known_student.last_name}, {known_student.first_name}") in roster_student_keys:
-            known_student.student_code = None
-    db.flush()
-    for section_data, grade, section in sections_in_source:
-        for order, raw_name in enumerate(section_data.get("students", []), start=1):
-            surname, separator, given = str(raw_name).partition(",")
-            if not separator or not surname.strip() or not given.strip():
-                raise ValueError(f"Nombre de padrón debe tener formato 'APELLIDOS, NOMBRES': {raw_name}")
-            full_key = _key(f"{surname.strip()}, {given.strip()}")
-            student = next(
-                (
-                    item
-                    for item in known_students
-                    if item.grade_id == grade.id
-                    and item.section_id == section.id
-                    and _key(f"{item.last_name}, {item.first_name}") == full_key
-                ),
-                None,
-            )
+            counts["sections"] += 1
+        imported_students = []
+        for raw in section_data.get("students", []):
+            surname, given = _student_names(raw)
+            student = _resolve_student(db, raw, surname, given)
             if student is None:
-                matching_students = [
-                    item
-                    for item in known_students
-                    if _key(f"{item.last_name}, {item.first_name}") == full_key
-                ]
-                if len(matching_students) == 1:
-                    student = matching_students[0]
-            if student is None:
-                student = Student(student_code=format_student_code(grade, section, order), last_name=surname.strip(), first_name=given.strip(), status="ACTIVE", grade_id=grade.id, section_id=section.id)
+                student = Student(
+                    student_code=_new_student_code(db, grade, section),
+                    last_name=surname,
+                    first_name=given,
+                    status="ACTIVE",
+                    grade_id=grade.id,
+                    section_id=section.id,
+                )
                 db.add(student)
                 db.flush()
-                known_students.append(student)
+                counts["students"] += 1
             else:
-                student.student_code = format_student_code(grade, section, order)
-                student.last_name = surname.strip()
-                student.first_name = given.strip()
-                student.status = "ACTIVE"
-                student.grade_id = grade.id
-                student.section_id = section.id
-            wanted_students.add(student.id)
-
+                explicit_identity = isinstance(raw, dict) and (
+                    raw.get("id") or raw.get("student_code")
+                )
+                changed = (
+                    student.last_name,
+                    student.first_name,
+                    student.grade_id,
+                    student.section_id,
+                ) != (surname, given, grade.id, section.id)
+                if changed and not (update_existing and explicit_identity):
+                    raise ValueError(
+                        "Cambio de estudiante requiere identidad estable y --update-existing"
+                    )
+                if changed:
+                    student.last_name, student.first_name = surname, given
+                    student.grade_id, student.section_id = grade.id, section.id
+                    counts["updated_students"] += 1
+            if student.id in seen_students:
+                raise ValueError("Estudiante repetido en el padrón; concilie antes de importar")
+            seen_students.add(student.id)
+            imported_students.append(student)
+        db.flush()
+        imported_courses = []
         for course_data in section_data.get("courses", []):
             course_name = canonical_course_name(str(course_data["name"]))
-            course_key = _key(course_name)
-            course = wanted_courses.get(course_key)
+            if not course_name:
+                raise ValueError("El curso requiere un nombre")
+            matches = [
+                item
+                for item in db.scalars(select(Course)).all()
+                if _key(item.name) == _key(course_name)
+            ]
+            if len(matches) > 1:
+                raise ValueError("Curso ambiguo; concilie el catálogo antes de importar")
+            course = matches[0] if matches else None
             if course is None:
-                course = next((item for item in db.scalars(select(Course)).all() if _key(item.name) == course_key), None)
-                if course is None:
-                    course = Course(name=course_name, code=unique_course_code(db, course_name), is_active=True)
-                    db.add(course)
-                    db.flush()
-                else:
-                    course.name = course_name
-                    if not course.code:
-                        course.code = unique_course_code(db, course_name)
-                    course.is_active = True
-                wanted_courses[course_key] = course
-            assignment = db.scalar(select(CourseAssignment).where(CourseAssignment.course_id == course.id, CourseAssignment.section_id == section.id))
-            teacher_name = course_data.get("teacher")
+                course = Course(
+                    name=course_name, code=unique_course_code(db, course_name), is_active=True
+                )
+                db.add(course)
+                db.flush()
+                counts["courses"] += 1
+            assignment = db.scalar(
+                select(CourseAssignment).where(
+                    CourseAssignment.course_id == course.id,
+                    CourseAssignment.section_id == section.id,
+                )
+            )
             if assignment is None:
-                assignment = CourseAssignment(course_id=course.id, grade_id=grade.id, section_id=section.id, teacher_id=None, teacher_name=teacher_name)
-                db.add(assignment)
-            else:
-                assignment.grade_id = grade.id
-                assignment.teacher_name = teacher_name
-            wanted_assignments.add((str(course.id), str(section.id)))
-
-    db.flush()
-    desired_course_uuids = [course.id for course in wanted_courses.values()]
-    stale_students = (
-        db.scalars(select(Student).where(Student.id.not_in(wanted_students))).all()
-        if wanted_students
-        else db.scalars(select(Student)).all()
-    )
-    stale_student_ids = [student.id for student in stale_students]
-    for student in stale_students:
-        student.status = "INACTIVE"
-    if stale_student_ids:
-        db.execute(
-            update(Enrollment)
-            .where(Enrollment.student_id.in_(stale_student_ids))
-            .values(status="INACTIVE")
-        )
-
-    for assignment in db.scalars(select(CourseAssignment)).all():
-        if (str(assignment.course_id), str(assignment.section_id)) not in wanted_assignments:
-            db.delete(assignment)
-
-    stale_courses = db.scalars(select(Course).where(Course.id.not_in(desired_course_uuids))).all() if desired_course_uuids else db.scalars(select(Course)).all()
-    stale_course_ids = [course.id for course in stale_courses]
-    for course in stale_courses:
-        course.is_active = False
-    if stale_course_ids:
-        db.execute(
-            update(Enrollment)
-            .where(Enrollment.course_id.in_(stale_course_ids))
-            .values(status="INACTIVE")
-        )
-
-    for _, grade, section in sections_in_source:
-        student_ids = [student.id for student in db.scalars(select(Student).where(Student.grade_id == grade.id, Student.section_id == section.id, Student.status == "ACTIVE")).all()]
-        course_ids = [course.id for course in wanted_courses.values() if db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course.id, CourseAssignment.section_id == section.id))]
-        for student_id in student_ids:
-            for course_id in course_ids:
-                enrollment = db.scalar(select(Enrollment).where(Enrollment.student_id == student_id, Enrollment.course_id == course_id, Enrollment.period_id == period.id))
+                db.add(
+                    CourseAssignment(
+                        course_id=course.id,
+                        grade_id=grade.id,
+                        section_id=section.id,
+                        teacher_id=None,
+                        teacher_name=course_data.get("teacher"),
+                    )
+                )
+                db.flush()
+                counts["assignments"] += 1
+            imported_courses.append(course)
+        for student in imported_students:
+            if student.status != "ACTIVE" or not grade.is_active or not section.is_active:
+                continue
+            for course in imported_courses:
+                if not course.is_active:
+                    continue
+                enrollment = db.scalar(
+                    select(Enrollment).where(
+                        Enrollment.student_id == student.id,
+                        Enrollment.course_id == course.id,
+                        Enrollment.period_id == period.id,
+                    )
+                )
                 if enrollment is None:
-                    db.add(Enrollment(student_id=student_id, course_id=course_id, period_id=period.id, status="ACTIVE"))
-                else:
-                    enrollment.status = "ACTIVE"
-    db.commit()
-    return {"sections": len(wanted_grade_sections), "students": len(wanted_students), "courses": len(wanted_courses), "assignments": len(wanted_assignments)}
+                    db.add(
+                        Enrollment(
+                            student_id=student.id,
+                            course_id=course.id,
+                            period_id=period.id,
+                            status="ACTIVE",
+                        )
+                    )
+                    db.flush()
+                    counts["enrollments"] += 1
+    db.flush()
+    return counts

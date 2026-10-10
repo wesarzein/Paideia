@@ -1,0 +1,812 @@
+{
+  "source_commit": "1d346eb",
+  "branch": "dev/phase4a-academic-audit",
+  "synthetic_only": true,
+  "institutional_database_unchanged": true,
+  "baseline_regression": {
+    "passed": 52,
+    "warnings": 22
+  },
+  "audit_counts": {
+    "total": 74,
+    "verified": 49,
+    "defect": 24,
+    "unverified": 1
+  },
+  "excel_structure": {
+    "layout": [
+      22,
+      16
+    ],
+    "sheets": 1,
+    "synthetic_students": 16,
+    "formula_count": 64,
+    "merged_ranges": [
+      "A1:O2",
+      "A3:B4",
+      "A5:A6",
+      "B5:B6",
+      "C3:O4",
+      "C5:H5",
+      "I5:N5",
+      "O5:O6",
+      "P5:P6"
+    ],
+    "formulas": {
+      "H7": "=ROUND((SUM(C7:E7)+F7*1+G7*1)/5,1)",
+      "N7": "=ROUND(((SUM(I7:K7))+L7*1+M7*1)/5,1)",
+      "O7": "=ROUND(AVERAGE(H7,N7),1)",
+      "P7": "=IF(O7>16.4,\"AD\",IF(O7>13.4,\"A\",IF(O7>10.4,\"B\",\"C\")))"
+    },
+    "source_identities_and_input_marks_saved": false,
+    "formula_and_merge_equality_verified": true
+  },
+  "openapi_routes": {
+    "/api/v1/health": [
+      "get"
+    ],
+    "/api/v1/health/db": [
+      "get"
+    ],
+    "/api/v1/auth/login": [
+      "post"
+    ],
+    "/api/v1/auth/logout": [
+      "post"
+    ],
+    "/api/v1/users": [
+      "get",
+      "post"
+    ],
+    "/api/v1/users/{user_id}": [
+      "delete",
+      "get",
+      "patch"
+    ],
+    "/api/v1/students": [
+      "get",
+      "post"
+    ],
+    "/api/v1/students/summary": [
+      "get"
+    ],
+    "/api/v1/students/{student_id}": [
+      "delete",
+      "get",
+      "patch"
+    ],
+    "/api/v1/courses/{course_id}/assignments": [
+      "get",
+      "post"
+    ],
+    "/api/v1/courses/{course_id}/assignments/{assignment_id}": [
+      "delete"
+    ],
+    "/api/v1/courses/{course_id}/assessment-components": [
+      "get",
+      "post"
+    ],
+    "/api/v1/courses/{course_id}/assessment-components/{component_id}": [
+      "delete",
+      "patch"
+    ],
+    "/api/v1/courses": [
+      "get",
+      "post"
+    ],
+    "/api/v1/courses/{course_id}": [
+      "delete",
+      "get",
+      "patch"
+    ],
+    "/api/v1/enrollments": [
+      "get",
+      "post"
+    ],
+    "/api/v1/enrollments/{enrollment_id}": [
+      "delete",
+      "get",
+      "patch"
+    ],
+    "/api/v1/grades": [
+      "get",
+      "post"
+    ],
+    "/api/v1/grades/monthly-summary": [
+      "get"
+    ],
+    "/api/v1/grades/{grade_id}": [
+      "delete",
+      "patch"
+    ],
+    "/api/v1/grades/summary/{student_id}": [
+      "get"
+    ],
+    "/api/v1/attendance": [
+      "get",
+      "post"
+    ],
+    "/api/v1/academic/catalog": [
+      "get"
+    ],
+    "/api/v1/dashboard/summary": [
+      "get"
+    ],
+    "/api/v1/dashboard/risk-alerts": [
+      "get"
+    ],
+    "/api/v1/reports/summary": [
+      "get"
+    ],
+    "/api/v1/reports/students": [
+      "get"
+    ],
+    "/api/v1/reports/students/{student_id}": [
+      "get"
+    ],
+    "/api/v1/reports/export.xlsx": [
+      "get"
+    ],
+    "/api/v1/imports/preview": [
+      "post"
+    ],
+    "/api/v1/imports/students/commit": [
+      "post"
+    ],
+    "/api/v1/imports/grades/preview": [
+      "post"
+    ],
+    "/api/v1/imports/grades/commit": [
+      "post"
+    ],
+    "/api/v1/kpis": [
+      "get"
+    ],
+    "/api/v1/follow-ups": [
+      "get",
+      "post"
+    ],
+    "/api/v1/follow-ups/{follow_up_id}": [
+      "delete",
+      "patch"
+    ]
+  },
+  "checks": [
+    {
+      "id": "API-01",
+      "expected": "16 synthetic pupils with stable generated codes",
+      "observed": 16,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "API-02",
+      "expected": "Teacher cannot list administrative user accounts",
+      "observed": 403,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "API-03",
+      "expected": "Teacher sees only assigned course",
+      "observed": 1,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-01",
+      "expected": "Blank marks with formula cached zeros produce no grade rows",
+      "observed": {
+        "http": 422,
+        "rows": null,
+        "errors": 0
+      },
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-02",
+      "expected": "Ten synthetic input marks; computed averages not imported",
+      "observed": {
+        "http": 422,
+        "rows": null
+      },
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-03",
+      "expected": "Two blocks identified consistently without inventing calendar dates",
+      "observed": {
+        "evaluation_names": [],
+        "missing_dates": 0
+      },
+      "status": "unverified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-04",
+      "expected": "Previews do not persist grades",
+      "observed": 0,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-05",
+      "expected": "Out-of-range preview mark rejected",
+      "observed": 1,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-06",
+      "expected": "Preview detects an unknown pupil before confirmation",
+      "observed": 0,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-07",
+      "expected": "Flat CSV explicitly confirmed persists ten marks on same pupil (not institutional XLSX)",
+      "observed": {
+        "http": 200,
+        "saved": 10,
+        "same_pupil": true
+      },
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-08",
+      "expected": "Reimport is idempotent (still ten marks)",
+      "observed": {
+        "http": 200,
+        "saved": 20
+      },
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-09",
+      "expected": "Failed mixed batch is rejected without partial inserts",
+      "observed": {
+        "http": 422,
+        "count": 20
+      },
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-10",
+      "expected": "Blank mark is not persisted as zero by server",
+      "observed": 422,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EX-11",
+      "expected": "Imported marks link to assessment components",
+      "observed": 0,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-01",
+      "expected": "Negative weight rejected",
+      "observed": 422,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-02",
+      "expected": "Assigned authorized teacher can configure evaluation",
+      "observed": 403,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-03",
+      "expected": "Weighted average with five equal weights = 12",
+      "observed": 12.0,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-04",
+      "expected": "Changing weights does not silently change historical results",
+      "observed": {
+        "before": 12.0,
+        "after": 11.43
+      },
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-05",
+      "expected": "Configuration isolated to one course",
+      "observed": 0,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "EV-06",
+      "expected": "Grade edit rejects invalid component cleanly",
+      "observed": 500,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-01",
+      "expected": "Manual entry rejects dates outside academic period",
+      "observed": 201,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-02",
+      "expected": "Explicit zero is preserved as a real manual mark",
+      "observed": 0.0,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-03",
+      "expected": "Manual edit is readable by authorized second user",
+      "observed": true,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-04",
+      "expected": "Same daily attendance updates one record",
+      "observed": true,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-05",
+      "expected": "Attendance rejects unknown status",
+      "observed": 201,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-06",
+      "expected": "Follow-up retains author and updated state",
+      "observed": true,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RB-student",
+      "expected": "Family account sees only linked pupil",
+      "observed": 27,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RB-student-write",
+      "expected": "Family account cannot write marks",
+      "observed": 403,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RB-parent",
+      "expected": "Family account sees only linked pupil",
+      "observed": 27,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RB-parent-write",
+      "expected": "Family account cannot write marks",
+      "observed": 403,
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "AC-07",
+      "expected": "Catalog exposes another persisted academic year",
+      "observed": false,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RP-01",
+      "expected": "Filtered XLSX report downloadable and readable",
+      "observed": {
+        "http": 200,
+        "rows": 17
+      },
+      "status": "verified",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RP-coordinator",
+      "expected": "Role with report navigation can read report API",
+      "observed": 403,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RP-director",
+      "expected": "Role with report navigation can read report API",
+      "observed": 403,
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "RB-summary",
+      "expected": "Teacher report summary excludes pupils with no marks/assignment outside scope",
+      "observed": {
+        "http": 200,
+        "total_students": 17,
+        "assigned_pupils": 16
+      },
+      "status": "defect",
+      "source": "api-results.json"
+    },
+    {
+      "id": "UI-01",
+      "expected": "Login UI reaches API and navigates to authenticated application",
+      "observed": {
+        "login_http": 200
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-estudiantes",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-usuarios",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-cursos",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-calificaciones",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-asistencia",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-seguimiento",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-reportes",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "NAV-importacion",
+      "expected": "Academic route renders its actual screen",
+      "observed": {
+        "heading_visible": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-02",
+      "expected": "Student search filters real API results",
+      "observed": {
+        "http": 200,
+        "rows": 1
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-01",
+      "expected": "Institutional synthetic XLSX selection parses successfully",
+      "observed": {
+        "preview_http": 422
+      },
+      "status": "defect",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-02",
+      "expected": "Drag and drop flat synthetic CSV displays ten rows",
+      "observed": {
+        "http": 200,
+        "preview_rows": 10
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-03",
+      "expected": "Editable flat preview requires explicit confirmation and saves",
+      "observed": {
+        "commit_http": 200
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-04",
+      "expected": "Flat file selection also works independently of drag/drop",
+      "observed": {
+        "preview_http": 200
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-05",
+      "expected": "Correcting an invalid preview clears errors and permits confirmation",
+      "observed": {
+        "confirmation_visible_after_correction": false,
+        "server_error_still_displayed": true
+      },
+      "status": "defect",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EX-06",
+      "expected": "Blank score is rejected in preview rather than treated as client-side zero",
+      "observed": {
+        "client_allowed_blank_confirmation": true,
+        "server_http": 422
+      },
+      "status": "defect",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-GR-01",
+      "expected": "Class/course/period/month filters load stored marks and matrix",
+      "observed": {
+        "http": 200,
+        "manual_inputs": 80
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-GR-02",
+      "expected": "Manual matrix mark is saved through API",
+      "observed": {
+        "http": 201
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-GR-03",
+      "expected": "Reload hydrates saved grades in editable component matrix",
+      "observed": {
+        "filled_existing_matrix_cells": 0
+      },
+      "status": "defect",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-AT-01",
+      "expected": "Daily group attendance saves all sixteen synthetic students",
+      "observed": {
+        "saved_attendances": 16
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-FU-01",
+      "expected": "Follow-up created by UI appears in group history",
+      "observed": {
+        "http": 201
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-RP-01",
+      "expected": "Group preview, individual report, Excel download and print engine work",
+      "observed": {
+        "xlsx_download": true,
+        "individual_preview": true,
+        "browser_print_engine_pdf": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-RB-01",
+      "expected": "Coordinator report navigation has matching API permission",
+      "observed": {
+        "report_api_http": 403
+      },
+      "status": "defect",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-RB-02",
+      "expected": "Additional linked family portal remains accessible",
+      "observed": {
+        "url_is_family_portal": true
+      },
+      "status": "verified",
+      "source": "browser-results.json"
+    },
+    {
+      "id": "UI-EV-01",
+      "expected": "Admin can add an optional custom course component from UI",
+      "observed": 201,
+      "status": "verified",
+      "source": "browser-extra-results.json"
+    },
+    {
+      "id": "UI-EV-02",
+      "expected": "Edited weight persists through API",
+      "observed": 200,
+      "status": "verified",
+      "source": "browser-extra-results.json"
+    },
+    {
+      "id": "UI-EV-03",
+      "expected": "Component setting survives fresh page read",
+      "observed": true,
+      "status": "verified",
+      "source": "browser-extra-results.json"
+    },
+    {
+      "id": "UI-US-01",
+      "expected": "Admin UI creates a teacher and rereads the saved account",
+      "observed": 201,
+      "status": "verified",
+      "source": "browser-extra-results.json"
+    },
+    {
+      "id": "DX-01",
+      "expected": "Institutional grouped headers remain unique when flattened",
+      "observed": {
+        "duplicate_headers": [
+          "CUADERNO",
+          "MODULO",
+          "EXPOSICION-TRABAJOS",
+          "evaluation_name"
+        ],
+        "exception_type": "ValueError"
+      },
+      "status": "defect",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "DX-02",
+      "expected": "Flat XLSX reader works (does not replace institutional layout test)",
+      "observed": {
+        "http": 200,
+        "rows": 1
+      },
+      "status": "verified",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "RP-nodata",
+      "expected": "Missing evidence is displayed as unavailable rather than real zero/high risk",
+      "observed": {
+        "no_mark_students": 16,
+        "marked_high_risk": 16
+      },
+      "status": "defect",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "RB-write-other",
+      "expected": "Teacher cannot write outside assigned course",
+      "observed": 403,
+      "status": "verified",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "RB-grade-summary",
+      "expected": "Teacher pupil summary uses only the teacher's authorized courses",
+      "observed": {
+        "summary_count": 49,
+        "authorized_count": 48
+      },
+      "status": "defect",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "EV-foreign-component",
+      "expected": "Grade update rejects component from a different course",
+      "observed": 200,
+      "status": "defect",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "EV-rename-deactivate",
+      "expected": "API renames and deactivates an optional criterion without deleting it",
+      "observed": {
+        "http": 200,
+        "same_id": true,
+        "inactive": true
+      },
+      "status": "verified",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "HI-01",
+      "expected": "Academic changes write a trace to the existing audit log",
+      "observed": {
+        "audit_rows": 0
+      },
+      "status": "defect",
+      "source": "supplemental-results.json"
+    },
+    {
+      "id": "PS-01",
+      "expected": "Entire data/schema inventory survives PostgreSQL/API/frontend restart",
+      "observed": {
+        "tables": 15,
+        "same_inventory": true
+      },
+      "status": "verified",
+      "source": "persistence-results.json"
+    },
+    {
+      "id": "PS-02",
+      "expected": "Imported mark and explicit manual zero remain linked to same student",
+      "observed": {
+        "grades": 2,
+        "same_student": true
+      },
+      "status": "verified",
+      "source": "persistence-results.json"
+    },
+    {
+      "id": "PS-03",
+      "expected": "Attendance, follow-up and component configuration remain readable",
+      "observed": {
+        "attendance": 1,
+        "follow_ups": 1,
+        "components": 1
+      },
+      "status": "verified",
+      "source": "persistence-results.json"
+    }
+  ]
+}

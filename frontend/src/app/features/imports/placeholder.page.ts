@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AcademicCatalog, ApiService, ImportPreview } from '../../core/services/api.service';
+import { AcademicCatalog, ApiService, GradeImportReview, ImportPreview, InstitutionalContext } from '../../core/services/api.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 
 @Component({
@@ -14,8 +14,8 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
     </section>
     @if (mode() === 'grades') {
       <section class="panel filters">
-        <label>Curso<select [(ngModel)]="courseId"><option value="">Seleccionar curso</option>@for (course of catalog().courses; track course.id) {<option [value]="course.id">{{ course.name }}</option>}</select></label>
-        <label>Periodo<select [(ngModel)]="periodId"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) {<option [value]="period.id">{{ period.name }}</option>}</select></label>
+        <label>Curso<select [(ngModel)]="courseId" (ngModelChange)="contextChanged()" [disabled]="busy()"><option value="">Seleccionar curso</option>@for (course of catalog().courses; track course.id) {<option [value]="course.id">{{ course.name }}</option>}</select></label>
+        <label>Periodo<select [(ngModel)]="periodId" (ngModelChange)="contextChanged()" [disabled]="busy()"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) {<option [value]="period.id">{{ period.name }}</option>}</select></label>
       </section>
     } @else {
       <section class="panel filters">
@@ -24,7 +24,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
         <label>Sección<select [(ngModel)]="sectionId" (ngModelChange)="loadCatalog()" [disabled]="!gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) {<option [value]="section.id">{{ gradeName(section.grade_id) }} · {{ section.name }}</option>}</select></label>
       </section>
     }
-    @if (mode() === 'grades') { <p class="format-hint">Las calificaciones se registran por mes. Cada dos meses conforman un bimestre. Evidencias permitidas: Actitud ante el área, Cuaderno, Módulo, Exposición-Trabajos y Evaluación.</p> }
+    @if (mode() === 'grades') { <p class="format-hint">Las evaluaciones se organizan en bloques de cuatro semanas y bimestres de ocho semanas. Los rótulos 1 MES y 2 MES no indican enero y febrero; confirma las fechas del calendario académico. Evidencias permitidas: Actitud ante el área, Cuaderno, Módulo, Exposición-Trabajos y Evaluación.</p> }
     <section class="dropzone" (dragover)="$event.preventDefault()" (drop)="drop($event)">
       <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 31V8m-8 8 8-8 8 8M8 29v11h32V29" /></svg><strong>Arrastra tu archivo aquí</strong><span>CSV o Excel (.xlsx, .xls)</span>
       <input #fileInput type="file" accept=".csv,.xlsx,.xls" (change)="select($event)" />
@@ -36,10 +36,46 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
       <section class="panel preview">
         <h2>Vista previa: {{ preview()!.total }} filas</h2>
         @if (mode() === 'grades') { <p class="context"><strong>Curso:</strong> {{ courseName() }} · <strong>Periodo:</strong> {{ periodName() }}</p> }
+        @if (preview()!.institutional) {
+          <p>{{ preview()!.institutional!.warning }} {{ preview()!.institutional!.blank_inputs }} entradas vacías omitidas.</p>
+          <details><summary>Estudiantes del archivo, incluidos los que no tienen notas</summary>@for (student of preview()!.institutional!.students; track student.source_row) { <p>Fila {{ student.source_row }}: {{ student.student_code }} · {{ student.name }}</p> }</details>
+          @if (preview()!.institutional!.unsupported_formula_rows.length) { <p class="error">Hay fórmulas no reconocidas en las filas {{ preview()!.institutional!.unsupported_formula_rows.join(', ') }}. No se ejecutan ni se calculan sus resultados de referencia; verifica la plantilla.</p> }
+          <section class="filters" aria-label="Contexto institucional">
+            <label>Año académico<input type="number" [(ngModel)]="schoolYear" (ngModelChange)="contextChanged()" [disabled]="busy()" /></label>
+            <label>Bimestre<input type="number" min="1" [(ngModel)]="bimestre" (ngModelChange)="contextChanged()" [disabled]="busy()" /></label>
+            <label>Grado institucional<select [(ngModel)]="gradeId" (ngModelChange)="sectionId = ''; loadCatalog(); contextChanged()" [disabled]="busy()"><option value="">Seleccionar grado</option>@for (grade of catalog().grades; track grade.id) {<option [value]="grade.id">{{ grade.level }} · {{ grade.name }}</option>}</select></label>
+            <label>Sección institucional<select [(ngModel)]="sectionId" (ngModelChange)="loadCatalog(); contextChanged()" [disabled]="busy() || !gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) {<option [value]="section.id">{{ section.name }}</option>}</select></label>
+            @for (block of preview()!.institutional!.blocks; track block.block) {
+              <label>Evaluación {{ block.label }}<input [(ngModel)]="blocks[block.block].evaluation_name" (ngModelChange)="contextChanged()" [disabled]="busy()" /></label>
+              <label>Fecha {{ block.label }}<input type="date" [(ngModel)]="blocks[block.block].assessment_date" (ngModelChange)="contextChanged()" [disabled]="busy()" /></label>
+              <p>{{ block.label }}: @for (criterion of block.criteria; track criterion.name) { {{ criterion.header }}; }</p>
+            }
+          </section>
+          <label><input type="checkbox" [(ngModel)]="contextConfirmed" (ngModelChange)="invalidateReview()" [disabled]="busy()" />Confirmo curso, periodo, año, grado, sección, bimestre y calendario de ambos bloques.</label>
+          <details><summary>Fórmulas y cachés de referencia del archivo (no se guardan como notas)</summary>@for (cell of preview()!.institutional!.derived; track cell.cell) { <p>{{ cell.cell }}: {{ cell.formula }} · caché: {{ cell.cached }}</p> }</details>
+        }
         @if (rowErrors().length) { <p class="error">{{ rowErrors().length }} filas tienen errores; edita las celdas antes de confirmar.</p> }
         @if (!rowErrors().length && mode() === 'students') { <p>El código del archivo se usa como referencia; Paideia genera el código institucional según el grado, sección y orden de importación.</p><button type="button" (click)="importStudents()" [disabled]="!gradeId || !sectionId">Confirmar e importar padrón</button> }
-        @if (!rowErrors().length && mode() === 'grades') { <button type="button" (click)="importGrades()" [disabled]="!courseId || !periodId">Confirmar e importar calificaciones</button> }
-        <table><thead><tr>@for (column of preview()!.columns; track column) { <th>{{ column }}</th> }</tr></thead><tbody>@for (row of preview()!.rows; track $index) { <tr>@for (column of preview()!.columns; track column) { <td><input [type]="column === 'assessment_date' ? 'date' : 'text'" [(ngModel)]="$any(row)[column]" [name]="'import-' + $index + '-' + column" /></td> }</tr> }</tbody></table>
+        @if (mode() === 'grades') {
+          <button type="button" (click)="reviewGrades()" [disabled]="busy() || !courseId || !periodId || !preview()!.total">Revisar registros existentes</button>
+          <button type="button" (click)="importGrades()" [disabled]="busy() || !reviewReady()">Confirmar e importar calificaciones</button>
+          @if (review()) {
+            @for (result of review()!.reference_results ?? []; track result.source_row) { <p>Fila Excel {{ result.source_row }} · Referencia institucional: bloque 1 {{ result.monthly['1'] ?? 'incompleto/no reconocido' }} · bloque 2 {{ result.monthly['2'] ?? 'incompleto/no reconocido' }} · final {{ result.final ?? '—' }} · literal {{ result.literal ?? '—' }}. Vista de referencia; no reemplaza el cálculo histórico del curso.</p> }
+            <p>Las coincidencias idénticas se omiten. Para cada diferencia decide si conservas la nota guardada o confirmas su actualización.</p>
+            @for (error of review()!.errors; track $index) { <p class="error">Fila {{ error.row }}: {{ error.error }}</p> }
+            <table aria-label="Comparación de calificaciones"><thead><tr><th>Fila</th><th>Estado</th><th>Guardado</th><th>Archivo</th><th>Decisión</th></tr></thead><tbody>
+              @for (item of review()!.rows; track item.row) {
+                <tr><td>{{ item.row }}</td><td>{{ statusLabel(item.status) }}</td><td>{{ item.existing?.score ?? '—' }} · {{ item.existing?.qualitative_note ?? '' }}</td><td>{{ preview()!.rows[item.row - 1]['score'] }} · {{ preview()!.rows[item.row - 1]['qualitative_note'] ?? '' }}</td><td>
+                  @if (item.status === 'different') { <select [(ngModel)]="item.decision" [disabled]="busy()" [attr.aria-label]="'Decisión fila ' + item.row"><option value="">Seleccionar decisión</option><option value="keep">Conservar nota existente</option><option value="update">Confirmar actualización</option></select> }
+                </td></tr>
+              }
+            </tbody></table>
+          }
+        }
+        <table><thead><tr>@for (column of preview()!.columns; track column) { <th>{{ column }}</th> }</tr></thead><tbody>@for (row of preview()!.rows; track $index; let rowIndex = $index) { <tr>@for (column of preview()!.columns; track column) { <td>@if (preview()!.institutional && column === 'student_code') {
+          <select [ngModel]="row['student_code']" (ngModelChange)="resolveStudent(row, $event)" [disabled]="busy()" [attr.aria-label]="'Estudiante fila ' + (rowIndex + 1)"><option [value]="row['student_code']">{{ row['student_code'] }} · referencia del archivo</option>@for (student of catalog().students; track student.id) {<option [value]="student.student_code">{{ student.student_code }} · {{ student.name }}</option>}</select>
+          <label><input type="checkbox" [(ngModel)]="$any(row)['student_confirmed']" (ngModelChange)="invalidateReview()" [disabled]="busy()" />Confirmar correspondencia</label>
+        } @else {<input [attr.aria-label]="column + ' fila ' + (rowIndex + 1)" [readonly]="!!preview()!.institutional && ['source_name', 'source_block', 'evaluation_type', 'evaluation_name', 'assessment_date'].includes(column)" [type]="column === 'assessment_date' ? 'date' : 'text'" [(ngModel)]="$any(row)[column]" (ngModelChange)="invalidateReview()" [disabled]="busy()" [name]="'import-' + rowIndex + '-' + column" />} </td> }</tr> }</tbody></table>
       </section>
     }
   `,
@@ -59,12 +95,42 @@ export class PlaceholderPage {
   protected readonly preview = signal<ImportPreview | null>(null);
   protected readonly fileName = signal('');
   protected readonly message = signal('');
+  protected readonly review = signal<GradeImportReview | null>(null);
+  protected readonly busy = signal(false);
+  private reviewedSignature = '';
   protected level = '';
   protected gradeId = '';
   protected sectionId = '';
   protected courseId = '';
   protected periodId = '';
+  protected schoolYear: number | null = null;
+  protected bimestre: number | null = null;
+  protected contextConfirmed = false;
+  protected blocks: Record<string, { evaluation_name: string; assessment_date: string }> = { '1': { evaluation_name: '', assessment_date: '' }, '2': { evaluation_name: '', assessment_date: '' } };
   private selectedFile: File | null = null;
+
+  protected contextChanged(): void {
+    this.contextConfirmed = false;
+    const preview = this.preview();
+    if (preview?.institutional) {
+      for (const row of preview.rows) {
+        const block = this.blocks[String(row['source_block'])];
+        if (block) { row['evaluation_name'] = block.evaluation_name; row['assessment_date'] = block.assessment_date; }
+      }
+    }
+    this.invalidateReview();
+  }
+  protected resolveStudent(row: Record<string, unknown>, code: string): void {
+    for (const related of this.preview()?.rows ?? []) {
+      if (related['source_row'] === row['source_row'] && related['source_sheet'] === row['source_sheet']) {
+        related['student_code'] = code; related['student_confirmed'] = true;
+      }
+    }
+    this.invalidateReview();
+  }
+  private academicContext(): InstitutionalContext | undefined {
+    return this.preview()?.institutional ? { school_year: this.schoolYear, bimestre: this.bimestre, grade_id: this.gradeId, section_id: this.sectionId, confirmed: this.contextConfirmed, blocks: this.blocks } : undefined;
+  }
 
   constructor() { this.loadCatalog(); }
 
@@ -78,18 +144,53 @@ export class PlaceholderPage {
     const rowErrors = rows.flatMap((row, index) => {
       const errors: string[] = [];
       if (this.mode() === 'students' && (!String(row['student_code'] ?? '').trim() || !String(row['first_name'] ?? '').trim() || !String(row['last_name'] ?? '').trim())) errors.push(`Fila ${index + 2}: código, nombres y apellidos son obligatorios`);
-      if (this.mode() === 'grades') { const score = Number(row['score']); if (!String(row['student_code'] ?? '').trim()) errors.push(`Fila ${index + 2}: falta código`); if (!Number.isFinite(score) || score < 0 || score > 20) errors.push(`Fila ${index + 2}: nota debe estar entre 0 y 20`); if (!String(row['assessment_date'] ?? '').trim()) errors.push(`Fila ${index + 2}: asigna una fecha de evaluación`); }
+      if (this.mode() === 'grades') { const score = Number(row['score']); if (!String(row['student_code'] ?? '').trim()) errors.push(`Fila ${index + 2}: falta código`); if (!String(row['score'] ?? '').trim() || !Number.isFinite(score) || score < 0 || score > 20) errors.push(`Fila ${index + 2}: nota debe estar entre 0 y 20`); if (!String(row['assessment_date'] ?? '').trim()) errors.push(`Fila ${index + 2}: asigna una fecha de evaluación`); }
       return errors;
     });
     return [...rowErrors, ...(this.preview()?.errors ?? []).map((error) => `Fila ${error.row}: ${error.error}`)];
   }
 
-  protected setMode(mode: 'students' | 'grades'): void { this.mode.set(mode); this.preview.set(null); this.message.set(''); this.selectedFile = null; this.fileName.set(''); }
+  protected setMode(mode: 'students' | 'grades'): void { if (this.busy()) return; this.mode.set(mode); this.preview.set(null); this.invalidateReview(); this.message.set(''); this.selectedFile = null; this.fileName.set(''); }
   protected select(event: Event): void { const file = (event.target as HTMLInputElement).files?.[0]; if (file) this.previewFile(file); }
   protected drop(event: DragEvent): void { event.preventDefault(); const file = event.dataTransfer?.files[0]; if (file) this.previewFile(file); }
   protected importGrades(): void {
-    if (!this.preview() || !this.courseId || !this.periodId) { this.message.set('Selecciona curso y periodo y carga una vista previa válida.'); return; }
-    this.api.commitGradeRows(this.preview()!.rows, this.courseId, this.periodId).subscribe({ next: (result) => this.message.set(`${result.imported} de ${result.processed} calificaciones importadas; ${result.rejected} rechazadas.`), error: (error: { error?: { detail?: unknown } }) => this.message.set(typeof error.error?.detail === 'string' ? error.error.detail : 'Importación revertida: corrige los errores indicados por la API.') });
+    if (this.busy() || !this.reviewReady()) { this.message.set('Revisa los registros y decide sobre las diferencias antes de confirmar.'); return; }
+    const rows = this.preview()!.rows.map((row, index) => {
+      const item = this.review()!.rows[index];
+      return { ...row, component_id: item.component_id, decision: item.decision, review_token: item.review_token };
+    });
+    this.busy.set(true);
+    this.api.commitGradeRows(rows, this.courseId, this.periodId, this.academicContext()).subscribe({
+      next: (result) => { this.busy.set(false); this.invalidateReview(); this.message.set(`${result.imported} nuevas; ${result.updated} actualizadas; ${result.skipped} omitidas; ${result.rejected} rechazadas.`); },
+      error: (error) => { this.busy.set(false); this.invalidateReview(); this.message.set(this.importError(error)); },
+    });
+  }
+
+  protected invalidateReview(): void {
+    this.review.set(null); this.reviewedSignature = '';
+    if (this.mode() === 'grades' && this.preview()) this.preview.set({ ...this.preview()!, errors: [] });
+  }
+  private reviewSignature(): string { return JSON.stringify([this.courseId, this.periodId, this.preview()?.rows, this.academicContext()]); }
+  protected reviewReady(): boolean {
+    return !!this.review() && !this.review()!.errors.length && this.reviewedSignature === this.reviewSignature()
+      && this.review()!.rows.every((item) => item.status !== 'different' || item.decision === 'keep' || item.decision === 'update');
+  }
+  protected statusLabel(status: string): string {
+    return ({ new: 'Nueva', identical: 'Ya existe: idéntica', different: 'Diferencia', ambiguous: 'Ambigua', duplicate_in_file: 'Repetida en archivo' } as Record<string, string>)[status] ?? status;
+  }
+  private importError(error: { error?: { detail?: unknown } }): string {
+    const detail = error.error?.detail;
+    if (typeof detail === 'string') return detail;
+    const errors = (detail as { errors?: { row: number; error: string }[] } | undefined)?.errors;
+    return errors?.map((item) => `Fila ${item.row}: ${item.error}`).join('; ') || 'Importación revertida. Revisa nuevamente las notas y las diferencias.';
+  }
+  protected reviewGrades(): void {
+    if (this.busy() || !this.preview() || !this.courseId || !this.periodId) return;
+    this.invalidateReview(); const signature = this.reviewSignature(); this.busy.set(true);
+    this.api.reviewGradeRows(this.preview()!.rows, this.courseId, this.periodId, this.academicContext()).subscribe({
+      next: (result) => { this.busy.set(false); if (signature !== this.reviewSignature()) return; this.review.set(result); this.reviewedSignature = signature; this.message.set('Revisión completada; todavía no se guardaron cambios.'); },
+      error: (error) => { this.busy.set(false); this.message.set(this.importError(error)); },
+    });
   }
   protected importStudents(): void {
     if (!this.preview() || !this.gradeId || !this.sectionId) { this.message.set('Selecciona grado y sección, y carga una vista previa válida.'); return; }
@@ -98,9 +199,12 @@ export class PlaceholderPage {
   protected courseName(): string { return this.catalog().courses.find((course) => course.id === this.courseId)?.name ?? 'No seleccionado'; }
   protected periodName(): string { return this.catalog().periods.find((period) => period.id === this.periodId)?.name ?? 'No seleccionado'; }
   private previewFile(file: File): void {
+    if (this.busy()) return;
+    this.invalidateReview();
     this.selectedFile = file; this.fileName.set(file.name); this.message.set('');
     if (this.mode() === 'grades' && !this.periodId) { this.preview.set(null); this.message.set('Selecciona el periodo antes de cargar el Excel de calificaciones.'); return; }
     const request = this.mode() === 'grades' ? this.api.previewGradeImport(file, this.periodId) : this.api.previewStudentImport(file);
-    request.subscribe({ next: (result) => this.preview.set(result), error: () => this.preview.set({ columns: [], rows: [], total: 0, errors: [{ row: 0, error: 'No se pudo procesar el archivo' }] }) });
+    this.busy.set(true);
+    request.subscribe({ next: (result) => { this.busy.set(false); this.preview.set(result); this.contextChanged(); }, error: () => { this.busy.set(false); this.preview.set({ columns: [], rows: [], total: 0, errors: [{ row: 0, error: 'No se pudo procesar el archivo; revisa la hoja y los encabezados' }] }); } });
   }
 }

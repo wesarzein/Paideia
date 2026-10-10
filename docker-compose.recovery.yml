@@ -1,0 +1,4 @@
+# Use only after reviewing the backup and database inventory. Does not migrate.
+services:
+  backend:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

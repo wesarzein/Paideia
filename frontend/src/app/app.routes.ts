@@ -20,8 +20,8 @@ export const routes: Routes = [
       { path: 'calificaciones', canActivate: [roleGuard], loadComponent: () => import('./features/grades/grades.page').then((m) => m.GradesPage), data: { title: 'Calificaciones', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
       { path: 'asistencia', canActivate: [roleGuard], loadComponent: () => import('./features/attendance/attendance.page').then((m) => m.AttendancePage), data: { title: 'Asistencia', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
       { path: 'seguimiento', canActivate: [roleGuard], loadComponent: () => import('./features/follow-up/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Seguimiento academico', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'analitica', canActivate: [roleGuard], loadComponent: () => import('./features/analytics/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Analitica', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'ia', canActivate: [roleGuard], loadComponent: () => import('./features/ai/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'IA', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
+      { path: 'analitica', canActivate: [roleGuard], loadComponent: () => import('./features/analytics/analytics.page').then((m) => m.AnalyticsPage), data: { title: 'Analitica', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
+      { path: 'ia', canActivate: [roleGuard], loadComponent: () => import('./features/ai/risk-model.page').then((m) => m.RiskModelPage), data: { title: 'IA', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
       { path: 'reportes', canActivate: [roleGuard], loadComponent: () => import('./features/reports/reports.page').then((m) => m.ReportsPage), data: { title: 'Reportes', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
       { path: 'importacion', canActivate: [roleGuard], loadComponent: () => import('./features/imports/imports.page').then((m) => m.ImportsPage), data: { title: 'Importacion', roles: ['admin', 'teacher'] } }
     ],

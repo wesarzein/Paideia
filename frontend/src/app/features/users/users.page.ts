@@ -46,12 +46,13 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
       </form>
     </section>
     <section class="panel table-wrap">
-      <table><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Vínculos</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
+      <table><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Vínculos</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
         @for (user of users(); track user.id) {
           <tr>
             <td>{{ user.full_name }}</td><td>{{ user.email }}</td><td>{{ roleName(user.role) }}</td>
+            <td>{{ user.is_active === false ? 'Inactivo' : 'Activo' }}</td>
             <td>{{ linkedStudents(user) }}</td>
-            <td class="actions-cell"><button class="icon-action" type="button" (click)="edit(user)" title="Editar usuario" aria-label="Editar usuario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="icon-action danger-icon" type="button" (click)="remove(user)" title="Eliminar usuario" aria-label="Eliminar usuario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6"/></svg></button></td>
+            <td class="actions-cell"><button class="icon-action" type="button" (click)="edit(user)" title="Editar usuario" aria-label="Editar usuario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button type="button" class="small" (click)="toggleStatus(user)">{{ user.is_active === false ? 'Reactivar' : 'Desactivar' }}</button></td>
           </tr>
         }
       </tbody></table>
@@ -164,11 +165,14 @@ export class UsersPage {
     });
   }
 
-  protected async remove(user: AuthUser): Promise<void> {
-    if (await this.confirm.ask(`¿Eliminar la cuenta de ${user.full_name}? Los registros académicos se conservarán.`)) {
-      this.api.deleteUser(user.id).subscribe({
-        next: () => { this.message.set('Cuenta eliminada; los registros académicos siguen conservados.'); this.load(); },
-        error: () => this.error.set('No se pudo eliminar la cuenta.'),
+  protected async toggleStatus(user: AuthUser): Promise<void> {
+    const active = user.is_active === false;
+    this.error.set('');
+    this.message.set('');
+    if (await this.confirm.ask(`¿${active ? 'Reactivar' : 'Desactivar'} la cuenta de ${user.full_name}? Sus vínculos y registros académicos se conservarán.`)) {
+      this.api.updateUser(user.id, { is_active: active }).subscribe({
+        next: () => { this.message.set(active ? 'Cuenta reactivada.' : 'Cuenta desactivada.'); this.load(); },
+        error: (response: { error?: { detail?: string } }) => this.error.set(response.error?.detail ?? 'No se pudo cambiar el estado de la cuenta.'),
       });
     }
   }

@@ -397,12 +397,22 @@ def test_courses_hide_archived_by_default() -> None:
                 db.commit()
 
 
-def test_analytics_and_ai_endpoints_are_not_enabled() -> None:
+def test_business_indicators_enabled_without_institutional_ai() -> None:
     _seed_basics()
     client = TestClient(app)
     headers = _admin_headers()
 
-    assert client.get("/api/v1/kpis", headers=headers).status_code == 501
+    response = client.get("/api/v1/kpis", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["ai"]["institutional_predictions"] is False
+    model_status = client.get("/api/v1/risk-models", headers=headers)
+    assert model_status.status_code == 200
+    assert model_status.json()["institutional_status"] == "inactive_policy_and_data_required"
+    assert model_status.json()["active_run_id"] is None
+    prediction = client.get("/api/v1/risk-models/demonstration/predictions", headers=headers)
+    assert prediction.status_code == 200
+    assert prediction.json()["status"] == "untrained_or_inactive"
+    assert prediction.json()["rows"] == []
     assert client.get("/api/v1/dashboard/risk-alerts", headers=headers).status_code == 501
 
 

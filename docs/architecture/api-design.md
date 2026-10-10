@@ -2,6 +2,8 @@
 
 Version base: `/api/v1`.
 
+Este listado describe el MVP inicial y no sustituye el OpenAPI actual. El código escolar ahora se genera en el servidor a partir de grado/sección; no tomar la descripción antigua de campos obligatorios como contrato vigente. Consultar la [auditoría académica de Fase 4A](../academic/auditoria-fase4a.md) para los flujos verificados y sus limitaciones.
+
 Endpoints MVP:
 
 ```http

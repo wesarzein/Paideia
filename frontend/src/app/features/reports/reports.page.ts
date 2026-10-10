@@ -28,14 +28,15 @@ const emptyCatalog = (): AcademicCatalog => ({ grades: [], sections: [], courses
     </section>
     @if (!gradeId) { <p class="panel">Selecciona un grado para generar la vista previa grupal.</p> }
     @else if (loading()) { <p class="panel">Preparando vista previa...</p> }
+    @else if (loadError()) { <p class="panel" role="alert">No se pudo cargar el reporte. Cambia un filtro para reintentar.</p> }
     @else {
       <div class="print-root">
       <p class="period-caption">Reporte mensual @if (month) { · {{ monthLabel() }} · Bimestre {{ bimesterNumber() }} }</p>
-      <section class="summary"><article><span>Estudiantes</span><strong>{{ students().length }}</strong></article><article><span>Promedio grupal</span><strong>{{ average() | number:'1.1-2' }}</strong></article><article><span>Asistencia grupal</span><strong>{{ attendance() | number:'1.1-1' }}%</strong></article></section>
+      <section class="summary"><article><span>Estudiantes</span><strong>{{ students().length }}</strong></article><article><span>Promedio grupal de referencia</span><strong>{{ average() === null ? 'Sin datos' : (average() | number:'1.1-2') }}</strong></article><article><span>Asistencia grupal</span><strong>{{ attendance() === null ? 'Sin datos' : (attendance() | number:'1.1-1') + '%' }}</strong></article></section>
       <section class="panel preview">
         <h2>Reporte grupal · {{ gradeName() }} {{ sectionId ? '· ' + sectionName() : '' }}</h2>
         <table><thead><tr><th>Código</th><th>Estudiante</th><th>Promedio</th><th>Asistencia</th><th>Riesgo</th><th class="no-print actions-heading">Detalle</th></tr></thead><tbody>
-          @for (item of students(); track item.student_id) {<tr><td>{{ item.student_code }}</td><td>{{ item.student_name }}</td><td>{{ item.average_score | number:'1.1-2' }}</td><td>{{ item.attendance_rate | number:'1.1-1' }}%</td><td>{{ item.risk_level }}</td><td class="no-print actions-cell"><button class="icon-action" type="button" (click)="showIndividual(item)" title="Ver ficha" aria-label="Ver ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></td></tr>}
+          @for (item of students(); track item.student_id) {<tr><td>{{ item.student_code }}</td><td>{{ item.student_name }}</td><td>{{ item.average_score === null ? 'Sin datos' : (item.average_score | number:'1.1-2') }}</td><td>{{ item.attendance_rate === null ? 'Sin datos' : (item.attendance_rate | number:'1.1-1') + '%' }}</td><td>{{ riskLabel(item.risk_level) }}</td><td class="no-print actions-cell"><button class="icon-action" type="button" (click)="showIndividual(item)" title="Ver ficha" aria-label="Ver ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></td></tr>}
         </tbody></table>
       </section>
       @if (individual()) {
@@ -59,8 +60,9 @@ export class ReportsPage {
   protected readonly students = signal<RiskAlert[]>([]);
   protected readonly individual = signal<IndividualReport | null>(null);
   protected readonly loading = signal(false);
-  protected readonly average = signal(0);
-  protected readonly attendance = signal(0);
+  protected readonly loadError = signal(false);
+  protected readonly average = signal<number | null>(null);
+  protected readonly attendance = signal<number | null>(null);
   protected level = '';
   protected gradeId = '';
   protected sectionId = '';
@@ -87,13 +89,25 @@ export class ReportsPage {
   protected load(): void {
     if (!this.gradeId) { this.students.set([]); this.individual.set(null); return; }
     this.loading.set(true);
+    this.loadError.set(false);
+    this.individual.set(null);
     const filters: Record<string, string> = { grade_id: this.gradeId };
     if (this.sectionId) filters['section_id'] = this.sectionId;
     if (this.periodId) filters['period_id'] = this.periodId;
     if (this.courseId) filters['course_id'] = this.courseId;
     if (this.month) filters['month'] = String(Number(this.month.slice(5, 7)));
-    this.api.getStudentReports(filters).subscribe({ next: (items) => { this.students.set(items); this.average.set(items.length ? items.reduce((sum, item) => sum + item.average_score, 0) / items.length : 0); this.attendance.set(items.length ? items.reduce((sum, item) => sum + item.attendance_rate, 0) / items.length : 0); this.loading.set(false); }, error: () => this.loading.set(false) });
+    this.api.getStudentReports(filters).subscribe({ next: (items) => {
+      this.students.set(items);
+      const graded = items.filter((item) => item.average_score !== null);
+      const weight = graded.reduce((sum, item) => sum + item.grade_weight_sum, 0);
+      this.average.set(weight ? graded.reduce((sum, item) => sum + item.average_score! * item.grade_weight_sum, 0) / weight : null);
+      const attended = items.filter((item) => item.attendance_rate !== null);
+      const count = attended.reduce((sum, item) => sum + item.attendance_count, 0);
+      this.attendance.set(count ? attended.reduce((sum, item) => sum + item.attendance_rate! * item.attendance_count, 0) / count : null);
+      this.loading.set(false);
+    }, error: () => { this.students.set([]); this.average.set(null); this.attendance.set(null); this.loadError.set(true); this.loading.set(false); } });
   }
+  protected riskLabel(value: string): string { return ({ SIN_DATOS: 'Sin datos', INCOMPLETO: 'Evidencia incompleta' } as Record<string, string>)[value] ?? value; }
   protected showIndividual(item: RiskAlert): void { const filters: Record<string, string> = {}; if (this.periodId) filters['period_id'] = this.periodId; this.api.getIndividualReport(item.student_id, filters).subscribe({ next: (report) => this.individual.set(report as unknown as IndividualReport) }); }
   protected print(): void { window.print(); }
   protected exportXlsx(): void {

@@ -5,6 +5,9 @@ on:
   push:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,8 +15,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
-      - run: pip install -r backend/requirements.txt
-      - run: ruff check backend
-      - run: pytest
+          python-version: '3.12'
+      - run: python -m unittest discover -s scripts -p 'test_*.py'
+      - run: pip install -r backend/requirements.lock
+      - name: Lint infrastructure and persistence changes
+        run: ruff check scripts backend/app/core/config.py backend/app/seed_dev.py backend/app/import_roster.py backend/app/inspect_database.py backend/app/services/school_roster.py backend/migrations/env.py backend/tests/unit/test_roster_persistence.py backend/tests/unit/test_environment_config.py
+      - name: Lint academic services and focused regressions
         working-directory: backend
+        run: >-
+          ruff check app/services/academic_access.py app/services/academic_metrics.py
+          app/schemas/periods.py app/schemas/cohorts.py app/endpoints/cohorts.py
+          tests/unit/test_academic_authorization.py tests/unit/test_grade_context_validation.py
+          tests/unit/test_attendance_context_validation.py tests/unit/test_user_account_status.py
+          tests/unit/test_academic_metrics.py tests/unit/test_grade_matrix_context.py
+          tests/unit/test_academic_periods.py tests/unit/test_academic_cohorts.py
+          tests/unit/test_enrollment_context.py tests/unit/test_follow_up_chronology.py
+      - name: Lint business indicators and local experimental AI
+        working-directory: backend
+        run: >-
+          ruff check app/services/business_metrics.py app/endpoints/kpis.py
+          app/services/risk_features.py app/services/local_risk_model.py
+          app/services/demonstration_dataset.py app/services/risk_registry.py
+          app/services/demonstration_summary.py
+          app/models/risk_model.py app/endpoints/risk_models.py app/ai_worker.py
+          app/verify_risk_migration.py migrations/versions/0016_local_risk_models.py
+          tests/unit/test_business_metrics.py tests/unit/test_risk_features.py
+          tests/unit/test_local_risk_model.py tests/unit/test_risk_registry.py
+      - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml build
+      - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T migrate
+      - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T tests

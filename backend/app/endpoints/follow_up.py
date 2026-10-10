@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.follow_up import FollowUp
 from app.models.academic import CourseAssignment
+from app.models.follow_up import FollowUp
 from app.models.student import Student
 from app.models.user import User
+from app.services.academic_access import student_scope
 
 router = APIRouter()
 
@@ -36,23 +38,42 @@ class FollowUpResponse(BaseModel):
     category: str
     action: str
     status: str
+    created_at: datetime | None = None
+    recorded_by_name: str | None = None
+
+
+def response_for(item: FollowUp, author_name: str | None) -> FollowUpResponse:
+    return FollowUpResponse.model_validate(item).model_copy(
+        update={"recorded_by_name": author_name}
+    )
 
 
 @router.get("", response_model=list[FollowUpResponse])
 def list_follow_ups(
     grade_id: UUID | None = None,
     section_id: UUID | None = None,
+    student_id: UUID | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
 ):
-    statement = select(FollowUp).join(Student)
+    statement = (
+        select(FollowUp, User.full_name)
+        .join(Student, FollowUp.student_id == Student.id)
+        .outerjoin(User, FollowUp.recorded_by_id == User.id)
+        .where(student_scope(user))
+    )
     if grade_id:
         statement = statement.where(Student.grade_id == grade_id)
     if section_id:
         statement = statement.where(Student.section_id == section_id)
-    if user.role.code == "teacher":
-        statement = statement.join(CourseAssignment, (CourseAssignment.grade_id == Student.grade_id) & (CourseAssignment.section_id == Student.section_id)).where(CourseAssignment.teacher_id == user.id)
-    return db.scalars(statement.order_by(FollowUp.created_at.desc())).all()
+    if student_id:
+        statement = statement.where(Student.id == student_id)
+    return [
+        response_for(item, author_name)
+        for item, author_name in db.execute(
+            statement.order_by(FollowUp.created_at.desc(), FollowUp.id.desc())
+        )
+    ]
 
 
 @router.post("", response_model=FollowUpResponse, status_code=status.HTTP_201_CREATED)
@@ -71,7 +92,7 @@ def create_follow_up(
     db.add(item)
     db.commit()
     db.refresh(item)
-    return item
+    return response_for(item, db.scalar(select(User.full_name).where(User.id == item.recorded_by_id)))
 
 
 @router.patch("/{follow_up_id}", response_model=FollowUpResponse)
@@ -91,7 +112,7 @@ def update_follow_up(
         setattr(item, field, value)
     db.commit()
     db.refresh(item)
-    return item
+    return response_for(item, db.scalar(select(User.full_name).where(User.id == item.recorded_by_id)))
 
 
 @router.delete("/{follow_up_id}", status_code=status.HTTP_204_NO_CONTENT)
