@@ -18,6 +18,7 @@ from app.models.academic import (
 from app.models.student import Student
 from app.services.academic_access import record_scope, student_scope
 from app.services.academic_metrics import academic_metrics
+from app.services.demonstration_summary import demonstration_summary
 
 
 def indicators(db, user, filters):
@@ -191,5 +192,5 @@ def indicators(db, user, filters):
             aggregate(p.id, groups["student"].get(p.id, []), p.student_code or str(p.id))
             for p in students
         ],
-        "ai": {"status": "not_enabled", "institutional_predictions": False},
+        "ai": demonstration_summary(db),
     }

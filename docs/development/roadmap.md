@@ -10,10 +10,10 @@ locales anteriores preservados. No hay ERS originales disponibles.
 | Bloque | Estado | Prioridad / dependencia | Aceptación / pruebas |
 | --- | --- | --- | --- |
 | REQ-24–28: BI con cobertura, filtros, tendencias y asistencia | PG/API, Angular y navegador probados; integración IA pendiente | P0; ámbito académico probado | API PG con cero/null/pesos históricos/ACL cruzada, Angular y navegador, sin alterar 32 notas |
-| REQ-29–32: features históricas y datos demostrativos | Pendiente | P0; BI y aislamiento | Semilla determinista, cursos/periodos, sin datos personales ni fuga temporal, separación de alumnos |
-| Modelo local experimental y evaluación | Pendiente | P0; dataset suficiente | Baseline/logística, métricas reales y limitaciones sintéticas; artefacto seguro, no entrenamiento pesado en request |
-| Versiones, aprobación, activación y rollback | Pendiente | P0; modelo candidato | Persistencia PG, concurrencia, auditoría y permisos; modo institucional bloqueado sin validación |
-| Panel IA e integración BI | Pendiente | P0; contratos anteriores | Demostración visible, estados honestos, cobertura/modelo/fecha, Playwright esencial |
+| REQ-29–32: features históricas y datos demostrativos | PG/entrenamiento reproducible probado | P0; BI y aislamiento | Semilla determinista, cursos/periodos, sin datos personales ni fuga temporal, separación de alumnos |
+| Modelo local experimental y evaluación | Regresión logística/baseline y HTTP probados; sin validación institucional | P0; dataset suficiente | Baseline/logística, métricas reales y limitaciones sintéticas; artefacto seguro, no entrenamiento pesado en request |
+| Versiones, aprobación, activación y rollback | PG/API/Playwright probados, dos candidatos y rollback anterior | P0; modelo candidato | Persistencia PG, concurrencia, auditoría y permisos; modo institucional bloqueado sin validación |
+| Panel IA e integración BI | PG/API, build y recorridos Playwright probados | P0; contratos anteriores | Demostración visible, estados honestos, cobertura/modelo/fecha, Playwright esencial |
 | GitHub: auditoría, push, PR, CI y squash | Pendiente | P0; aceptación BI/IA completa | Revisar árbol e historial saliente; CI obligatorio; no squash con bloqueo; backup y main verificado |
 | Auditoría ordinaria B3 y variantes secundarias | Diferido | P2 | Conservar funciones; no ampliar ERP antes de entrega principal |
 
@@ -22,8 +22,11 @@ criterios opcionales y precedencia de fórmulas/pesos. No se inventan políticas
 los resultados experimentales no habilitan decisiones oficiales.
 
 Evidencia vigente: [BI/IA](../bi/validacion-bi-ia.md). BI: 7/7 PG, 46/46 Vitest,
-build y Playwright esencial/móvil; 32 notas idénticas. Continuación: IA local
-temporal demostrativa, versiones y aprobación, luego panel e integración BI.
+build y Playwright esencial/móvil; 32 notas idénticas. IA: 15 casos focalizados
+aprobados, 50/50 componentes y recorrido completo; segundo candidato aprobado,
+activación y rollback por API sin cambiar modelo previo. Integración BI compilada
+(50/50, 25,897 s) y recorrido independiente/móvil aprobado; siguiente:
+auditoría saliente final, PR/CI y consolidación GitHub condicionada.
 
 Actualizado: 09/10/2026, America/Lima. Rama de trabajo:
 `dev/phase4b5-academic-stabilization`. Inicio verificado: `7984ad4`, Git limpio.

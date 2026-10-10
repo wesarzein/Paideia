@@ -1,13 +1,14 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AcademicCatalog, ApiService } from '../../core/services/api.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { AnalyticsService, BusinessIndicators } from './analytics.service';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, DecimalPipe, DatePipe],
+  imports: [FormsModule, PageHeaderComponent, DecimalPipe, DatePipe, RouterLink],
   template: `
     <app-page-header title="Analítica académica" description="Indicadores de referencia sobre evidencia autorizada. No sustituyen fórmulas oficiales." />
     <section class="panel filters" aria-label="Filtros de analítica">
@@ -43,6 +44,7 @@ import { AnalyticsService, BusinessIndicators } from './analytics.service';
       <section class="panel"><h2>Distribución numérica / 20</h2>@for (label of ['0–5','>5–10','>10–15','>15–20']; track label) {<div class="bar"><span>{{ label }}</span><meter [value]="d.numeric_distribution[label]" min="0" [max]="d.grade_count || 1" [attr.aria-label]="label + ': ' + d.numeric_distribution[label]"></meter><strong>{{ d.numeric_distribution[label] }}</strong></div>}</section>
       <section class="panel"><h2>Detalle por curso</h2><table><thead><tr><th>Curso</th><th>Notas</th><th>Promedio</th></tr></thead><tbody>@for (c of d.courses; track c.id) {<tr><td>{{ c.name }}</td><td>{{ c.count }}</td><td>{{ c.average === null ? 'No calculable' : (c.average | number:'1.1-2') }}</td></tr>}</tbody></table></section>
       <section class="panel"><h2>Detalle autorizado por estudiante</h2><table><thead><tr><th>Código</th><th>Notas</th><th>Promedio</th></tr></thead><tbody>@for (s of d.students; track s.id) {<tr><td>{{ s.name }}</td><td>{{ s.count }}</td><td>{{ s.average === null ? 'Sin evidencia' : (s.average | number:'1.1-2') }}</td></tr>}</tbody></table></section>
+      <section class="panel"><h2>IA · Demostración independiente</h2><p>IA institucional inactiva. Estos conteos ficticios no se mezclan con los indicadores académicos anteriores.</p>@if (d.ai.status === 'demonstration_only') {<p>Modelo {{ d.ai.run_id?.slice(0,8) }} · {{ d.ai.model_date | date:'short' }}</p><p>{{ d.ai.ready }} de {{ d.ai.cases }} casos ficticios con historia suficiente; {{ d.ai.insufficient }} insuficientes. Riesgo experimental: {{ d.ai.high }} alto, {{ d.ai.medium }} medio, {{ d.ai.low }} bajo.</p>} @else {<p>Sin demostración aprobada disponible.</p>}<a routerLink="/ia">Abrir panel experimental</a></section>
     }
   `,
   styles: [`

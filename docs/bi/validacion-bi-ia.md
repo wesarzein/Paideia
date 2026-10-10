@@ -32,6 +32,54 @@ Regla literal estricta de plantilla, no política universal.
 
 ## IA y consolidación pendientes
 
-Extractor temporal, dataset ficticio y regresión logística en desarrollo; no
-predicciones institucionales. No push ni PR todavía: requieren auditoría del
-historial saliente y aceptación integral. Backup local `backup/pre-bi-ai-a6495ce`.
+Extractor temporal y regresión logística local implementados: dos pruebas de
+features sin fuga futura, dos de entrenamiento/inferencia, once de registro/API
+(incluye carrera y ciclo de migración). Todos aprobados sobre fixtures aisladas.
+El dataset usa modelos académicos existentes, 80 alumnos ficticios, tres cursos
+y cinco periodos; jamás inserta en public. Etiquetas experimentales por promedio
+del periodo siguiente y corte configurable; no eficacia institucional acreditada.
+
+0016 agrega registro, despliegue y auditoría de modelos. Ciclo 0016→0015→0016
+en UUID aprobado; upgrade de public autorizado conserva las 16 tablas previas
+exactas y las 32 notas. No downgrade de public. Resultado real del verificador:
+`passed: true`, fingerprint PG de notas `fa9fbf0849e863ec22090e957e9054c7`.
+Worker independiente bajo demanda, BLAS de un hilo y CPU máximo 180 s; backend
+con memoria/swap 768 MiB y un CPU. Sin worker permanente ni servicios externos.
+Dependencias fijadas: sklearn 1.7.2, scipy 1.16.2, joblib 1.5.2, threadpoolctl 3.6.0.
+Artefactos numéricos JSON; no archivos pickle ni carga de modelos arbitrarios.
+
+Panel Angular: cuatro casos nuevos, **50/50** componentes en 28,52 s, build
+31,535 s. Tras recuperar RAM, Playwright pasó solicitud HTTP con worker auxiliar,
+candidato persistido, aprobación, activación, inferencia, recarga, desactivación,
+restauración y móvil; cero errores JavaScript y 32 notas exactas. Los intentos
+anteriores por debajo de 1,5 GiB terminaron antes de solicitar trabajos.
+
+Resultado experimental real (semilla 42): entrenamiento 342 ejemplos/57 alumnos;
+evaluación temporal 48 ejemplos/16 alumnos, cero alumnos compartidos. Precisión
+0,900; recall 0,750; F1 0,818; Brier 0,0866; matriz [[35,1],[3,9]]. Baseline
+mayoritario F1 0; Brier 0,25; matriz [[36,0],[12,0]]. Etiquetas sintéticas por regla,
+sin eficacia institucional acreditada. Inferencia: 240 casos ficticios, 0,636 s
+observados incluyendo UI/HTTP; no acredita carga productiva. Parámetros/modelo
+numéricos, métricas y fuente persistidos en PostgreSQL; prueba privada
+`config/local/risk-ui.result.json`. Segundo candidato por API (semilla 43) aprobado:
+precisión/recall/F1 0,9545; Brier 0,0343; matriz [[25,1],[1,21]]. Misma separación
+342/48 ejemplos y 57/16 alumnos. El entrenamiento no cambió el modelo activo;
+activación explícita y rollback al anterior conservaron íntegra su metadata y las
+32 notas. Evidencia privada `risk-retraining.result.json`.
+
+Integración BI: conteos, cobertura, versión y fecha demostrativos en sección
+independiente; 50/50 componentes en 23,05 s y build 25,897 s. Pendiente recorrido
+visual de esa sección: **aprobado** con 240 casos ficticios separados de 32 notas,
+cobertura/versionado/fecha, filtros, vacío, error/reintento y móvil; cero errores JS.
+Consulta integrada observada 0,581 s. Entrenamiento API sin Edge reserva mínimo 1 GiB y comparte
+el límite duro del backend 768 MiB; navegador/entrenamiento combinado mantiene
+1,5 GiB. Empaquetado desde caché sin instalación usa cap 256 MiB, serializado.
+
+Regresión focalizada posterior: 8/8 PG en 15,19 s (siete BI + nuevo caso de modo
+institucional/umbrales invertidos/motivo vacío rechazados). Total de este bloque:
+22 casos PG distintos (7 BI + 15 IA), aprobados por etapas; no es una ejecución
+conjunta nueva. Cuatro unittest de infraestructura y Ruff scripts/BI/IA aprobaron.
+
+No push ni PR todavía: requieren auditoría del historial saliente y aceptación
+integral. Backup local `backup/pre-bi-ai-a6495ce`. Reanudación visual con recursos:
+`config/local/browser-venv/Scripts/python.exe -B scripts/verify_risk_model_ui.py`.

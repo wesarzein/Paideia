@@ -30,6 +30,17 @@ jobs:
           tests/unit/test_academic_metrics.py tests/unit/test_grade_matrix_context.py
           tests/unit/test_academic_periods.py tests/unit/test_academic_cohorts.py
           tests/unit/test_enrollment_context.py tests/unit/test_follow_up_chronology.py
+      - name: Lint business indicators and local experimental AI
+        working-directory: backend
+        run: >-
+          ruff check app/services/business_metrics.py app/endpoints/kpis.py
+          app/services/risk_features.py app/services/local_risk_model.py
+          app/services/demonstration_dataset.py app/services/risk_registry.py
+          app/services/demonstration_summary.py
+          app/models/risk_model.py app/endpoints/risk_models.py app/ai_worker.py
+          app/verify_risk_migration.py migrations/versions/0016_local_risk_models.py
+          tests/unit/test_business_metrics.py tests/unit/test_risk_features.py
+          tests/unit/test_local_risk_model.py tests/unit/test_risk_registry.py
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml build
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T migrate
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T tests

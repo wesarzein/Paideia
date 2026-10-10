@@ -7,6 +7,9 @@ x-backend: &backend
     context: ./backend
   env_file:
     - ${PAIDEIA_ENV_FILE:?Set the private environment file path}
+  mem_limit: ${BACKEND_MEMORY_LIMIT:-768m}
+  memswap_limit: ${BACKEND_MEMORY_LIMIT:-768m}
+  cpus: ${BACKEND_CPU_LIMIT:-1}
   networks:
     - application
 

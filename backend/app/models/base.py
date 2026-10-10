@@ -12,6 +12,7 @@ from app.models.academic import (
     Section,
 )
 from app.models.follow_up import FollowUp
+from app.models.risk_model import RiskModelDeployment, RiskModelEvent, RiskModelRun
 from app.models.student import Student
 from app.models.user import AuditLog, Role, User
 
@@ -29,6 +30,9 @@ __all__ = [
     "Grade",
     "GradeRecord",
     "Role",
+    "RiskModelDeployment",
+    "RiskModelEvent",
+    "RiskModelRun",
     "Section",
     "Student",
     "User",

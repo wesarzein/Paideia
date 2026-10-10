@@ -30,6 +30,9 @@ ml/datasets/synthetic/*
 *.xlsx
 *.csv
 *.pbix
+*.pkl
+*.joblib
+ml/artifacts/
 !.env.example
 !backend/.env.example
 frontend/.angular/

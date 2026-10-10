@@ -29,9 +29,22 @@ PostgreSQL 17 mediante la imagen `postgres:17-alpine`, SQLAlchemy 2, Alembic, UU
 
 ## IA
 
+Implementación actual: `risk_features` minimiza historia anterior al periodo objetivo;
+`local_risk_model` entrena baseline/logística en un proceso `ai_worker` bajo demanda.
+El registro PostgreSQL conserva candidatos, métricas, JSON numérico, autor y eventos;
+la activación usa bloqueo de fila y versión esperada. Cada dataset demostrativo usa
+un esquema UUID con los modelos académicos existentes y sin fallback a public.
+No hay worker permanente, pickle ni API externa. La inferencia institucional está
+inactiva; el panel solo consulta su dataset ficticio. Véase [operación IA](docs/ai/operacion-modelos-locales.md).
+
 La IA consumira servicios internos del backend. No accede desde frontend a la base de datos. La prediccion sera alerta temprana indicativa y requiere validacion pedagogica.
 
 ## BI / analitica
+
+`business_metrics` consulta evidencia con `student_scope`/`record_scope`, reutiliza
+pesos capturados y distingue null/cero. API `/kpis` y Angular muestran filtros,
+distribuciones, tendencias y cobertura. El resumen de IA demostrativa se presenta
+por separado, sin combinar sus alumnos/casos con estadísticas académicas.
 
 La capa de inteligencia de negocio o analitica consumira datos preparados desde PostgreSQL y vistas analiticas.
 

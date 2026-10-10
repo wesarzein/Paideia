@@ -13,7 +13,7 @@ export interface BusinessIndicators {
   coverage: { active_enrollments: number; with_grades: number; without_grades: number; percent: number | null; evaluation_completion: string; };
   attendance: { count: number; present: number; absent: number; late: number; present_percent: number | null; absent_percent: number | null; late_percent: number | null; students_with_repeated_absences: number; };
   periods: MetricGroup[]; months: MetricGroup[]; courses: MetricGroup[]; students: MetricGroup[];
-  ai: { status: string; institutional_predictions: boolean; };
+  ai: { status: string; institutional_predictions: boolean; run_id?: string; model_date?: string; cases?: number; ready?: number; insufficient?: number; high?: number; medium?: number; low?: number; };
 }
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {

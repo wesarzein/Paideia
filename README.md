@@ -12,11 +12,20 @@ Centralizar los datos académicos y apoyar el seguimiento institucional con mód
 
 ## Alcance
 
-Incluye autenticación, usuarios, estudiantes, cursos, calificaciones, asistencia, seguimiento, dashboard, reportes e importación Excel/CSV. Analítica e IA tienen por ahora una interfaz informativa; sus cálculos y predicciones no están habilitados.
+Incluye autenticación, usuarios, estudiantes, cursos, calificaciones, asistencia,
+seguimiento, dashboard, reportes e importación Excel/CSV. BI consulta evidencia
+autorizada de PostgreSQL. La IA local funciona exclusivamente en demostración con
+datos ficticios aislados; no genera alertas institucionales ni decisiones automáticas.
 
-El [contexto técnico y plan de auditoría de evaluación configurable](docs/academic/evaluacion-configurable-y-auditoria.md) registra el requisito de competencias, criterios, ponderaciones y fórmulas personalizables por curso y periodo, con importación Excel, versionado y protección de historiales. Está documentado para una auditoría futura; no se declara implementado.
+La evaluación configurable ofrece competencias, criterios, pesos, fórmulas de
+previsualización, borradores, publicación y versiones. La evidencia ejecutada está
+en [validación académica](docs/academic/validacion-segunda-laptop-fase4b.md).
+Opcionales incompletos y precedencia de fórmulas/pesos siguen pendientes de política;
+los indicadores de referencia no habilitan cálculos oficiales ambiguos.
 
-La [auditoría académica de Fase 4A](docs/academic/auditoria-fase4a.md) registra los recorridos ejecutados con PostgreSQL sintético y navegador, la matriz de cumplimiento, las brechas del Excel institucional y la implementación parcial de configuración. No se han aplicado todavía sus correcciones funcionales.
+La [auditoría 4A](docs/academic/auditoria-fase4a.md) conserva los antecedentes.
+El [roadmap vigente](docs/development/roadmap.md) distingue cambios probados,
+pendientes institucionales y límites de despliegue. No se declara producción lista.
 
 ## Arquitectura
 
@@ -27,7 +36,9 @@ flowchart TD
   C --> D[Repositories]
   D --> E[(PostgreSQL)]
   B --> F[Dashboard]
-  F -. "planificado" .-> G[Analítica e IA]
+  F --> G[BI autorizado]
+  B --> H[IA demostrativa local]
+  H --> I[Dataset ficticio aislado]
 ```
 
 ## Stack tecnologico
@@ -37,12 +48,29 @@ flowchart TD
 | Frontend | Angular 20.3, TypeScript 5.8.3, Vitest |
 | Backend | Python 3.12-slim, FastAPI 0.141, Pydantic 2, SQLAlchemy 2 |
 | Datos | PostgreSQL 17-alpine, Alembic |
-| Analítica e IA | Interfaces previstas; procesamiento aún no habilitado |
+| Analítica e IA | Indicadores PostgreSQL; pandas/numpy/sklearn local, modelos JSON demostrativos |
 | Infraestructura | Docker, Docker Compose; frontend sobre Node.js 24-alpine |
 
 ## Modulos
 
-Autenticación, usuarios, estudiantes, cursos y asignaciones, calificaciones, asistencia, seguimiento, dashboard, reportes e importación. Analítica e IA están pendientes de implementación funcional.
+Autenticación, usuarios, estudiantes, cursos y asignaciones, calificaciones,
+asistencia, seguimiento, dashboard, reportes, importación, BI e IA experimental.
+Se conserva el portal familiar existente; el alcance no se amplía a un ERP.
+
+## BI e IA experimental
+
+Analítica: filtros, cobertura, distribuciones, tendencias, comparación de periodos
+y asistencia. Distingue cero, ausencia e incompletitud; usa pesos históricos.
+Los conteos demostrativos de IA se muestran separados de los indicadores académicos.
+
+IA: un administrador solicita entrenamiento ficticio, revisa métricas/baseline,
+aprueba y activa explícitamente una versión; puede restaurar una anterior.
+El entrenamiento ocurre en un proceso auxiliar bajo demanda y no reemplaza el
+modelo activo. Datos y artefactos quedan en PostgreSQL; no se suben datasets ni
+modelos privados. La IA institucional permanece inactiva hasta disponer de política,
+historia autorizada suficiente, validación y aprobación. Sin APIs externas ni costos.
+Véanse [operación IA](docs/ai/operacion-modelos-locales.md) y
+[evidencia BI/IA](docs/bi/validacion-bi-ia.md).
 
 ## Estructura del repositorio
 
