@@ -9,7 +9,7 @@ locales anteriores preservados. No hay ERS originales disponibles.
 
 | Bloque | Estado | Prioridad / dependencia | Aceptación / pruebas |
 | --- | --- | --- | --- |
-| REQ-24–28: BI con cobertura, filtros, tendencias y asistencia | PG/API, Angular y navegador probados; integración IA pendiente | P0; ámbito académico probado | API PG con cero/null/pesos históricos/ACL cruzada, Angular y navegador, sin alterar 32 notas |
+| REQ-24–28: BI con cobertura, filtros, tendencias y asistencia | PG/API, Angular y navegador probados; IA demostrativa separada y verificada | P0; ámbito académico probado | API PG con cero/null/pesos históricos/ACL cruzada, Angular y navegador, sin alterar 32 notas |
 | REQ-29–32: features históricas y datos demostrativos | PG/entrenamiento reproducible probado | P0; BI y aislamiento | Semilla determinista, cursos/periodos, sin datos personales ni fuga temporal, separación de alumnos |
 | Modelo local experimental y evaluación | Regresión logística/baseline y HTTP probados; sin validación institucional | P0; dataset suficiente | Baseline/logística, métricas reales y limitaciones sintéticas; artefacto seguro, no entrenamiento pesado en request |
 | Versiones, aprobación, activación y rollback | PG/API/Playwright probados, dos candidatos y rollback anterior | P0; modelo candidato | Persistencia PG, concurrencia, auditoría y permisos; modo institucional bloqueado sin validación |
