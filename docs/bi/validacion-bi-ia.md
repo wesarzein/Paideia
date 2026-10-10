@@ -98,3 +98,11 @@ sin volúmenes y con montaje fuente de solo lectura; artefactos y logs preservad
 en `config/local`. Imágenes/cachés, respaldos, volumen sintético, volumen institucional
 y recursos previos se conservaron. Backend actualizado desde caché sin reinstalar
 dependencias ni repetir el build Angular.
+
+Primer CI remoto de PR #2: frontend aprobado; backend instaló desde cero y migró
+hasta 0016, con 243/244 pruebas aprobadas. La única falla era una expectativa legada
+de `/kpis == 501`, anterior a la habilitación BI. Se actualizó el caso para comprobar
+BI disponible, ausencia de modelo activo inicial e IA institucional deshabilitada.
+El caso corregido pasó en un esquema UUID del laboratorio (1/1, 3,17 s); `public`
+conserva sus 32 notas y el modelo activo previo. El resultado definitivo de la suite
+remota permanece consultable en la PR, sin anticipar aprobación.
