@@ -14,7 +14,7 @@ locales anteriores preservados. No hay ERS originales disponibles.
 | Modelo local experimental y evaluación | Regresión logística/baseline y HTTP probados; sin validación institucional | P0; dataset suficiente | Baseline/logística, métricas reales y limitaciones sintéticas; artefacto seguro, no entrenamiento pesado en request |
 | Versiones, aprobación, activación y rollback | PG/API/Playwright probados, dos candidatos y rollback anterior | P0; modelo candidato | Persistencia PG, concurrencia, auditoría y permisos; modo institucional bloqueado sin validación |
 | Panel IA e integración BI | PG/API, build y recorridos Playwright probados | P0; contratos anteriores | Demostración visible, estados honestos, cobertura/modelo/fecha, Playwright esencial |
-| GitHub: auditoría, push, PR, CI y squash | Pendiente | P0; aceptación BI/IA completa | Revisar árbol e historial saliente; CI obligatorio; no squash con bloqueo; backup y main verificado |
+| GitHub: auditoría, push, PR, CI y squash | Desarrollo publicado; [PR #2](https://github.com/wesarzein/Paideia/pull/2) abierta, CI/integración consultables allí | P0; aceptación BI/IA local comprobada | Historial saliente revisado; squash solo con CI aprobado, sin conflictos y backup; verificar main antes de retirar desarrollo |
 | Auditoría ordinaria B3 y variantes secundarias | Diferido | P2 | Conservar funciones; no ampliar ERP antes de entrega principal |
 
 Pendientes institucionales: objetivo/horizonte/umbrales de IA, calidad mínima,
@@ -26,7 +26,8 @@ build y Playwright esencial/móvil; 32 notas idénticas. IA: 15 casos focalizado
 aprobados, 50/50 componentes y recorrido completo; segundo candidato aprobado,
 activación y rollback por API sin cambiar modelo previo. Integración BI compilada
 (50/50, 25,897 s) y recorrido independiente/móvil aprobado; siguiente:
-auditoría saliente final, PR/CI y consolidación GitHub condicionada.
+comprobar CI de [PR #2](https://github.com/wesarzein/Paideia/pull/2) y consolidar GitHub si pasa.
+La PR conserva el estado remoto actualizado; esta evidencia local no anticipa su resultado.
 
 Actualizado: 09/10/2026, America/Lima. Rama de trabajo:
 `dev/phase4b5-academic-stabilization`. Inicio verificado: `7984ad4`, Git limpio.

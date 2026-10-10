@@ -86,4 +86,15 @@ versiones de archivos: sin coincidencias de claves/JWT/rutas privadas; revisión
 manual de datos JSON, configuración, SQL y logo completada (fixture ficticia,
 resultados anonimizados, logo sin personas). Los filtros automáticos no sustituyen
 esa revisión. No se publican archivos `config/local`, XLSX, datasets ni artefactos.
-Backup local `backup/pre-bi-ai-a6495ce`; consolidación condicionada al CI remoto.
+Auditoría final anterior al push: 39 commits/478 versiones, sin coincidencias;
+los únicos cambios siguientes son esta referencia documental y el roadmap.
+Backup local `backup/pre-bi-ai-a6495ce` y `backup/pre-main-bi-ai`.
+Desarrollo publicado por push normal; [PR #2](https://github.com/wesarzein/Paideia/pull/2)
+conserva el estado de CI e integración. Squash condicionado al CI remoto aprobado.
+
+Inventario Docker final: solo tres servicios del laboratorio autorizados activos.
+Se retiraron cuatro contenedores de build Angular creados en este bloque, detenidos,
+sin volúmenes y con montaje fuente de solo lectura; artefactos y logs preservados
+en `config/local`. Imágenes/cachés, respaldos, volumen sintético, volumen institucional
+y recursos previos se conservaron. Backend actualizado desde caché sin reinstalar
+dependencias ni repetir el build Angular.
