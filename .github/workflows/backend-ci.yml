@@ -17,6 +17,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s scripts -p 'test_*.py'
+      - run: python -m unittest discover -s scripts/tests -p 'test_*.py'
       - run: pip install -r backend/requirements.lock
       - name: Lint infrastructure and persistence changes
         run: ruff check scripts backend/app/core/config.py backend/app/seed_dev.py backend/app/import_roster.py backend/app/inspect_database.py backend/app/services/school_roster.py backend/migrations/env.py backend/tests/unit/test_roster_persistence.py backend/tests/unit/test_environment_config.py
@@ -41,6 +42,15 @@ jobs:
           app/verify_risk_migration.py migrations/versions/0016_local_risk_models.py
           tests/unit/test_business_metrics.py tests/unit/test_risk_features.py
           tests/unit/test_local_risk_model.py tests/unit/test_risk_registry.py
+      - name: Lint append-only academic audit and worker recovery
+        working-directory: backend
+        run: >-
+          ruff check app/services/academic_audit.py app/models/academic_history.py
+          app/endpoints/academic_history.py app/api/dependencies.py
+          migrations/versions/0017_academic_change_history.py
+          migrations/versions/0018_risk_worker_recovery.py
+          tests/unit/test_academic_change_history.py tests/unit/test_risk_recovery.py
+          tests/unit/test_clean_developer_start.py
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml build
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T migrate
       - run: docker compose --env-file .env.test.example -p paideia-synthetic-tests -f docker-compose.tests.yml run -T tests

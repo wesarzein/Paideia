@@ -35,6 +35,8 @@ services:
     command: ["upgrade", "head"]
   tests:
     <<: *test-backend
+    volumes:
+      - ./database/seeds/roster.synthetic.json:/fixtures/roster.synthetic.json:ro
     entrypoint: ["python", "-m", "pytest"]
     command: ["tests", "-q", "-p", "no:cacheprovider", "--tb=short"]
 networks:

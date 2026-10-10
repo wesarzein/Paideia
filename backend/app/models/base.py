@@ -11,12 +11,14 @@ from app.models.academic import (
     GradeRecord,
     Section,
 )
+from app.models.academic_history import AcademicChangeHistory
 from app.models.follow_up import FollowUp
 from app.models.risk_model import RiskModelDeployment, RiskModelEvent, RiskModelRun
 from app.models.student import Student
 from app.models.user import AuditLog, Role, User
 
 __all__ = [
+    "AcademicChangeHistory",
     "AcademicPeriod",
     "AttendanceRecord",
     "AuditLog",

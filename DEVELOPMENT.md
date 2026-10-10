@@ -1,85 +1,28 @@
-## Desarrollo y operación
+## Desarrollo y operaciones
 
-Para instalar desde cero o incorporar un desarrollador, seguir la [guía de Fase 3](docs/architecture/phase3-environments.md): configuración privada por checkout, base independiente y datos sintéticos. No requiere el padrón institucional ni una copia de la base actual. El [requisito de evaluación configurable](docs/academic/evaluacion-configurable-y-auditoria.md) permanece reservado para auditoría funcional posterior.
+El alta de integrantes usa exclusivamente `docker-compose.environment.yml` y un archivo privado por desarrollador. GitHub comparte codigo y migraciones, nunca bases, secretos o padrones reales. La instalacion anterior y su volumen permanecen independientes.
 
-### Instalación histórica ya provisionada
+Con Git, Python 3 y Docker Desktop disponibles, desde un clon de `main`:
 
-Las instrucciones siguientes documentan la instalación local anterior. No utilizarlas como bootstrap de un clon nuevo; no cambiar su `.env` ni su volumen durante el alta de otro desarrollador.
+```powershell
+python scripts/setup_dev.py dev1 --port 14200
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml build backend
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml build frontend
+python scripts/dev_environment.py config/local/dev1.env initialize
+```
 
-Sigue estos pasos para clonar y levantar el proyecto en tu entorno local sin instalar Node.js, Python ni las dependencias de forma manual. Docker Compose utiliza Python `3.12-slim` con `build-essential` para el backend, PostgreSQL `17-alpine` para la base de datos y Node.js `24-alpine` para el frontend. El frontend usa Angular `20.3.0` con TypeScript `5.8.3`.
+Construir las imagenes por separado con RAM suficiente. Node 24, Angular 20.3.33 y TypeScript 5.8.3 proceden del lockfile y Docker. `initialize` comprueba proyecto, volumen y destino efectivo, migra hasta head y carga solo el seed sintetico en un catalogo vacio. Acceso: `http://localhost:14200`; credenciales propias en `config/local/dev1.env`, fuera de Git.
 
-### Prerrequisitos
-- Tener instalado [Git](https://git-scm.com/).
-- Tener instalado y abierto [Docker Desktop](https://www.docker.com/), con Docker Compose disponible.
+Uso cotidiano: `python scripts/dev_environment.py config/local/dev1.env start`, `status` o `stop`. Para actualizar: `git pull --ff-only`, construir backend y frontend por separado y ejecutar `python scripts/dev_environment.py config/local/dev1.env update`. El arranque no migra, importa padrones ni borra datos. `update` verifica el destino antes de aplicar migraciones. No repetir `initialize` sobre un catalogo poblado.
 
-### Pasos de instalación
-
-1. **Clona el repositorio**
-   ```bash
-   git clone https://github.com/wesarzein/Paideia.git
-   cd Paideia
-   ```
-
-2. **Configura las variables de entorno**
-  Crea el archivo local `.env` a partir de `.env.example`. No compartas ni subas `.env` al repositorio:
-   - En Windows (PowerShell):
-     ```powershell
-     Copy-Item .env.example .env
-     ```
-  Para una base nueva, define `INITIAL_ADMIN_EMAIL` y `INITIAL_ADMIN_PASSWORD` en `.env` con una cuenta institucional y contraseña única de al menos 12 caracteres. El backend crea esa cuenta solo si aún no existe; ya no hay credenciales de administrador demo codificadas. Si la base ya tiene administradores, conserva esas cuentas.
-   - En Linux / macOS / Git Bash:
-     ```bash
-     cp .env.example .env
-     ```
-
-3. **Coloca el padrón escolar privado**
-  El padrón real se entrega por separado para proteger los datos personales de los alumnos. Guárdalo como `database/local/roster.json`; la carpeta está excluida de Git. El archivo debe contener `school_year` y secciones con `level`, `grade`, `section`, `students` (formato `APELLIDOS, NOMBRES`) y `courses` (`name` y `teacher` opcional). El backend **no lee ni sincroniza el padrón al arrancar**. Los códigos existentes se conservan; los nuevos usan el siguiente sufijo disponible del grupo, no la posición en la lista.
-
-  Ejemplo sin datos personales:
-  ```json
-  {
-    "school_year": 2026,
-    "sections": [{
-      "level": "Primaria",
-      "grade": "4°",
-      "section": "A",
-      "students": ["APELLIDOS, NOMBRES"],
-      "courses": [{"name": "Curso", "teacher": "Docente"}]
-    }]
-  }
-  ```
-
-  Compose monta el archivo como solo lectura. El backend no lo importa al iniciar: su conciliación requiere el comando explícito descrito abajo. Los registros ausentes nunca se eliminan ni desactivan por ese archivo.
-
-### Incorporar a otro desarrollador y sincronizar datos
-
-GitHub sincroniza el código y las migraciones de Alembic; no sincroniza el volumen local de PostgreSQL, el archivo `.env` ni `database/local/roster.json`.
-
-- Para que en una instalación nueva aparezcan los alumnos y cursos base: el compañero clona los cambios, configura su propio `.env`, recibe el padrón por un canal privado y lo coloca en `database/local/roster.json`. Después de provisionar el esquema, un operador autorizado importa explícitamente el padrón con el procedimiento de abajo. Reiniciar el backend no importa ni concilia el archivo.
-- Cada base local tiene registros independientes. Para desarrollo normal usar catálogos sintéticos; para probar información común editable, usar una API de integración compartida y autorizada. Copiar un respaldo no establece replicación continua y no es el procedimiento habitual de alta de compañeros.
-- Cada desarrollador debe usar su propia configuración local y cuenta administrativa. Las contraseñas, `.env`, respaldos y el padrón privado no se incorporan al repositorio.
-- Las migraciones se aplican explícitamente, con revisión previa. El backend nuevo ya no las ejecuta al arrancar y conserva el volumen entre reinicios. No usar `docker compose down -v` sobre instalaciones con datos que deban conservarse.
-
-4. **Construye y levanta los contenedores**
-  Ejecuta el siguiente comando desde la raíz del proyecto para construir las imágenes y arrancar los servicios en segundo plano:
-   ```bash
-   docker compose -f docker-compose.yml -f docker-compose.recovery.yml up -d --no-deps backend
-   ```
-
-5. **Accede a la aplicación**
-   Una vez que los contenedores estén activos, puedes ingresar desde tu navegador:
-   - **Frontend (Interfaz web):** `http://localhost:4200`
-  - **Backend (documentación de la API):** `http://localhost:8000/docs`
-  - **Base de datos PostgreSQL:** `localhost:5432`
-
-  El Dashboard muestra indicadores con filtros por grado, sección, curso, periodo y mes. Estudiantes, cursos, calificaciones, asistencia, seguimiento y reportes consumen datos persistidos en PostgreSQL. Analítica e IA mantienen por ahora una interfaz informativa, sin cálculos ni predicciones.
+En esta laptop sigue autorizado solo `config/local/phase4b3ui.env`, proyecto `paideia-dev-phase4b3ui`: sustituir el alias de los ejemplos sin crear otro laboratorio. Aislamiento: [Fase 3](docs/architecture/phase3-environments.md).
 
 ### Restablecer la contraseña de administrador
 
 La contraseña existente no se puede recuperar en texto plano. Para cambiarla, desde la raíz del proyecto ejecuta en una terminal interactiva:
 
 ```powershell
-docker compose exec backend python -m app.reset_admin_password
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml exec backend python -m app.reset_admin_password
 ```
 
 El comando solicita el correo de la cuenta administradora y pide dos veces la nueva contraseña sin mostrarla ni incluirla en el historial de comandos. Requiere un mínimo de 12 caracteres y solo actualiza una cuenta cuyo rol sea administrador. No expongas la contraseña en el chat, en comandos ni en archivos del repositorio.
@@ -88,9 +31,9 @@ El comando solicita el correo de la cuenta administradora y pide dos veces la nu
 
 | Servicio | Imagen o base | Acceso local |
 | --- | --- | --- |
-| Backend | Python `3.12-slim` + `build-essential` | `http://localhost:8000` |
-| Base de datos | `postgres:17-alpine` | `localhost:5432` |
-| Frontend | `node:24-alpine` | `http://localhost:4200` |
+| Backend | Python `3.12-slim` + `build-essential` | Solo red Docker; API por el proxy frontend |
+| Base de datos | `postgres:17-alpine` | Solo red Docker; sin puerto publicado |
+| Frontend | `node:24-alpine` + Nginx | `http://localhost:14200` para el alias dev1 |
 
 ---
 
@@ -116,13 +59,13 @@ Este comando se reserva al operador autorizado con acceso administrativo al back
 Con un backend que ya ejecute el código actualizado y un esquema revisado, obtiene primero una vista previa (transacción revertida, sin guardar):
 
 ```powershell
-docker compose exec backend python -m app.import_roster
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml exec backend python -m app.import_roster
 ```
 
 El resultado muestra cantidades de altas/cambios y una huella `sha256`, sin nombres. Revisa el archivo privado y el resumen; para confirmar exactamente ese archivo:
 
 ```powershell
-docker compose exec backend python -m app.import_roster --apply --sha256 HUELLA_DE_LA_VISTA_PREVIA
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml exec backend python -m app.import_roster --apply --sha256 HUELLA_DE_LA_VISTA_PREVIA
 ```
 
 - El archivo agrega estudiantes, cursos, secciones, asignaciones y asociaciones académicas faltantes. Ausencia no significa baja. Un padrón parcial o una lista vacía de alumnos/cursos nunca elimina ni desactiva registros.
@@ -136,7 +79,7 @@ docker compose exec backend python -m app.import_roster --apply --sha256 HUELLA_
 
 La [guía de recuperación de Fase 2](docs/architecture/recovery-phase2.md) registra el respaldo verificado, las pruebas PostgreSQL aisladas y los pasos propuestos para recuperar servicios sin ejecutar migraciones automáticas.
 
-La recuperación ya se ejecutó y verificó sin cambios de registros, incluido un reinicio controlado. Para recrear el backend manteniendo el arranque sin migraciones automáticas, usa `docker compose -f docker-compose.yml -f docker-compose.recovery.yml up -d --no-deps backend`. Los healthchecks y las 16 pruebas PostgreSQL de la imagen reconstruida pasaron; la auditoría funcional del flujo Excel se realizará después.
+La recuperación ya se ejecutó y verificó sin cambios de registros, incluido un reinicio controlado. Para recrear el backend manteniendo el arranque sin migraciones automáticas, usa el procedimiento de recuperacion historico autorizado, ajeno al alta de desarrolladores. Los healthchecks y las 16 pruebas PostgreSQL de la imagen reconstruida pasaron; la auditoría funcional del flujo Excel se realizará después.
 
 `tests/unit/test_roster_persistence.py` utiliza SQLite en memoria por defecto, datos sintéticos y sesiones aisladas. También admite el PostgreSQL desechable definido en `docker-compose.phase2-tests.yml`; valida explícitamente el host, usuario y nombre de base antes de provisionar un esquema de prueba. Sustituye la sesión de arranque y la del comando; nunca usa la base actual. Para ejecutar SQLite desde `backend`, configura `DATABASE_URL=sqlite://` y una `JWT_SECRET_KEY` ficticia de al menos 32 caracteres en el proceso de pruebas, y ejecuta:
 
@@ -152,15 +95,15 @@ La documentación anterior describía calificaciones mensuales y un catálogo de
 
 - **Apagar los contenedores:**
   ```bash
-  docker compose stop
+  python scripts/dev_environment.py config/local/dev1.env stop
   ```
 
 - **Ver los contenedores activos:**
   ```bash
-  docker compose ps
+  python scripts/dev_environment.py config/local/dev1.env status
   ```
 
 - **Revisar los registros (logs) en tiempo real:**
   ```bash
-  docker compose logs -f
+  docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml logs -f
   ```

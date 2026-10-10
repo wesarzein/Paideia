@@ -25,6 +25,9 @@
   e IA local experimental demostrativa; modelos sintéticos jamás generan alertas reales.
   No servicios, costos ni claves externas. IA institucional requiere datos, política,
   validación y aprobación explícitas. Conservar módulos existentes, sin ampliar ERP.
-- Continuar autónomamente con tareas definidas: aceptación → pruebas → evidencia y
-  roadmap → commit local → siguiente prioridad. Si hay bloqueo, registrar motivo y
-  comando/punto de reanudación; avanzar con tareas independientes seguras.
+- Alcance congelado del MVP (10/10/2026): cerrar únicamente la estabilización existente,
+  auditoría 0017, recuperación IA 0018, BI, instalación y regresiones esenciales.
+  No ampliar módulos, algoritmos, ERP ni documentación universitaria. Conservar el trabajo
+  interrumpido. Consolidar por rama temporal y PR squash solo con CI aprobado y respaldo.
+  Al verificar el MVP y su integración en main, detener el desarrollo; registrar limitaciones
+  no críticas para otra versión. Ante un bloqueo, conservar cambios y punto de reanudación.

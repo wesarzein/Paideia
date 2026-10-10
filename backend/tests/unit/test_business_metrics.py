@@ -9,6 +9,82 @@ from app.models.academic import GradeRecord
 __all__ = ["scenario", "sessions"]
 
 
+def test_changes_refresh_bi_and_combined_filters_match_academic_reports(scenario, sessions):
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.academic import AttendanceRecord
+
+    client, ids, actors, current = scenario
+    current["user"] = actors["admin"]
+    params = {
+        "student_id": ids["students"][0],
+        "course_id": ids["courses"][0],
+        "period_id": ids["period"],
+        "section_id": ids["sections"][0],
+        "month": 4,
+    }
+    before = query(scenario, params).json()
+    assert before["average"] == 10
+    with sessions() as db:
+        grade = db.scalar(
+            select(GradeRecord).where(
+                GradeRecord.student_id == UUID(ids["students"][0]),
+                GradeRecord.course_id == UUID(ids["courses"][0]),
+            )
+        )
+        grade.score = 0
+        attendance = db.scalar(
+            select(AttendanceRecord).where(
+                AttendanceRecord.student_id == grade.student_id,
+                AttendanceRecord.course_id == grade.course_id,
+            )
+        )
+        attendance.status = "ABSENT"
+        db.commit()
+    after = query(scenario, params).json()
+    assert after["average"] == 0 and after["zero_scores"] == 1
+    assert after["attendance"]["absent"] == 1
+    reports = client.get(
+        "/reports/students", params={k: v for k, v in params.items() if k != "student_id"}
+    )
+    assert reports.status_code == 200
+    student = next(row for row in reports.json() if row["student_id"] == ids["students"][0])
+    assert student["average_score"] == after["average"]
+
+
+def test_bi_response_with_one_thousand_records(scenario, sessions):
+    from datetime import date
+    from time import perf_counter
+    from uuid import UUID
+
+    client, ids, actors, current = scenario
+    current["user"] = actors["admin"]
+    with sessions() as db:
+        db.add_all(
+            [
+                GradeRecord(
+                    student_id=UUID(ids["students"][0]),
+                    course_id=UUID(ids["courses"][0]),
+                    period_id=UUID(ids["period"]),
+                    assessment_date=date(2026, 4, 2),
+                    evaluation_name=f"Synthetic load {i}",
+                    score=10,
+                )
+                for i in range(1000)
+            ]
+        )
+        db.commit()
+    start = perf_counter()
+    response = query(scenario, {"student_id": ids["students"][0], "course_id": ids["courses"][0]})
+    elapsed = perf_counter() - start
+    assert response.status_code == 200
+    assert response.json()["grade_count"] == 1001
+    assert response.json()["average"] == 10
+    print(f"BI synthetic 1001 grades: {elapsed:.3f}s")
+
+
 def query(scenario, params=None):
     client = scenario[0]
     if not getattr(client.app.state, "kpis_added", False):

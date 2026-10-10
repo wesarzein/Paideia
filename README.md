@@ -109,11 +109,12 @@ El alta de desarrollo usa datos sintéticos y no requiere el padrón ni respaldo
 Construye las imágenes y levanta los servicios en segundo plano:
 
 ```bash
-docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml build
-docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml run -T migrate
-docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml run -T seed
-docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml up -d backend frontend
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml build backend
+docker compose --env-file config/local/dev1.env -f docker-compose.environment.yml build frontend
+python scripts/dev_environment.py config/local/dev1.env initialize
 ```
+
+Para iniciar o detener el entorno ya provisionado: `python scripts/dev_environment.py config/local/dev1.env start` o `stop`. Para actualizar: `git pull --ff-only`, construir backend y frontend por separado con los comandos anteriores y ejecutar `python scripts/dev_environment.py config/local/dev1.env update`. `initialize` rechaza un catálogo poblado; los demás comandos conservan el volumen y no repiten el seed. Las credenciales iniciales están exclusivamente en el archivo privado.
 
 ## Versiones y accesos
 

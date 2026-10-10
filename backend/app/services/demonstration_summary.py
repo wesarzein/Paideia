@@ -20,14 +20,16 @@ def demonstration_summary(db):
     run = db.get(RiskModelRun, active.run_id)
     if run is None or run.status != "approved" or run.mode != "demonstration":
         return {"status": "unavailable", "institutional_predictions": False}
-    engine = demo_engine(settings.database_url, run.dataset_schema)
+    engine = None
     try:
+        engine = demo_engine(settings.database_url, run.dataset_schema)
         rows = dataset_rows(engine, run.dataset_schema)
         predictions = [predict_demonstration(run.result["artifact"], row) for row in rows]
-    except (ValueError, KeyError, TypeError, AssertionError, SQLAlchemyError):
+    except (ValueError, KeyError, IndexError, TypeError, AssertionError, SQLAlchemyError):
         return {"status": "unavailable", "institutional_predictions": False}
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
     counts = Counter(p["risk"] for p in predictions)
     return {
         "status": "demonstration_only",

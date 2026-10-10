@@ -257,6 +257,9 @@ export interface ImportPreview {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  getAcademicHistory<T>(studentId: string, offset = 0) {
+    return this.http.get<T>(`${environment.apiUrl}/academic/history`, { params: { student_id: studentId, limit: 50, offset } });
+  }
   private readonly http = inject(HttpClient);
 
   getHealth() {

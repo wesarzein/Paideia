@@ -18,6 +18,62 @@ def event(db, actor, action, run=None, **details):
     )
 
 
+def acquire_worker_lock(connection):
+    if connection.dialect.name != "postgresql":
+        raise ValueError("Worker recovery requires PostgreSQL")
+    key = connection.scalar(
+        text(
+            "SELECT hashtextextended(current_database() || ':' || current_schema() || :suffix, 0)"
+        ),
+        {"suffix": ":paideia-demo-worker"},
+    )
+    return (
+        key if connection.scalar(text("SELECT pg_try_advisory_lock(:key)"), {"key": key}) else None
+    )
+
+
+def release_worker_lock(connection, key):
+    connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": key})
+
+
+def worker_active(db):
+    connection = db.connection()
+    if connection.dialect.name != "postgresql":
+        return None
+    key = acquire_worker_lock(connection)
+    if key is None:
+        return True
+    release_worker_lock(connection, key)
+    return False
+
+
+def recover_interrupted(db, actor, run_id, reason):
+    connection = db.connection()
+    try:
+        key = acquire_worker_lock(connection)
+    except ValueError as exc:
+        raise HTTPException(503, "Recuperación disponible únicamente con PostgreSQL") from exc
+    if key is None:
+        raise HTTPException(409, "Un proceso de entrenamiento sigue activo; no se puede recuperar")
+    try:
+        deployment(db, lock=True)
+        run = db.scalar(select(RiskModelRun).where(RiskModelRun.id == run_id).with_for_update())
+        if run is None:
+            raise HTTPException(404, "Entrenamiento no encontrado")
+        if run.mode != "demonstration" or run.status not in {"queued", "running"}:
+            raise HTTPException(409, "Solo se recuperan solicitudes demostrativas interrumpidas")
+        run.status = "failed"
+        run.error_code = "interrupted_recovered_request_new_training"
+        run.worker_token = None
+        run.finished_at = datetime.now(UTC)
+        event(db, actor, "training_recovered", run, reason=reason, dataset_preserved=True)
+        db.flush()
+    finally:
+        release_worker_lock(connection, key)
+    db.commit()
+    return run
+
+
 def deployment(db, lock=False):
     query = select(RiskModelDeployment).where(RiskModelDeployment.mode == "demonstration")
     if lock:
