@@ -36,6 +36,10 @@ class GradeCreate(BaseModel):
         return normalize_evidence_type(value)
 
 
+class HistoricalGradeCreate(GradeCreate):
+    assessment_date: date | None = None
+
+
 class GradeUpdate(EvidenceTypeModel):
     component_id: UUID | None = None
     evaluation_name: str | None = Field(default=None, min_length=1, max_length=120)
@@ -69,7 +73,8 @@ class GradeResponse(BaseModel):
     evaluation_criterion_key: str | None = None
     evaluation_name: str
     evaluation_type: str
-    assessment_date: date
+    record_kind: str = "evaluation"
+    assessment_date: date | None
     score: float
     assessment_weight: float
     assessment_config: dict

@@ -8,6 +8,7 @@ const links = [
   { label: 'Dashboard', path: '/dashboard', icon: 'M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6Zm10-12h8V3h-8v6Z' },
   { label: 'Usuarios', path: '/usuarios', icon: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm6-7.8a4 4 0 0 1 0 7.6M20 21v-2a4 4 0 0 0-3-3.87' },
   { label: 'Estudiantes', path: '/estudiantes', icon: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z' },
+  { label: 'Grados y secciones', path: '/grados-secciones', icon: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
   { label: 'Cursos', path: '/cursos', icon: 'M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5v-17Zm0 0V20' },
   { label: 'Calificaciones', path: '/calificaciones', icon: 'm4 12 5 5L20 6' },
   { label: 'Asistencia', path: '/asistencia', icon: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z' },
@@ -34,7 +35,7 @@ const links = [
     <main>
       <header class="topbar">
         <span>Panel institucional</span>
-        <button type="button" (click)="logout()">Cerrar sesión</button>
+        <div class="session"><div class="identity"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><div><strong>{{ sessionUser.full_name || sessionUser.email || 'Usuario' }}</strong><small>{{ roleLabel }}</small></div></div><button type="button" (click)="logout()">Cerrar sesión</button></div>
       </header>
       <router-outlet />
     </main>
@@ -50,12 +51,15 @@ const links = [
     a:hover:not(.active) { background: var(--color-muted); color: var(--color-text); }
     main { padding: 22px 28px 32px; min-width: 0; }
     .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; color: var(--color-muted-text); }
+    .session,.identity{display:flex;align-items:center;gap:12px}.identity svg{width:36px;height:36px;padding:7px;background:#e8eef7;border-radius:50%;fill:none;stroke:var(--color-primary);stroke-width:1.6;flex:none}.identity strong,.identity small{display:block}.identity strong{font-size:.9rem;color:var(--color-text)}.identity small{font-size:.78rem;margin-top:3px}@media(max-width:600px){.topbar>span{display:none}.session{width:100%;justify-content:space-between}.identity strong{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
     button { border: 1px solid var(--color-border); border-radius: 7px; padding: 9px 13px; color: var(--color-text); background: white; cursor: pointer; font: inherit; }
     button:hover{border-color:var(--color-accent);color:#995c13}
     @media (max-width: 820px) { :host { grid-template-columns: 1fr; } aside { position: static; padding:12px; } .brand{margin-bottom:10px}.brand img{height:44px} nav { display:flex;overflow-x:auto;padding-bottom:4px } nav a{white-space:nowrap } main{padding:16px} }
   `],
 })
 export class ShellComponent {
+  protected readonly sessionUser: { full_name?: string; email?: string; role?: string } = (() => { try { return JSON.parse(localStorage.getItem('paideia_user') ?? '{}'); } catch { return {}; } })();
+  protected readonly roleLabel = ({ admin: 'Administrador', teacher: 'Docente', coordinator: 'Coordinador', director: 'Director', student: 'Estudiante', parent: 'Apoderado' } as Record<string,string>)[this.sessionUser.role ?? ''] ?? 'Usuario';
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   protected readonly links = this.visibleLinks();
@@ -70,7 +74,7 @@ export class ShellComponent {
     if (role === 'student' || role === 'parent') {
       return [{ label: 'Mi avance académico', path: '/mi-avance', icon: 'M4 19V5m0 14h17M8 15l3-4 3 2 5-7' }];
     }
-    const teacherLinks = new Set(['/dashboard', '/estudiantes', '/cursos', '/calificaciones', '/asistencia', '/seguimiento', '/analitica', '/ia', '/reportes', '/importacion']);
+    const teacherLinks = new Set(['/dashboard', '/estudiantes', '/cursos', '/grados-secciones', '/calificaciones', '/asistencia', '/seguimiento', '/analitica', '/ia', '/reportes', '/importacion']);
     if (role === 'teacher') return links.filter((link) => teacherLinks.has(link.path));
     if (role === 'coordinator' || role === 'director') {
       return links.filter((link) => link.path !== '/usuarios' && link.path !== '/importacion');

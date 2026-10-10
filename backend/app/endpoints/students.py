@@ -85,7 +85,7 @@ def student_summary(db: Session = Depends(get_db), user=Depends(require_roles("a
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
-def create_student(payload: StudentCreate, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))) -> Student:
+def create_student(payload: StudentCreate, db: Session = Depends(get_db), _user=Depends(require_roles("admin"))) -> Student:
     data = payload.model_dump()
     if data.get("grade_id") is None or data.get("section_id") is None:
         raise HTTPException(status_code=422, detail="Selecciona grado y sección para generar el código escolar")
@@ -121,7 +121,7 @@ def get_student(student_id: UUID, db: Session = Depends(get_db), user=Depends(re
 
 @router.patch("/{student_id}", response_model=StudentResponse)
 def update_student(
-    student_id: UUID, payload: StudentUpdate, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))
+    student_id: UUID, payload: StudentUpdate, db: Session = Depends(get_db), _user=Depends(require_roles("admin"))
 ) -> Student:
     student = db.get(Student, student_id)
     if student is None:
@@ -144,7 +144,7 @@ def update_student(
 
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_student(student_id: UUID, db: Session = Depends(get_db), _user=Depends(require_roles("admin", "coordinator"))) -> None:
+def delete_student(student_id: UUID, db: Session = Depends(get_db), _user=Depends(require_roles("admin"))) -> None:
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")

@@ -43,7 +43,7 @@ router = APIRouter()
 
 
 def _ensure_course_access(db: Session, user: User, course_id: UUID) -> None:
-    if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course_id, CourseAssignment.teacher_id == user.id)) is None:
+    if user.role.code in {"teacher", "coordinator", "director"} and db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course_id, CourseAssignment.teacher_id == user.id)) is None:
         raise HTTPException(status_code=403, detail="No tienes este curso asignado")
 
 
@@ -189,7 +189,7 @@ def save_evaluation_configuration_draft(
     course_id: UUID,
     payload: EvaluationRevisionWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+    user: User = Depends(require_roles("admin")),
 ) -> dict:
     configuration = _configuration_from_payload(course_id, payload.configuration)
     return _store_evaluation_revision(
@@ -202,7 +202,7 @@ def publish_evaluation_configuration(
     course_id: UUID,
     payload: EvaluationRevisionWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+    user: User = Depends(require_roles("admin")),
 ) -> dict:
     configuration = _configuration_from_payload(course_id, payload.configuration)
     return _store_evaluation_revision(
@@ -218,7 +218,7 @@ def restore_institutional_evaluation_configuration(
     course_id: UUID,
     payload: EvaluationRestoreRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+    user: User = Depends(require_roles("admin")),
 ) -> dict:
     configuration = institutional_template(str(course_id), str(payload.period_id))
     return _store_evaluation_revision(
@@ -231,12 +231,14 @@ def list_course_assignments(course_id: UUID, db: Session = Depends(get_db), user
     if db.get(Course, course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     statement = select(CourseAssignment).where(CourseAssignment.course_id == course_id)
-    if user.role.code == "teacher": statement = statement.where(CourseAssignment.teacher_id == user.id)
+    if user.role.code in {"teacher", "coordinator", "director"}: statement = statement.where(CourseAssignment.teacher_id == user.id)
     return db.scalars(statement).all()
 
 
 @router.post("/{course_id}/assignments", response_model=CourseAssignmentResponse, status_code=status.HTTP_201_CREATED)
-def assign_course(course_id: UUID, payload: CourseAssignmentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> CourseAssignment:
+def assign_course(course_id: UUID, payload: CourseAssignmentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssignment:
+    if not payload.teacher_id:
+        raise HTTPException(status_code=422, detail="Selecciona la cuenta del docente para la asignación")
     course = db.get(Course, course_id)
     section = db.get(Section, payload.section_id)
     if course is None or section is None:
@@ -260,7 +262,7 @@ def assign_course(course_id: UUID, payload: CourseAssignmentCreate, db: Session 
 
 
 @router.delete("/{course_id}/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_course_assignment(course_id: UUID, assignment_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> None:
+def remove_course_assignment(course_id: UUID, assignment_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> None:
     assignment = db.get(CourseAssignment, assignment_id)
     if assignment is None or assignment.course_id != course_id:
         raise HTTPException(status_code=404, detail="Asignación no encontrada")
@@ -277,7 +279,7 @@ def list_assessment_components(course_id: UUID, db: Session = Depends(get_db), u
 
 
 @router.post("/{course_id}/assessment-components", response_model=AssessmentComponentResponse, status_code=status.HTTP_201_CREATED)
-def create_assessment_component(course_id: UUID, payload: AssessmentComponentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> CourseAssessmentComponent:
+def create_assessment_component(course_id: UUID, payload: AssessmentComponentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
     if db.get(Course, course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     component = CourseAssessmentComponent(course_id=course_id, **payload.model_dump())
@@ -292,7 +294,7 @@ def create_assessment_component(course_id: UUID, payload: AssessmentComponentCre
 
 
 @router.patch("/{course_id}/assessment-components/{component_id}", response_model=AssessmentComponentResponse)
-def update_assessment_component(course_id: UUID, component_id: UUID, payload: AssessmentComponentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> CourseAssessmentComponent:
+def update_assessment_component(course_id: UUID, component_id: UUID, payload: AssessmentComponentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
     component = db.get(CourseAssessmentComponent, component_id)
     if component is None or component.course_id != course_id:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -304,7 +306,7 @@ def update_assessment_component(course_id: UUID, component_id: UUID, payload: As
 
 
 @router.delete("/{course_id}/assessment-components/{component_id}", response_model=AssessmentComponentResponse)
-def deactivate_assessment_component(course_id: UUID, component_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> CourseAssessmentComponent:
+def deactivate_assessment_component(course_id: UUID, component_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
     component = db.get(CourseAssessmentComponent, component_id)
     if component is None or component.course_id != course_id:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -325,7 +327,7 @@ def list_courses(
         statement = statement.where(Course.is_active.is_(True))
     elif user.role.code not in {"admin", "coordinator"}:
         raise HTTPException(status_code=403, detail="No tienes permiso para consultar cursos archivados")
-    if user.role.code == "teacher":
+    if user.role.code in {"teacher", "coordinator", "director"}:
         statement = statement.where(Course.id.in_(select(CourseAssignment.course_id).where(CourseAssignment.teacher_id == user.id))).distinct()
     return db.scalars(statement).all()
 
@@ -334,7 +336,7 @@ def list_courses(
 def create_course(
     payload: CourseCreate,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "coordinator")),
+    _user: User = Depends(require_roles("admin")),
 ) -> Course:
     normalized_code = payload.code.strip() if payload.code and payload.code.strip() else None
     existing = db.scalar(select(Course).where(Course.code == normalized_code)) if normalized_code else None
@@ -363,7 +365,7 @@ def get_course(
 
 
 @router.patch("/{course_id}", response_model=CourseResponse)
-def update_course(course_id: UUID, payload: CourseUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> Course:
+def update_course(course_id: UUID, payload: CourseUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> Course:
     course = db.get(Course, course_id)
     if course is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
@@ -379,7 +381,7 @@ def update_course(course_id: UUID, payload: CourseUpdate, db: Session = Depends(
 
 
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_course(course_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> None:
+def delete_course(course_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> None:
     course = db.get(Course, course_id)
     if course is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")

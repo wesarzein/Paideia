@@ -57,7 +57,7 @@ def test_enrollment_missing_context_is_rejected_without_writes(scenario, field):
 
 def test_active_enrollment_and_duplicate_preserve_identity(scenario):
     client, ids, actors, current = scenario
-    current["user"] = actors["coordinator"]
+    current["user"] = actors["admin"]
     result = client.post("/enrollments", json=payload(ids, status=" active "))
     assert result.status_code == 201 and result.json()["status"] == "ACTIVE"
     created = result.json()

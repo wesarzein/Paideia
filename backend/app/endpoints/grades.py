@@ -190,6 +190,8 @@ def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get
     student = db.get(Student, record.student_id)
     ensure_student_course_access(db, user, student, record.course_id, record.period_id)
     changes = payload.model_dump(exclude_unset=True)
+    if record.record_kind == "historical_bimester" and set(changes) - {"score", "qualitative_note"}:
+        raise HTTPException(status_code=422, detail="El registro histórico permite corregir notas y observaciones, no convertirlo en una evaluación")
     if "assessment_date" in changes:
         period = db.get(AcademicPeriod, record.period_id, with_for_update={"read": True})
         if period is None:

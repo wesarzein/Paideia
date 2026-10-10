@@ -1,0 +1,79 @@
+<app-page-header title="Importar desde Excel" [description]="isAdmin ? 'Carga alumnos o registros de notas de bimestres anteriores.' : 'Carga notas de bimestres anteriores de tus aulas asignadas.'" />
+<nav class="modes" aria-label="Tipo de importación">
+  <button type="button" [class.active]="mode() === 'grades'" (click)="setMode('grades')" [disabled]="busy()">Calificaciones</button>
+  @if (isAdmin) { <button type="button" [class.active]="mode() === 'students'" (click)="setMode('students')" [disabled]="busy()">Estudiantes</button> }
+</nav>
+<ol class="steps" aria-label="Pasos de importación">
+  <li [class.current]="!contextLocked()"><span>1</span> Selecciona el grupo</li>
+  <li [class.current]="contextLocked() && !preview()"><span>2</span> Carga tu archivo</li>
+  <li [class.current]="!!preview()"><span>3</span> Revisa y guarda</li>
+</ol>
+@if (message()) {
+  <div class="notice" [class.error]="noticeKind() === 'error'" [class.success]="noticeKind() === 'success'" role="alert" aria-live="polite">
+    <strong>{{ noticeKind() === 'error' ? 'Revisa lo siguiente' : noticeKind() === 'success' ? 'Operación completada' : 'Información' }}</strong>
+    <p>{{ message() }}</p>
+  </div>
+}
+@if (!contextLocked()) {
+  <section class="panel setup">
+    <h2>¿Dónde se guardarán los datos?</h2>
+    <p class="muted">Selecciona el grupo antes de cargar el archivo.</p>
+    <div class="filters">
+      <label>Nivel<select aria-label="Nivel" [(ngModel)]="level" (ngModelChange)="gradeId = ''; sectionId = ''; loadCatalog()"><option value="">Seleccionar nivel</option>@for (item of levels(); track item) { <option [value]="item">{{ item }}</option> }</select></label>
+      <label>Grado<select aria-label="Grado" [(ngModel)]="gradeId" (ngModelChange)="sectionId = ''; loadCatalog()" [disabled]="!level"><option value="">Seleccionar grado</option>@for (grade of gradesForLevel(); track grade.id) { <option [value]="grade.id">{{ grade.name }}</option> }</select></label>
+      <label>Sección<select aria-label="Sección" [(ngModel)]="sectionId" (ngModelChange)="loadCatalog()" [disabled]="!gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) { <option [value]="section.id">{{ section.name }}</option> }</select></label>
+      @if (mode() === 'grades') {
+        <label>Curso<select aria-label="Curso" [(ngModel)]="courseId"><option value="">Seleccionar curso</option>@for (course of catalog().courses; track course.id) { <option [value]="course.id">{{ course.name }}</option> }</select></label>
+        <label>Periodo académico<select aria-label="Periodo académico" [(ngModel)]="periodId" (ngModelChange)="selectPeriod()"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) { <option [value]="period.id">{{ period.name }}</option> }</select></label>
+        <label>Bimestre<select aria-label="Bimestre" [(ngModel)]="bimestre"><option [ngValue]="null">Seleccionar bimestre</option>@for (value of [1, 2, 3, 4]; track value) { <option [ngValue]="value">{{ value }}.º bimestre</option> }</select></label>
+        <label>Qué deseas guardar<select aria-label="Qué deseas guardar" [(ngModel)]="correctionsOnly"><option [ngValue]="true">Solo corregir notas existentes</option><option [ngValue]="false">Cargar notas nuevas y corregir existentes</option></select></label>
+      }
+    </div>
+    @if (mode() === 'grades') {
+      <p class="muted">Carga registros de bimestres anteriores. No necesitas fechas de evaluación. Para registrar un examen o actividad nueva, usa Calificaciones.</p>
+    }
+    <div class="actions"><button type="button" (click)="lockContext()" [disabled]="busy()">Continuar y cargar Excel</button></div>
+  </section>
+} @else {
+  <section class="panel selection">
+    <div><span class="eyebrow">Grupo seleccionado</span><h2>{{ level }} · {{ gradeName(gradeId) }} · Sección {{ sectionName() }}</h2>
+      @if (mode() === 'grades') { <p>{{ courseName() }} · {{ periodName() }} · Bimestre {{ bimestre }}</p><p class="muted">Registro histórico bimestral · {{ correctionsOnly ? 'Solo correcciones' : 'Carga inicial y correcciones' }}</p> }
+    </div><button type="button" class="secondary" (click)="changeSelection()" [disabled]="busy()">Cambiar selección</button>
+  </section>
+  @if (!preview()) {
+    <section class="dropzone" (dragover)="$event.preventDefault()" (drop)="drop($event)">
+      <div class="upload-icon" aria-hidden="true">↑</div><h2>Carga el registro de Excel</h2>
+      <p>Arrastra el archivo o selecciónalo desde tu equipo.</p><small>{{ mode() === 'students' ? 'El mismo Excel de notas sirve para cargar alumnos: se leen los códigos y nombres.' : 'Una fila por alumno y una columna por cada nota.' }}</small>
+      <input #fileInput type="file" accept=".csv,.xlsx,.xls" (change)="select($event)" [disabled]="busy()" />
+      <button type="button" (click)="fileInput.click()" [disabled]="busy()">{{ busy() ? 'Leyendo archivo…' : 'Seleccionar archivo' }}</button><small>Excel (.xlsx, .xls) o CSV</small>
+    </section>
+  }
+}
+@if (preview()) {
+  <section class="panel preview">
+    <div class="preview-title"><div><span class="eyebrow">{{ fileName() }}</span><h2>{{ preview()!.institutional ? matrixStudents().length : preview()!.total }} {{ mode() === 'grades' ? 'alumnos · revisión de notas' : 'alumnos · revisión de nombres' }}</h2></div><button type="button" class="secondary" (click)="replaceFile()" [disabled]="busy()">Cambiar archivo</button></div>
+    <p class="muted">{{ mode() === 'grades' ? 'Edita las notas directamente en la tabla. Al guardar se comparan con las existentes y se muestra un resumen para confirmar.' : 'Revisa nombres y apellidos. Los códigos existentes se actualizan sin duplicar alumnos.' }}</p>
+    @if (preview()!.name_split_warning) { <p class="notice">{{ preview()!.name_split_warning }}</p> }
+    @if (rowErrors().length) { <div class="notice error" role="status"><strong>{{ rowErrors().length }} datos por corregir</strong><ul>@for (error of rowErrors().slice(0, 5); track $index) { <li>{{ error }}</li> }</ul></div> }
+    @if (review()?.errors?.length) { <div class="notice error" role="status"><strong>No se guardaron cambios.</strong><ul>@for (error of review()!.errors.slice(0, 5); track $index) { <li>{{ error.error }}</li> }</ul><p>Verifica el grupo seleccionado y que el administrador haya registrado y asignado estos alumnos.</p></div> }
+    <div class="table-scroll">
+      @if (preview()!.institutional && mode() === 'grades') {
+        <table class="grade-sheet" aria-label="Registro de notas del Excel">
+          <thead><tr><th rowspan="2" class="pupil">Alumno</th>@for (block of preview()!.institutional!.blocks; track block.block) { <th [attr.colspan]="block.criteria.length" class="block-heading">{{ block.label }}</th> }</tr><tr>@for (block of preview()!.institutional!.blocks; track block.block) { @for (criterion of block.criteria; track criterion.name) { <th>{{ criterion.name }}</th> } }</tr></thead>
+          <tbody>@for (student of matrixStudents(); track student.source_row) { <tr><td class="pupil"><strong>{{ student.name }}</strong><small>{{ studentCode(student.source_row) }}</small></td>@for (block of preview()!.institutional!.blocks; track block.block) { @for (criterion of block.criteria; track criterion.name) { <td><input type="number" min="0" max="20" step="any" [ngModel]="matrixCell(student.source_row, block.block, criterion.name)?.['score'] ?? ''" (ngModelChange)="editMatrixScore(student.source_row, block.block, criterion.name, $event)" [disabled]="busy()" [class.invalid]="invalidScore(matrixCell(student.source_row, block.block, criterion.name)?.['score'])" [attr.aria-label]="student.name + ' ' + block.label + ' ' + criterion.name" />@if (cellReview(student.source_row, block.block, criterion.name); as item) { @if (item.status === 'different') { <small class="changed">Anterior: {{ item.existing?.score }}</small> } }</td> } }</tr> }</tbody>
+        </table>
+      } @else {
+        <table aria-label="Datos del archivo"><thead><tr>@for (column of visibleColumns(); track column) { <th>{{ columnLabel(column) }}</th> }</tr></thead><tbody>@for (row of preview()!.rows; track $index; let index = $index) { <tr>@for (column of visibleColumns(); track column) { <td>@if ((mode() === 'grades' && column === 'score') || (mode() === 'students' && ['first_name', 'last_name'].includes(column))) { <input [type]="column === 'score' ? 'number' : 'text'" [(ngModel)]="$any(row)[column]" (ngModelChange)="invalidateReview()" [disabled]="busy()" [attr.aria-label]="column + ' fila ' + (index + 1)" /> } @else { {{ row[column] }} }</td> }</tr> }</tbody></table>
+      }
+    </div>
+    @if (preview()!.institutional) { <p class="muted footnote">Se guardan las notas originales por criterio. Los promedios se calculan en el sistema; {{ preview()!.institutional!.blank_inputs }} celdas vacías omitidas.</p> }
+    <div class="save-bar"><div><strong>{{ preview()!.total }} {{ mode() === 'grades' ? 'notas en el archivo' : 'alumnos en el archivo' }}</strong><small>{{ busy() ? 'Procesando. Espera un momento…' : 'Los cambios se guardan después de tu confirmación.' }}</small></div><button type="button" (click)="mode() === 'grades' ? prepareGradeSave() : prepareStudentSave()" [disabled]="busy()">{{ busy() ? 'Procesando…' : mode() === 'grades' ? 'Guardar calificaciones' : 'Guardar alumnos' }}</button></div>
+  </section>
+}
+@if (confirmOpen()) {
+  <dialog #confirmation class="confirm-modal" aria-labelledby="import-confirm-title" (cancel)="confirmOpen.set(false)">
+    <h2 id="import-confirm-title">Confirmar importación</h2><p>{{ gradeName(gradeId) }} · Sección {{ sectionName() }} @if (mode() === 'grades') { · {{ courseName() }} }</p>
+    <p>{{ confirmationSummary() }}</p>@if (mode() === 'grades') { <p class="muted">Las notas que cambian se reemplazarán por los valores de la tabla. Las coincidencias se conservan.</p> }
+    <div class="actions"><button type="button" class="secondary" (click)="confirmOpen.set(false)" [disabled]="busy()">Volver a revisar</button><button type="button" (click)="confirmSave()" [disabled]="busy()">Confirmar y guardar</button></div>
+  </dialog>
+}

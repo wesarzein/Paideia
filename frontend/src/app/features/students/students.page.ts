@@ -20,9 +20,9 @@ import { AcademicHistoryComponent } from './academic-history.component';
       <label>Sección<select [(ngModel)]="sectionId" (ngModelChange)="loadStudents()" [disabled]="!gradeId"><option value="">Todas</option>@for (section of sectionsForGrade(gradeId); track section.id) {<option [value]="section.id">{{ gradeName(section.grade_id) }} · {{ section.name }}</option>}</select></label>
       <label>Estado<select [(ngModel)]="statusFilter" (ngModelChange)="loadStudents()"><option value="">Todos</option><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label>
       <button type="button" (click)="loadStudents()">Buscar</button>
-      <button type="button" class="secondary" (click)="showForm.set(!showForm())">{{ showForm() ? 'Cerrar' : 'Nuevo estudiante' }}</button>
+      @if (isAdmin) { <button type="button" class="secondary" (click)="showForm.set(!showForm())">{{ showForm() ? 'Cerrar' : 'Nuevo estudiante' }}</button> }
     </section>
-    @if (showForm()) {
+    @if (isAdmin && showForm()) {
       <form class="form" (ngSubmit)="createStudent()">
         <h2>{{ editingId ? 'Editar estudiante' : 'Registrar estudiante' }}</h2>
         <div class="form-grid">
@@ -47,7 +47,7 @@ import { AcademicHistoryComponent } from './academic-history.component';
           <thead><tr><th>Código</th><th>Estudiante</th><th>Grado</th><th>Sección</th><th>Estado</th><th>Registro</th><th class="actions-heading">Acciones</th></tr></thead>
           <tbody>
             @for (student of students(); track student.id) {
-              <tr><td>{{ student.student_code ?? '—' }}</td><td>{{ student.last_name }}, {{ student.first_name }}</td><td>{{ gradeName(student.grade_id) }}</td><td>{{ sectionName(student.section_id) }}</td><td><span class="status" [class.inactive-status]="student.status !== 'ACTIVE'">{{ student.status === 'ACTIVE' ? 'Activo' : 'Inactivo' }}</span></td><td>{{ student.created_at | date:'dd/MM/yyyy' }}</td><td class="actions-cell"><button class="icon-action" type="button" (click)="selectedStudent.set(student)" title="Ver ficha" aria-label="Ver ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="icon-action" type="button" (click)="edit(student)" title="Editar estudiante" aria-label="Editar estudiante"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>@if (student.status === 'ACTIVE') {<button class="icon-action danger-icon" type="button" (click)="remove(student)" title="Desactivar estudiante" aria-label="Desactivar estudiante"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/></svg></button>}</td></tr>
+              <tr><td>{{ student.student_code ?? '—' }}</td><td>{{ student.last_name }}, {{ student.first_name }}</td><td>{{ gradeName(student.grade_id) }}</td><td>{{ sectionName(student.section_id) }}</td><td><span class="status" [class.inactive-status]="student.status !== 'ACTIVE'">{{ student.status === 'ACTIVE' ? 'Activo' : 'Inactivo' }}</span></td><td>{{ student.created_at | date:'dd/MM/yyyy' }}</td><td class="actions-cell"><button class="icon-action" type="button" (click)="selectedStudent.set(student)" title="Ver ficha" aria-label="Ver ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>@if (isAdmin) { <button class="icon-action" type="button" (click)="edit(student)" title="Editar estudiante" aria-label="Editar estudiante"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>@if (student.status === 'ACTIVE') {<button class="icon-action danger-icon" type="button" (click)="remove(student)" title="Desactivar estudiante" aria-label="Desactivar estudiante"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/></svg></button>} }</td></tr>
             }
           </tbody>
         </table>
@@ -96,6 +96,8 @@ export class StudentsPage implements OnInit {
   protected readonly selectedStudent = signal<Student | null>(null);
   protected form = { student_code: '', first_name: '', last_name: '', birth_date: '', status: 'ACTIVE', grade_id: '', section_id: '' };
 
+  protected readonly isAdmin = (() => { try { return JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role === 'admin'; } catch { return false; } })();
+
   ngOnInit(): void { this.loadStudents(); this.api.getAcademicCatalog().subscribe({ next: (catalog) => this.catalog.set(catalog) }); }
 
   protected sectionsForGrade(gradeId: string) { return this.catalog().sections.filter((section) => !!gradeId && section.grade_id === gradeId); }
@@ -116,7 +118,7 @@ export class StudentsPage implements OnInit {
   protected gradeName(id: string | null): string { return this.catalog().grades.find((grade) => grade.id === id)?.name ?? '-'; }
   protected sectionName(id: string | null): string { return this.catalog().sections.find((section) => section.id === id)?.name ?? '-'; }
 
-  protected createStudent(): void {
+  protected createStudent(): void { if (!this.isAdmin) return;
     this.formError.set('');
     const payload = {
       ...this.form,
@@ -130,7 +132,7 @@ export class StudentsPage implements OnInit {
     });
   }
 
-  protected edit(student: Student): void { this.form = { student_code: student.student_code ?? '', first_name: student.first_name, last_name: student.last_name, birth_date: student.birth_date ?? '', status: student.status, grade_id: student.grade_id ?? '', section_id: student.section_id ?? '' }; this.editingId = student.id; this.showForm.set(true); }
-  protected async remove(student: Student): Promise<void> { if (await this.confirm.ask(`¿Desactivar a ${student.first_name} ${student.last_name}?`)) this.api.deleteStudent(student.id).subscribe({ next: () => this.loadStudents() }); }
+  protected edit(student: Student): void { if (!this.isAdmin) return; this.form = { student_code: student.student_code ?? '', first_name: student.first_name, last_name: student.last_name, birth_date: student.birth_date ?? '', status: student.status, grade_id: student.grade_id ?? '', section_id: student.section_id ?? '' }; this.editingId = student.id; this.showForm.set(true); }
+  protected async remove(student: Student): Promise<void> { if (!this.isAdmin) return; if (await this.confirm.ask(`¿Desactivar a ${student.first_name} ${student.last_name}?`)) this.api.deleteStudent(student.id).subscribe({ next: () => this.loadStudents() }); }
   protected editingId: string | null = null;
 }

@@ -29,7 +29,7 @@ def academic_catalog(
         linked_students = linked_students.where(Student.grade_id == grade_id)
     if section_id:
         linked_students = linked_students.where(Student.section_id == section_id)
-    if user.role.code == "teacher":
+    if user.role.code in {"teacher", "coordinator", "director"}:
         grade_query = grade_query.where(Grade.id.in_(select(CourseAssignment.grade_id).where(CourseAssignment.teacher_id == user.id)))
         section_query = section_query.where(Section.id.in_(select(CourseAssignment.section_id).where(CourseAssignment.teacher_id == user.id)))
     elif user.role.code in {"student", "parent"}:
@@ -40,7 +40,7 @@ def academic_catalog(
         section_query = section_query.where(Section.grade_id == grade_id)
     sections = db.scalars(section_query.order_by(Section.name)).all()
     course_query = select(Course).where(Course.is_active.is_(True))
-    if user.role.code == "teacher":
+    if user.role.code in {"teacher", "coordinator", "director"}:
         teacher_assignments = select(CourseAssignment.course_id).where(CourseAssignment.teacher_id == user.id)
         if grade_id:
             teacher_assignments = teacher_assignments.where(CourseAssignment.grade_id == grade_id)
@@ -83,7 +83,7 @@ def academic_catalog(
         "grades": [{"id": str(item.id), "name": item.name, "level": item.level} for item in grades],
         "sections": [{"id": str(item.id), "name": item.name, "grade_id": str(item.grade_id)} for item in sections],
         "courses": [{"id": str(item.id), "name": item.name, "code": item.code} for item in courses],
-        "periods": [{"id": str(item.id), "name": item.name} for item in periods],
+        "periods": [{"id": str(item.id), "name": item.name, "starts_on": item.starts_on.isoformat(), "ends_on": item.ends_on.isoformat()} for item in periods],
         "literal_scale": [{"greater_than": threshold, "grade": label} for threshold, label in LITERAL_GRADE_THRESHOLDS],
         "students": [
             {"id": str(item.id), "student_code": item.student_code, "name": f"{item.last_name}, {item.first_name}"}

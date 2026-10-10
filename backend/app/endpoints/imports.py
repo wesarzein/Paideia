@@ -24,7 +24,7 @@ from app.models.academic import (
 )
 from app.models.student import Student
 from app.models.user import User
-from app.schemas.grades import GradeCreate
+from app.schemas.grades import GradeCreate, HistoricalGradeCreate
 from app.services.academic_access import ensure_student_course_access
 from app.services.evaluation_configuration import source_criterion
 from app.services.evaluation_revisions import latest_published_revision, revision_configuration
@@ -48,6 +48,7 @@ class GradeRowsImport(BaseModel):
     period_id: UUID
     rows: list[dict[str, Any]]
     academic_context: dict[str, Any] | None = None
+    corrections_only: bool = False
 
 
 def _read_frame(filename: str, content: bytes) -> pd.DataFrame:
@@ -126,13 +127,24 @@ def _canonicalize_frame(frame: pd.DataFrame) -> pd.DataFrame:
     rename = {column: reverse[_header_key(column)] for column in frame.columns if _header_key(column) in reverse}
     normalized = frame.rename(columns=rename).copy()
     if "full_name" in normalized.columns:
-        names = normalized["full_name"].fillna("").astype(str).str.split(",", n=1, expand=True)
-        if names.shape[1] == 2:
-            if "last_name" not in normalized.columns:
-                normalized["last_name"] = names[0].str.strip()
-            if "first_name" not in normalized.columns:
-                normalized["first_name"] = names[1].str.strip()
+        parts = normalized["full_name"].fillna("").map(_roster_name_parts)
+        if "last_name" not in normalized.columns:
+            normalized["last_name"] = parts.map(lambda item: item[0])
+        if "first_name" not in normalized.columns:
+            normalized["first_name"] = parts.map(lambda item: item[1])
     return normalized
+
+
+def _roster_name_parts(value: object) -> tuple[str, str]:
+    """Suggest surname-first boundaries for review; never discard the source name."""
+    name = " ".join(str(value or "").split())
+    if "," in name:
+        surname, given = name.split(",", 1)
+        return surname.strip(), given.strip()
+    words = name.split()
+    if len(words) < 3:
+        return "", ""
+    return " ".join(words[:2]), " ".join(words[2:])
 
 
 def _date_for_month(month_number: str, period: AcademicPeriod | None) -> str:
@@ -189,11 +201,24 @@ def _flatten_grade_frame(frame: pd.DataFrame, period: AcademicPeriod | None = No
 
 
 @router.post("/preview")
-async def preview_students(file: UploadFile = File(...), _user: User = Depends(require_roles("admin", "coordinator"))) -> dict:
+async def preview_students(file: UploadFile = File(...), db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> dict:
     if not file.filename or not file.filename.lower().endswith((".csv", ".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos CSV o Excel")
     content = await file.read()
     try:
+        institutional = read_institutional(content) if file.filename.lower().endswith('.xlsx') else None
+        if institutional is not None:
+            rows = []
+            for item in institutional["institutional"]["students"]:
+                last_name, first_name = _roster_name_parts(item["name"])
+                saved = db.scalar(select(Student).where(Student.student_code == item["student_code"]))
+                if saved and name_key(item["name"]) == name_key(f"{saved.last_name}, {saved.first_name}"):
+                    last_name, first_name = saved.last_name, saved.first_name
+                rows.append({"student_code": item["student_code"], "full_name": item["name"],
+                             "first_name": first_name, "last_name": last_name})
+            return {"columns": ["student_code", "full_name", "last_name", "first_name"],
+                    "rows": rows, "total": len(rows), "errors": [],
+                    "name_split_warning": "Revisa nombres y apellidos antes de importar. Sin coma, se proponen las dos primeras palabras como apellidos; ajusta los apellidos compuestos en la tabla."}
         frame = _read_frame(file.filename, content)
     except Exception as error:
         raise HTTPException(status_code=422, detail=f"No se pudo leer el archivo: {error}") from error
@@ -210,26 +235,68 @@ async def preview_students(file: UploadFile = File(...), _user: User = Depends(r
 
 
 @router.post("/students/commit")
-def commit_student_rows(payload: StudentRowsImport, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> dict[str, int]:
+def commit_student_rows(payload: StudentRowsImport, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> dict[str, int]:
     grade = db.get(Grade, payload.grade_id)
-    section = db.get(Section, payload.section_id)
+    section = db.get(Section, payload.section_id, with_for_update=True)
     if grade is None or section is None or section.grade_id != grade.id:
         raise HTTPException(status_code=422, detail="Grado y sección no corresponden")
     errors = []
     normalized = []
+    updated = skipped = 0
+    seen = set()
+    seen_pupils = set()
+    new_names = set()
     prefix = student_code_prefix(grade, section)
     existing_codes = db.scalars(select(Student.student_code).where(Student.student_code.like(f"{prefix}%"))).all()
     next_order = max((int(code[len(prefix):]) for code in existing_codes if code and code[len(prefix):].isdigit()), default=0) + 1
     for index, row in enumerate(payload.rows, 1):
         first_name = str(row.get("first_name", "")).strip()
         last_name = str(row.get("last_name", "")).strip()
-        if not first_name or not last_name:
+        if not first_name or not last_name or len(first_name) > 120 or len(last_name) > 120:
             errors.append({"row": index, "error": "Nombres y apellidos son obligatorios"})
             continue
+        source_code = str(row.get("student_code", "")).strip()
+        if not source_code:
+            errors.append({"row": index, "error": "Código de referencia obligatorio"})
+            continue
+        if source_code in seen:
+            errors.append({"row": index, "error": "Código repetido en el archivo"})
+            continue
+        seen.add(source_code)
+        existing = db.scalar(select(Student).where(Student.student_code == source_code).with_for_update()) if source_code else None
+        if existing is None:
+            # Repeated uploads with external codes must not recreate the same pupil.
+            matches = list(db.scalars(select(Student).where(
+                Student.grade_id == grade.id, Student.section_id == section.id,
+                Student.first_name == first_name, Student.last_name == last_name,
+            ).with_for_update()))
+            if len(matches) > 1:
+                errors.append({"row": index, "error": "Nombre ambiguo: indica el código institucional"})
+                continue
+            existing = matches[0] if matches else None
+        if existing:
+            if existing.id in seen_pupils:
+                errors.append({"row": index, "error": "El mismo alumno aparece más de una vez"})
+                continue
+            seen_pupils.add(existing.id)
+            if existing.grade_id != grade.id or existing.section_id != section.id:
+                errors.append({"row": index, "error": "El código pertenece a otro grado o sección"})
+                continue
+            if (existing.first_name, existing.last_name) == (first_name, last_name):
+                skipped += 1
+            else:
+                existing.first_name, existing.last_name = first_name, last_name
+                updated += 1
+            continue
+        if (first_name, last_name) in new_names:
+            errors.append({"row": index, "error": "Nombre nuevo repetido: revisa los códigos"})
+            continue
+        new_names.add((first_name, last_name))
         code = format_student_code(grade, section, next_order)
         next_order += 1
         normalized.append(Student(student_code=code, first_name=first_name, last_name=last_name, grade_id=grade.id, section_id=section.id))
     if errors:
+        db.rollback()
         raise HTTPException(status_code=422, detail={"errors": errors, "rejected": len(errors)})
     try:
         db.add_all(normalized)
@@ -237,7 +304,7 @@ def commit_student_rows(payload: StudentRowsImport, db: Session = Depends(get_db
     except Exception as error:
         db.rollback()
         raise HTTPException(status_code=409, detail=f"Importación revertida completamente: {error}") from error
-    return {"processed": len(payload.rows), "imported": len(normalized), "rejected": 0}
+    return {"processed": len(payload.rows), "imported": len(normalized), "updated": updated, "skipped": skipped, "rejected": 0}
 
 
 @router.post("/grades/preview")
@@ -294,7 +361,10 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
 
     institutional = any(row.get('template') == 'institutional_v1' for row in payload.rows)
     context = payload.academic_context or {}
-    if institutional:
+    historical = context.get("historical") is True
+    if historical:
+        published_revision = published_configuration = None
+    if institutional or historical:
         try:
             grade_id = UUID(str(context['grade_id']))
             section_id = UUID(str(context['section_id']))
@@ -306,19 +376,21 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             if (section is None or section.grade_id != grade_id or bimestre < 1
                     or context.get('confirmed') is not True):
                 raise ValueError
-            blocks = context['blocks']
+            if year != period.starts_on.year or bimestre > 4:
+                raise ValueError
+            blocks = context.get('blocks', {})
             dates = []
-            for block in ('1', '2'):
+            for block in (() if historical else ('1', '2')):
                 selected = blocks[block]
                 selected_date = date.fromisoformat(selected['assessment_date'])
                 if (selected_date.year != year or not selected['evaluation_name'].strip()
                         or not period.starts_on <= selected_date <= period.ends_on):
                     raise ValueError
                 dates.append(selected_date)
-            if dates[1] <= dates[0]:
+            if dates and dates[1] <= dates[0]:
                 raise ValueError
         except (KeyError, TypeError, ValueError):
-            raise HTTPException(status_code=422, detail='Confirma año, grado, sección, bimestre y nombres/fechas de ambos bloques dentro del periodo') from None
+            raise HTTPException(status_code=422, detail=('Selecciona un grado, sección y bimestre válidos dentro del año académico elegido' if historical else 'Confirma año, grado, sección, bimestre y nombres/fechas de ambos bloques dentro del periodo')) from None
 
     prepared: list[GradeRecord] = []
     errors = []
@@ -331,20 +403,23 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
         if student is None:
             errors.append({"row": index, "error": f"Estudiante no encontrado: {code or '(sin código)'}"})
             continue
-        if institutional:
+        if institutional or historical:
             if student.grade_id != grade_id or student.section_id != section_id:
                 errors.append({'row': index, 'error': 'El estudiante no pertenece al grado y sección seleccionados'})
                 continue
             actual_name = f'{student.last_name}, {student.first_name}'
-            if name_key(row.get('source_name')) != name_key(actual_name) and not row.get('student_confirmed'):
+            if institutional and name_key(row.get('source_name')) != name_key(actual_name) and not row.get('student_confirmed'):
                 errors.append({'row': index, 'error': 'Nombre y código no coinciden: confirma o resuelve la correspondencia del estudiante'})
                 continue
-            block = str(row.get('source_block', ''))
+            block = str(row.get('source_block') or row.get('evaluation_block') or '1')
             if block not in ('1', '2'):
                 errors.append({'row': index, 'error': 'Bloque institucional no reconocido'})
                 continue
-            row['assessment_date'] = blocks[block]['assessment_date']
-            row['evaluation_name'] = blocks[block]['evaluation_name'].strip()
+            row['assessment_date'] = None if historical else blocks[block]['assessment_date']
+            row['evaluation_name'] = (f'Registro histórico - Bimestre {bimestre} - Bloque {block}' if historical else blocks[block]['evaluation_name'].strip())
+            if historical:
+                row['component_id'] = None
+                criterion_key = None
             if published_configuration:
                 try:
                     criterion = source_criterion(
@@ -403,19 +478,21 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
         if not 0 <= score <= 20:
             errors.append({"row": index, "error": "La nota debe estar entre 0 y 20"})
             continue
-        assessment_date = row.get("assessment_date")
-        if not assessment_date:
-            normalized_month = _header_key(row.get("evaluation_name", ""))
-            month_number = next((number for name, number in {"enero": "01", "febrero": "02", "marzo": "03", "abril": "04", "mayo": "05", "junio": "06", "julio": "07", "agosto": "08", "setiembre": "09", "septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12"}.items() if name in normalized_month), None)
-            assessment_date = _date_for_month(month_number, period) if month_number else None
-        parsed_date = pd.to_datetime(assessment_date, errors="coerce") if assessment_date else pd.NaT
-        if pd.isna(parsed_date):
-            errors.append({"row": index, "error": "Fecha ambigua o ausente; asígnala en la vista previa"})
-            continue
-        parsed_assessment_date = parsed_date.date()
-        if not period.starts_on <= parsed_assessment_date <= period.ends_on:
-            errors.append({"row": index, "error": "La fecha de evaluación está fuera del periodo seleccionado"})
-            continue
+        parsed_assessment_date = None
+        if not historical:
+            assessment_date = row.get("assessment_date")
+            if not assessment_date:
+                normalized_month = _header_key(row.get("evaluation_name", ""))
+                month_number = next((number for name, number in {"enero": "01", "febrero": "02", "marzo": "03", "abril": "04", "mayo": "05", "junio": "06", "julio": "07", "agosto": "08", "setiembre": "09", "septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12"}.items() if name in normalized_month), None)
+                assessment_date = _date_for_month(month_number, period) if month_number else None
+            parsed_date = pd.to_datetime(assessment_date, errors="coerce") if assessment_date else pd.NaT
+            if pd.isna(parsed_date):
+                errors.append({"row": index, "error": "Fecha ambigua o ausente; asígnala en la vista previa"})
+                continue
+            parsed_assessment_date = parsed_date.date()
+            if not period.starts_on <= parsed_assessment_date <= period.ends_on:
+                errors.append({"row": index, "error": "La fecha de evaluación está fuera del periodo seleccionado"})
+                continue
         evaluation_type = str(row.get("evaluation_type", "Actitud ante el área")).strip() or "Actitud ante el área"
         try:
             evaluation_type = normalize_evidence_type(evaluation_type)
@@ -423,7 +500,7 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             errors.append({"row": index, "error": str(error)})
             continue
         try:
-            values = GradeCreate(
+            values = (HistoricalGradeCreate if historical else GradeCreate)(
                 student_id=student.id, course_id=payload.course_id, period_id=payload.period_id,
                 component_id=row.get("component_id") or None,
                 academic_bimester=row_bimester,
@@ -444,6 +521,7 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
         prepared.append(
             GradeRecord(
                 **values.model_dump(),
+                record_kind="historical_bimester" if historical else "evaluation",
                 evaluation_revision_id=(published_revision.id if published_revision else None),
             )
         )
@@ -464,7 +542,7 @@ def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), u
 def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict[str, int]:
     try:
         prepared = _prepare_grade_rows(payload, db, user)
-        return commit_rows(db, user, prepared, payload.rows)
+        return commit_rows(db, user, prepared, payload.rows, corrections_only=payload.corrections_only)
     except HTTPException:
         db.rollback()
         raise

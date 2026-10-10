@@ -27,7 +27,7 @@ def historical_features(grades, attendance, periods, target_period_id, minimum_p
     previous_ids = {p.id for p in previous}
     grouped, attendance_groups = defaultdict(list), defaultdict(list)
     for row in grades:
-        if row.period_id in previous_ids and row.assessment_date < target.starts_on:
+        if row.period_id in previous_ids and (row.assessment_date is None or row.assessment_date < target.starts_on):
             grouped[(row.student_id, row.course_id)].append(row)
     for row in attendance:
         if row.period_id in previous_ids and row.attendance_date < target.starts_on:

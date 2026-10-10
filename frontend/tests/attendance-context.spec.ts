@@ -17,6 +17,9 @@ class Attendance extends AttendancePage {
   failed() { return this.error(); }
   saved() { return this.message(); }
   blocked() { return this.busy(); }
+  observation(value: string) { this.remarks['a'] = value; }
+  savedObservation() { return this.remarks['a']; }
+  nextDay() { this.moveDay(1); }
 }
 function setup(role = 'teacher') {
   vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ role }) });
@@ -31,6 +34,15 @@ function setup(role = 'teacher') {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('daily attendance workflow', () => {
+  it('loads and submits permission remarks without losing local edits on refresh', () => {
+    const { page, listAttendance, createAttendance } = setup();
+    listAttendance.mockReturnValue(of([{ student_id: 'a', status: 'PRESENT', remarks: 'Permiso inicial' }] as AttendanceRecord[]));
+    page.day(); expect(page.savedObservation()).toBe('Permiso inicial');
+    page.observation('Retiro con permiso a las 11:30'); page.refresh();
+    expect(page.savedObservation()).toBe('Retiro con permiso a las 11:30'); page.save();
+    expect(createAttendance.mock.calls[0][0]).toHaveProperty('remarks', 'Retiro con permiso a las 11:30');
+    page.nextDay(); expect(page.savedObservation()).toBe('Permiso inicial');
+  });
   it('resets yesterday statuses and preserves local edits only within the same context', () => {
     const { page, listAttendance } = setup();
     listAttendance.mockReturnValueOnce(of([{ student_id: 'a', status: 'ABSENT' }] as AttendanceRecord[]));
@@ -57,7 +69,7 @@ describe('daily attendance workflow', () => {
     first.next({ student_id: 'a', status: 'PRESENT' } as AttendanceRecord); first.complete();
     expect(createAttendance).toHaveBeenCalledTimes(2); expect(page.failed()).toContain('1 de 2');
     page.save(); expect(page.saved()).toContain('2 de 2'); expect(page.failed()).toBe('');
-    expect(createAttendance.mock.calls[0][0]).not.toHaveProperty('remarks');
+    expect(createAttendance.mock.calls[0][0]).toHaveProperty('remarks', null);
   });
   it('blocks writes after a failed read until a successful retry', () => {
     const { page, listAttendance, createAttendance } = setup();

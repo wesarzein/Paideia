@@ -50,7 +50,7 @@ export class EnrollmentManagerComponent implements OnChanges {
   protected readonly message = signal('');
   protected courseId = ''; protected periodId = '';
   private request = 0;
-  protected readonly canCreate = (() => { try { return ['admin', 'coordinator', 'teacher'].includes(JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role); } catch { return false; } })();
+  protected readonly canCreate = (() => { try { return JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role === 'admin'; } catch { return false; } })();
   ngOnChanges() {
     const request = ++this.request;
     this.courseId = ''; this.periodId = ''; this.records.set([]); this.catalog.set(null);

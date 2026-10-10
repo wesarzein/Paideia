@@ -58,11 +58,12 @@ def indicators(db, user, filters):
     for g in grades:
         for field, key in (
             ("period", g.period_id),
-            ("month", g.assessment_date.strftime("%Y-%m")),
+            ("month", g.assessment_date.strftime("%Y-%m") if g.assessment_date else None),
             ("course", g.course_id),
             ("student", g.student_id),
         ):
-            groups[field][key].append(g)
+            if key is not None:
+                groups[field][key].append(g)
     courses = {
         c.id: c.name for c in db.scalars(select(Course).where(Course.id.in_(groups["course"])))
     }

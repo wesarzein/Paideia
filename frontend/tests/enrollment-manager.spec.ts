@@ -49,4 +49,8 @@ describe('academic enrollment profile', () => {
     const { page, createEnrollment } = setup('director'); page.profile(); page.saveNow();
     expect(createEnrollment).not.toHaveBeenCalled();
   });
+  it('keeps teacher consultation read only', () => {
+    const { page, createEnrollment } = setup('teacher'); page.profile(); page.saveNow();
+    expect(createEnrollment).not.toHaveBeenCalled();
+  });
 });

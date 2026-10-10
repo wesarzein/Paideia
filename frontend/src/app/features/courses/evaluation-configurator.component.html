@@ -1,0 +1,41 @@
+<section class="evaluation-editor">
+  <div class="heading"><div><h2>Competencias y criterios de evaluación</h2><p>{{ canEdit ? 'Define qué se evalúa y el peso de cada criterio. El sistema realiza los cálculos.' : 'Esta es la configuración publicada por el administrador para registrar tus evaluaciones.' }}</p></div>
+    <label>Periodo académico<select [(ngModel)]="periodId" (ngModelChange)="load()"><option value="">Seleccionar periodo</option>@for (period of periods; track period.id) { <option [value]="period.id">{{ period.name }}</option> }</select></label>
+  </div>
+  @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
+  @if (message()) { <p class="feedback" role="status">{{ message() }}</p> }
+  @if (configuration) {
+    <p class="version">{{ currentState === 'published' ? 'Publicada' : currentState === 'draft' ? 'Borrador' : 'Pendiente de configurar' }} · Versión {{ currentVersion }}</p>
+    @if (canEdit) {
+      <fieldset [disabled]="busy()"><legend>Competencias del curso</legend>
+        @for (competency of configuration.competencies; track competency.key) {
+          <div class="editor-row"><label>Nombre<input [(ngModel)]="competency.name" (ngModelChange)="markCustom()" aria-label="Nombre de competencia" /></label><label>Estado<select [(ngModel)]="competency.is_active" (ngModelChange)="toggleCompetency(competency.key, competency.is_active)"><option [ngValue]="true">Activa</option><option [ngValue]="false">Inactiva</option></select></label></div>
+        }
+        <button type="button" class="outline" (click)="addCompetency()">Agregar competencia</button>
+      </fieldset>
+      @for (block of blocks; track block) {
+        <fieldset [disabled]="busy()"><legend>{{ block === 1 ? 'Primer bloque' : 'Segundo bloque' }} · criterios</legend>
+          @for (criterion of criteriaFor(block); track criterion.key) {
+            <div class="criterion-row" [class.inactive]="!criterion.is_active">
+              <label>Criterio<input [(ngModel)]="criterion.name" (ngModelChange)="markCustom()" aria-label="Nombre del criterio" /></label>
+              <label>Competencia<select [(ngModel)]="criterion.competency_key" (ngModelChange)="markCustom()"><option [ngValue]="null">Seleccionar competencia</option>@for (competency of activeCompetencies(); track competency.key) { <option [value]="competency.key">{{ competency.name }}</option> }</select></label>
+              <label>Peso<input type="number" min="0" max="100" step="0.1" [(ngModel)]="criterion.weight" (ngModelChange)="markCustom()" /></label>
+              <label>Registro<select [(ngModel)]="criterion.is_optional" (ngModelChange)="markCustom()"><option [ngValue]="false">Obligatorio</option><option [ngValue]="true">Opcional</option></select></label>
+              <label>Estado<select [(ngModel)]="criterion.is_active" (ngModelChange)="markCustom()"><option [ngValue]="true">Activo</option><option [ngValue]="false">Inactivo</option></select></label>
+            </div>
+          }
+          <button type="button" class="outline" (click)="addCriterion(block)">Agregar criterio</button>
+        </fieldset>
+      }
+      <fieldset><legend>Cálculo automático</legend><p>{{ configuration.template_id === 'weighted_course_v1' ? 'Promedio ponderado por bloque y promedio de ambos bloques para el bimestre. Los criterios opcionales vacíos se omiten.' : 'Se conserva el cálculo de la configuración vigente.' }}</p>
+        @if (configuration.template_id !== 'weighted_course_v1') { <button type="button" class="outline" (click)="useWeightedCalculation()">Usar promedio ponderado</button> }
+      </fieldset>
+      <div class="publication"><label>Motivo del cambio<input [(ngModel)]="reason" maxlength="500" placeholder="Ej. Competencias para el año escolar" /></label><button type="button" (click)="save('draft')" [disabled]="busy() || !reason.trim()">Guardar borrador</button><button type="button" (click)="save('published')" [disabled]="busy() || !reason.trim()">Publicar para los docentes</button></div>
+      <details><summary>Historial de versiones ({{ versions().length }})</summary>@for (version of versions(); track version.id) { <button type="button" class="history-item" (click)="openVersion(version)">Versión {{ version.version }} · {{ version.state === 'published' ? 'Publicada' : 'Borrador' }} · {{ version.reason }}</button> }</details>
+    } @else {
+      @for (competency of activeCompetencies(); track competency.key) { <article class="competency-card"><h3>{{ competency.name }}</h3>@for (criterion of activeCriteria(); track criterion.key) { @if (criterion.competency_key === competency.key) { <p>{{ criterion.name }} <span>Bloque {{ criterion.block }} · Peso {{ criterion.weight }}</span></p> } }</article> }
+      @if (!activeCompetencies().length) { <p>Esta configuración todavía no incluye competencias. Solicita al administrador que las defina.</p> }
+      <p>Registra exámenes, trabajos y actividades en <a href="/calificaciones">Calificaciones</a>, con el nombre y la fecha de cada evaluación.</p>
+    }
+  } @else if (periodId && !busy()) { <p>El administrador aún no ha publicado las competencias y pesos de este curso para el periodo seleccionado.</p> }
+</section>

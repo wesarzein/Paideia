@@ -121,7 +121,7 @@ def individual_report(
     follow_ups = db.scalars(select(FollowUp).where(FollowUp.student_id == student_id).order_by(FollowUp.created_at.desc())).all()
     return {
         "student": {"id": str(student.id), "student_code": student.student_code, "name": f"{student.last_name}, {student.first_name}", "grade": grade.name if grade else None, "level": grade.level if grade else None, "section": section.name if section else None},
-        "grades": [{"course": course_name, "evaluation": record.evaluation_name, "component": record.evaluation_type, "date": record.assessment_date.isoformat(), "score": record.score, "literal": literal_grade(record.score), "note": record.qualitative_note} for record, course_name in grade_rows],
+        "grades": [{"course": course_name, "evaluation": record.evaluation_name, "component": record.evaluation_type, "date": record.assessment_date.isoformat() if record.assessment_date else None, "score": record.score, "literal": literal_grade(record.score), "note": record.qualitative_note} for record, course_name in grade_rows],
         "attendance": [{"course": course_name, "date": record.attendance_date.isoformat(), "status": record.status, "remarks": record.remarks} for record, course_name in attendance_rows],
         "follow_ups": [{"date": item.created_at.isoformat() if item.created_at else None, "category": item.category, "action": item.action, "status": item.status} for item in follow_ups],
     }

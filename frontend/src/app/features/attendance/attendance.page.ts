@@ -8,27 +8,28 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
   standalone: true,
   imports: [FormsModule, PageHeaderComponent],
   template: `
-    <app-page-header title="Asistencia" description="Registra y corrige la asistencia del aula para una fecha." />
+    <app-page-header title="Asistencia" description="Selecciona tu aula y curso, registra el día y anota permisos o retiros cuando corresponda." />
+    <section class="day-picker panel"><button type="button" (click)="moveDay(-1)" [disabled]="busy()" aria-label="Día anterior">←</button><label>Fecha de asistencia<input aria-label="Fecha de asistencia" type="date" [(ngModel)]="attendanceDate" (ngModelChange)="selectDate()" [disabled]="saving()" /></label><button type="button" (click)="moveDay(1)" [disabled]="busy()" aria-label="Día siguiente">→</button><button type="button" class="outline" (click)="today()" [disabled]="busy()">Hoy</button></section>
     <fieldset class="panel filters" [disabled]="saving()">
       <label>Nivel<select [(ngModel)]="level" (ngModelChange)="gradeId = ''; sectionId = ''; courseId = ''; loadCatalog()"><option value="">Seleccionar nivel</option>@for (item of levels(); track item) {<option [value]="item">{{ item }}</option>}</select></label>
       <label>Grado<select [(ngModel)]="gradeId" (ngModelChange)="sectionId = ''; courseId = ''; loadCatalog()" [disabled]="!level"><option value="">Seleccionar grado</option>@for (grade of gradesForLevel(); track grade.id) {<option [value]="grade.id">{{ grade.name }}</option>}</select></label>
-      <label>Sección<select [(ngModel)]="sectionId" (ngModelChange)="courseId = ''; loadCatalog()" [disabled]="!gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) {<option [value]="section.id">{{ gradeName(section.grade_id) }} · {{ section.name }}</option>}</select></label>
+      <label>Sección<select [(ngModel)]="sectionId" (ngModelChange)="courseId = ''; loadCatalog()" [disabled]="!gradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForGrade(); track section.id) {<option [value]="section.id">{{ section.name }}</option>}</select></label>
       <label>Curso<select [(ngModel)]="courseId" (ngModelChange)="loadRecords()" [disabled]="!sectionId || catalogLoading()"><option value="">Seleccionar curso</option>@for (course of catalog().courses; track course.id) {<option [value]="course.id">{{ course.name }}</option>}</select></label>
-      <label>Periodo<select [(ngModel)]="periodId" (ngModelChange)="loadRecords()" [disabled]="!sectionId"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) {<option [value]="period.id">{{ period.name }}</option>}</select></label>
-      <label>Fecha<input type="date" [(ngModel)]="attendanceDate" (ngModelChange)="loadRecords()" /></label>
+      <label>Periodo académico<select aria-label="Periodo académico" [(ngModel)]="periodId" (ngModelChange)="loadRecords()" [disabled]="!sectionId"><option value="">Seleccionar periodo</option>@for (period of catalog().periods; track period.id) {<option [value]="period.id">{{ period.name }}</option>}</select></label>
     </fieldset>
     @if (catalogLoading() || loading()) { <p role="status">Cargando asistencia…</p> }
     @if (loadError()) { <p class="panel error" role="alert">{{ loadError() }} <button type="button" (click)="loadCatalog()" [disabled]="saving()">Reintentar carga</button></p> }
     @if (!sectionId || !courseId || !periodId || !attendanceDate) {
-      <p class="panel">Selecciona grado, sección, curso, periodo y fecha para cargar la lista del aula.</p>
+      <p class="panel">Selecciona el aula y curso. El periodo se propone según la fecha elegida cuando existe una sola coincidencia.</p>
     } @else {
       <section class="summary"><span>Presentes: {{ count('PRESENT') }}</span><span>Faltas: {{ count('ABSENT') }}</span><span>Tardanzas: {{ count('LATE') }}</span></section>
       <section class="panel">
         @if (!canWrite) { <p>Consulta de asistencia. El registro corresponde al docente asignado o al administrador.</p> }
         @if (canWrite) { <div class="quick"><button type="button" (click)="markAll('PRESENT')" [disabled]="busy()">Todos presentes</button><button type="button" class="outline" (click)="markAll('ABSENT')" [disabled]="busy()">Todos ausentes</button></div> }
-        <div class="table-scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th></tr></thead><tbody>
-          @for (student of catalog().students; track student.id) { <tr><td>{{ student.name }}</td><td><select [attr.aria-label]="'Asistencia de ' + student.name" [(ngModel)]="status[student.id]" [disabled]="!canWrite || busy()"><option value="" disabled>Sin registro</option><option value="PRESENT">Presente</option><option value="ABSENT">Falta</option><option value="LATE">Tardanza</option></select></td></tr> }
-          @empty { <tr><td colspan="2">No hay estudiantes disponibles para esta sección.</td></tr> }
+        <p>Se propone Presente para alumnos sin registro. Marca las faltas o tardanzas y añade una observación si hubo permiso o retiro.</p>
+        <div class="table-scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Observación / permiso</th></tr></thead><tbody>
+          @for (student of catalog().students; track student.id) { <tr><td>{{ student.name }}</td><td><select [attr.aria-label]="'Asistencia de ' + student.name" [(ngModel)]="status[student.id]" [disabled]="!canWrite || busy()"><option value="" disabled>Sin registro</option><option value="PRESENT">Presente</option><option value="ABSENT">Falta</option><option value="LATE">Tardanza</option></select></td><td><input type="text" maxlength="255" [attr.aria-label]="'Observación de ' + student.name" [(ngModel)]="remarks[student.id]" [disabled]="!canWrite || busy()" placeholder="Ej. Retiro con permiso a las 11:30" /></td></tr> }
+          @empty { <tr><td colspan="3">No hay estudiantes disponibles para esta sección.</td></tr> }
         </tbody></table></div>
         @if (canWrite) { <button type="button" (click)="saveAll()" [disabled]="busy() || !catalog().students.length">{{ saving() ? 'Guardando…' : 'Guardar asistencia del día' }}</button> }
         @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
@@ -48,6 +49,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
     button:disabled { opacity:.6; cursor:default; } .error { color:var(--color-danger,#b42318); }
     .summary { display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
     .summary span { background:var(--color-surface); border:1px solid var(--color-border); border-radius:6px; padding:10px 14px; }
+    .day-picker{display:flex;align-items:center;gap:12px}.day-picker button{margin:0}.day-picker label{max-width:230px}.table-scroll td input{width:100%;box-sizing:border-box;min-width:260px}.filters{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:600px){.day-picker{flex-wrap:wrap}}
     @media(max-width:700px) { .filters { grid-template-columns:1fr; } }
   `],
 })
@@ -70,14 +72,29 @@ export class AttendancePage {
   protected sectionId = '';
   protected courseId = '';
   protected periodId = '';
-  protected attendanceDate = new Date().toISOString().slice(0, 10);
+  protected attendanceDate = this.localToday();
   protected status: Record<string, string> = {};
+  protected remarks: Record<string, string> = {};
+  private persistedRemarks: Record<string, string> = {};
   private contextKey = '';
   private persistedStatus: Record<string, string> = {};
   private catalogRequest = 0;
   private recordsRequest = 0;
 
   constructor() { this.loadCatalog(); }
+  private localToday(): string { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+  protected today(): void { if (this.saving()) return; this.attendanceDate = this.localToday(); this.selectDate(); }
+  protected moveDay(amount: number): void {
+    if (this.busy() || !this.attendanceDate) return;
+    const date = new Date(this.attendanceDate + 'T12:00:00'); date.setDate(date.getDate() + amount);
+    this.attendanceDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    this.selectDate();
+  }
+  private proposePeriod(): void {
+    const matching = this.catalog().periods.filter(period => period.starts_on && period.ends_on && period.starts_on <= this.attendanceDate && period.ends_on >= this.attendanceDate);
+    if (matching.length === 1) this.periodId = matching[0].id;
+  }
+  protected selectDate(): void { this.proposePeriod(); this.loadRecords(); }
   protected levels(): string[] { return [...new Set(this.catalog().grades.map((item) => item.level))]; }
   protected gradesForLevel() { return this.catalog().grades.filter((item) => item.level === this.level); }
   protected sectionsForGrade() { return this.catalog().sections.filter((item) => item.grade_id === this.gradeId); }
@@ -97,6 +114,8 @@ export class AttendancePage {
       next: (catalog) => {
         if (request !== this.catalogRequest) return;
         this.catalog.set(catalog);
+        if (this.sectionId && !this.courseId && catalog.courses.length === 1) this.courseId = catalog.courses[0].id;
+        this.proposePeriod();
         this.catalogLoading.set(false);
         this.loadRecords();
       },
@@ -113,11 +132,13 @@ export class AttendancePage {
     const request = ++this.recordsRequest;
     const changed = key !== this.contextKey;
     const edits = changed ? {} : Object.fromEntries(Object.entries(this.status).filter(([id, value]) => value !== this.persistedStatus[id]));
+    const editedRemarks = changed ? {} : Object.fromEntries(Object.entries(this.remarks).filter(([id, value]) => value !== this.persistedRemarks[id]));
     if (changed) {
       this.contextKey = key;
       this.records.set([]);
       this.status = {};
       this.persistedStatus = {};
+      this.remarks = {}; this.persistedRemarks = {};
       this.message.set('');
       this.error.set('');
     }
@@ -132,6 +153,9 @@ export class AttendancePage {
         const saved = new Map(records.map((record) => [record.student_id, record.status]));
         this.persistedStatus = Object.fromEntries(this.catalog().students.map((student) => [student.id, saved.get(student.id) ?? (this.canWrite ? 'PRESENT' : '')]));
         this.status = { ...this.persistedStatus, ...edits };
+        const savedRemarks = new Map(records.map(record => [record.student_id, record.remarks ?? '']));
+        this.persistedRemarks = Object.fromEntries(this.catalog().students.map(student => [student.id, savedRemarks.get(student.id) ?? '']));
+        this.remarks = { ...this.persistedRemarks, ...editedRemarks };
         this.loading.set(false);
       },
       error: () => {
@@ -153,13 +177,14 @@ export class AttendancePage {
       return;
     }
     const context = this.context();
-    const entries = this.catalog().students.map((student) => ({ student_id: student.id, course_id: context.course_id, period_id: context.period_id, attendance_date: context.attendance_date, status: this.status[student.id] ?? 'PRESENT' }));
+    const entries = this.catalog().students.map((student) => ({ student_id: student.id, course_id: context.course_id, period_id: context.period_id, attendance_date: context.attendance_date, status: this.status[student.id] ?? 'PRESENT', remarks: this.remarks[student.id] || null }));
     let saved = 0;
     this.error.set(''); this.message.set(''); this.saving.set(true);
     from(entries).pipe(concatMap((entry) => this.api.createAttendance(entry)), finalize(() => this.saving.set(false))).subscribe({
       next: (record) => {
         saved++;
         this.persistedStatus[record.student_id] = record.status;
+        this.persistedRemarks[record.student_id] = record.remarks ?? '';
         this.message.set(`${saved} de ${entries.length} asistencias guardadas.`);
       },
       error: (failure) => {

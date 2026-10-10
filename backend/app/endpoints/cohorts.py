@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import Grade, Section
+from app.models.academic import CourseAssignment, Grade, Section
 from app.models.user import AuditLog, User
 from app.schemas.cohorts import (
     GradeCreate,
@@ -24,6 +24,7 @@ from app.services.student_codes import student_code_prefix
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
 Admin = Annotated[User, Depends(require_roles("admin"))]
+Reader = Annotated[User, Depends(require_roles("admin", "teacher", "coordinator", "director"))]
 
 
 def lock_catalog(db: Session) -> None:
@@ -62,8 +63,15 @@ def save(db: Session, item, user: User, action: str):
 
 
 @router.get("/grades", response_model=list[GradeResponse])
-def list_grades(db: Db, _user: Admin):
-    return db.scalars(select(Grade).order_by(Grade.level, Grade.name, Grade.id)).all()
+def list_grades(db: Db, _user: Reader):
+    query = select(Grade)
+    if _user.role.code in {"teacher", "coordinator", "director"}:
+        query = query.where(
+            Grade.id.in_(
+                select(CourseAssignment.grade_id).where(CourseAssignment.teacher_id == _user.id)
+            )
+        )
+    return db.scalars(query.order_by(Grade.level, Grade.name, Grade.id)).all()
 
 
 @router.post("/grades", response_model=GradeResponse, status_code=status.HTTP_201_CREATED)
@@ -96,8 +104,15 @@ def update_grade(grade_id: UUID, payload: GradeLabel, db: Db, user: Admin):
 
 
 @router.get("/sections", response_model=list[SectionResponse])
-def list_sections(db: Db, _user: Admin):
-    return db.scalars(select(Section).order_by(Section.grade_id, Section.name, Section.id)).all()
+def list_sections(db: Db, _user: Reader):
+    query = select(Section)
+    if _user.role.code in {"teacher", "coordinator", "director"}:
+        query = query.where(
+            Section.id.in_(
+                select(CourseAssignment.section_id).where(CourseAssignment.teacher_id == _user.id)
+            )
+        )
+    return db.scalars(query.order_by(Section.grade_id, Section.name, Section.id)).all()
 
 
 @router.post("/sections", response_model=SectionResponse, status_code=status.HTTP_201_CREATED)

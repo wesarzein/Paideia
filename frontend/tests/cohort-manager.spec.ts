@@ -7,6 +7,7 @@ import { CohortManagerComponent } from '../src/app/features/courses/cohort-manag
 
 class Cohorts extends CohortManagerComponent {
   grade(name: string) { this.gradeName = name; this.saveGrade(); }
+  level(level: string) { this.gradeLevel = level; }
   section(name: string, grade = '') { this.sectionName = name; this.sectionGrade = grade; this.saveSection(); }
   selectGrade() { this.editGrade({ id: 'grade-id', name: '1°', level: 'Secundaria', is_active: true } as AcademicGrade); }
   selectSection() { this.editSection({ id: 'section-id', name: 'A', grade_id: 'grade-id', is_active: true } as AcademicSection); }
@@ -24,6 +25,13 @@ function setup(failLoad = false) {
   return { page: runInInjectionContext(injector, () => new Cohorts()), createAcademicGrade, updateAcademicGrade, createAcademicSection, updateAcademicSection };
 }
 describe('academic cohort administration', () => {
+  it('creates secondary grades and sections with their selected parent', () => {
+    const { page, createAcademicGrade, createAcademicSection } = setup();
+    page.level('Secundaria'); page.grade(' 2° grado ');
+    expect(createAcademicGrade).toHaveBeenCalledWith({ name: '2° grado', level: 'Secundaria' });
+    page.section(' B ', 'secondary-grade-id');
+    expect(createAcademicSection).toHaveBeenCalledWith({ name: 'B', grade_id: 'secondary-grade-id' });
+  });
   it('creates a trimmed label and notifies existing catalog consumers', () => {
     const { page, createAcademicGrade } = setup(); const changed = vi.fn(); page.catalogChanged.subscribe(changed);
     page.grade(' 2° '); expect(createAcademicGrade).toHaveBeenCalledWith({ name: '2°', level: 'Primaria' });

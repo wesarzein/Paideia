@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize, forkJoin, Observable } from 'rxjs';
 import { AcademicGrade, AcademicSection, ApiService } from '../../core/services/api.service';
@@ -8,29 +8,32 @@ import { AcademicGrade, AcademicSection, ApiService } from '../../core/services/
   selector: 'app-cohort-manager',
   imports: [FormsModule],
   template: `
-    <details class="panel"><summary>Grados y secciones</summary>
-      <p>Los cambios de etiqueta conservan los códigos escolares. Crea un grado o una sección nuevos para una identidad diferente.</p>
+    <details class="panel" [open]="expanded"><summary>Grados y secciones</summary>
+      @if (canManage) { <p>Los cambios de etiqueta conservan los códigos escolares. Crea un grado o una sección nuevos para una identidad diferente.</p> }
+      @else { <p>Consulta tus grados y secciones asignados. El administrador crea el catálogo y asigna los cursos a tu cuenta docente.</p> }
       @if (loading()) { <p role="status">Cargando catálogo…</p> }
       @if (loadError()) { <p role="alert">No se pudo cargar el catálogo.</p><button (click)="load()" type="button">Reintentar catálogo</button> }
       <fieldset [disabled]="saving() || loading() || loadError()">
+        @if (canManage) {
         <form (ngSubmit)="saveGrade()"><h2>{{ gradeId ? 'Editar etiqueta de grado' : 'Nuevo grado' }}</h2>
-          <div class="fields"><label>Nombre del grado<input name="grade_name" [(ngModel)]="gradeName" maxlength="80" required /></label>
+          <div class="fields"><label>Nombre del grado<input name="grade_name" [(ngModel)]="gradeName" maxlength="80" required placeholder="Ej. 2° grado" /></label>
             <label>Nivel del grado<select name="grade_level" [(ngModel)]="gradeLevel" [disabled]="!!gradeId"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option></select></label></div>
           <button type="submit">{{ gradeId ? 'Guardar etiqueta de grado' : 'Crear grado' }}</button>
           @if (gradeId) { <button type="button" (click)="resetGrade()">Cancelar grado</button> }
         </form>
         <form (ngSubmit)="saveSection()"><h2>{{ sectionId ? 'Editar etiqueta de sección' : 'Nueva sección' }}</h2>
           <div class="fields"><label>Grado de la sección<select name="section_grade" [(ngModel)]="sectionGrade" [disabled]="!!sectionId" required><option value="">Seleccionar grado</option>@for (grade of grades(); track grade.id) {@if (grade.is_active) {<option [value]="grade.id">{{ grade.name }} · {{ grade.level }}</option>}}</select></label>
-            <label>Nombre de la sección<input name="section_name" [(ngModel)]="sectionName" maxlength="20" required /></label></div>
+            <label>Nombre de la sección<input name="section_name" [(ngModel)]="sectionName" maxlength="20" required placeholder="Ej. A o B" /></label></div>
           <button type="submit">{{ sectionId ? 'Guardar etiqueta de sección' : 'Crear sección' }}</button>
           @if (sectionId) { <button type="button" (click)="resetSection()">Cancelar sección</button> }
         </form>
+        }
         <div class="table-wrap"><table><thead><tr><th>Grado</th><th>Nivel</th><th>Acciones</th></tr></thead><tbody>
-          @for (grade of grades(); track grade.id) { <tr><td>{{ grade.name }}</td><td>{{ grade.level }}</td><td><button type="button" (click)="editGrade(grade)" [attr.aria-label]="'Editar grado ' + grade.name + ' ' + grade.level">Editar grado</button></td></tr> }
+          @for (grade of grades(); track grade.id) { <tr><td>{{ grade.name }}</td><td>{{ grade.level }}</td><td>@if (canManage) { <button type="button" (click)="editGrade(grade)" [attr.aria-label]="'Editar grado ' + grade.name + ' ' + grade.level">Editar grado</button> }</td></tr> }
           @empty { <tr><td colspan="3">Sin grados registrados.</td></tr> }
         </tbody></table></div>
         <div class="table-wrap"><table><thead><tr><th>Sección</th><th>Grado</th><th>Acciones</th></tr></thead><tbody>
-          @for (section of sections(); track section.id) { <tr><td>{{ section.name }}</td><td>{{ gradeLabel(section.grade_id) }}</td><td><button type="button" (click)="editSection(section)" [attr.aria-label]="'Editar sección ' + section.name + ' ' + gradeLabel(section.grade_id)">Editar sección</button></td></tr> }
+          @for (section of sections(); track section.id) { <tr><td>{{ section.name }}</td><td>{{ gradeLabel(section.grade_id) }}</td><td>@if (canManage) { <button type="button" (click)="editSection(section)" [attr.aria-label]="'Editar sección ' + section.name + ' ' + gradeLabel(section.grade_id)">Editar sección</button> }</td></tr> }
           @empty { <tr><td colspan="3">Sin secciones registradas.</td></tr> }
         </tbody></table></div>
       </fieldset>
@@ -49,6 +52,8 @@ import { AcademicGrade, AcademicSection, ApiService } from '../../core/services/
 })
 export class CohortManagerComponent {
   private readonly api = inject(ApiService);
+  @Input() expanded = false;
+  @Input() canManage = true;
   @Output() readonly catalogChanged = new EventEmitter<void>();
   protected readonly grades = signal<AcademicGrade[]>([]);
   protected readonly sections = signal<AcademicSection[]>([]);
@@ -73,14 +78,14 @@ export class CohortManagerComponent {
   protected resetGrade() { this.gradeId = ''; this.gradeName = ''; this.gradeLevel = 'Primaria'; }
   protected resetSection() { this.sectionId = ''; this.sectionName = ''; this.sectionGrade = ''; }
   protected saveGrade() {
-    if (this.saving() || this.loading() || this.loadError()) return;
+    if (!this.canManage || this.saving() || this.loading() || this.loadError()) return;
     const name = this.gradeName.trim();
     if (!name) { this.error.set('Completa el nombre del grado.'); return; }
     const request = this.gradeId ? this.api.updateAcademicGrade(this.gradeId, name) : this.api.createAcademicGrade({ name, level: this.gradeLevel });
     this.submit(request, () => this.resetGrade());
   }
   protected saveSection() {
-    if (this.saving() || this.loading() || this.loadError()) return;
+    if (!this.canManage || this.saving() || this.loading() || this.loadError()) return;
     const name = this.sectionName.trim();
     if (!name || !this.sectionGrade) { this.error.set('Completa el grado y nombre de la sección.'); return; }
     const request = this.sectionId ? this.api.updateAcademicSection(this.sectionId, name) : this.api.createAcademicSection({ name, grade_id: this.sectionGrade });

@@ -33,7 +33,7 @@ type StudentRecords = {
             @else {
               <div class="table-wrap"><table><thead><tr><th>Curso</th><th>Evaluación</th><th>Periodo</th><th>Fecha</th><th>Nota</th><th>Observación</th></tr></thead><tbody>
                 @for (grade of record.grades; track grade.id) {
-                  <tr><td>{{ courseName(record, grade.course_id) }}</td><td>{{ grade.evaluation_name }} · {{ grade.evaluation_type }}</td><td>{{ periodName(record, grade.period_id) }}</td><td>{{ grade.assessment_date | date:'dd/MM/yyyy' }}</td><td>{{ grade.score | number:'1.0-2' }}/20</td><td>{{ grade.qualitative_note || '—' }}</td></tr>
+                  <tr><td>{{ courseName(record, grade.course_id) }}</td><td>{{ grade.evaluation_name }} · {{ grade.evaluation_type }}</td><td>{{ periodName(record, grade.period_id) }}</td><td>{{ grade.assessment_date ? (grade.assessment_date | date:'dd/MM/yyyy') : 'Registro bimestral' }}</td><td>{{ grade.score | number:'1.0-2' }}/20</td><td>{{ grade.qualitative_note || '—' }}</td></tr>
                 }
               </tbody></table></div>
             }

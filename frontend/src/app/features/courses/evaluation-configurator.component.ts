@@ -1,5 +1,4 @@
 import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import {
@@ -16,148 +15,10 @@ type PeriodOption = { id: string; name: string };
 @Component({
   selector: 'app-evaluation-configurator',
   standalone: true,
-  imports: [DatePipe, FormsModule],
-  template: `
-    <section class="evaluation-editor">
-      <div class="heading">
-        <div>
-          <h2>Evaluación configurable</h2>
-          <p>Dos bloques de cuatro semanas. Los cambios se guardan como versiones.</p>
-        </div>
-        <label>Periodo
-          <select [(ngModel)]="periodId" (ngModelChange)="load()">
-            <option value="">Seleccionar periodo</option>
-            @for (period of periods; track period.id) {
-              <option [value]="period.id">{{ period.name }}</option>
-            }
-          </select>
-        </label>
-      </div>
-
-      @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
-      @if (message()) { <p class="feedback" role="status">{{ message() }}</p> }
-      @if (configuration) {
-        <p class="version">
-          Versión {{ currentVersion }} ·
-          {{ currentState === 'published' ? 'Publicada' : currentState === 'draft' ? 'Borrador' : 'Plantilla institucional' }}
-        </p>
-
-        <fieldset [disabled]="!canEdit || busy()">
-          <legend>Competencias</legend>
-          @for (competency of configuration.competencies; track competency.key; let index = $index) {
-            <div class="editor-row">
-              <input [(ngModel)]="competency.name" (ngModelChange)="markCustom()"
-                     [name]="'competency-' + competency.key" aria-label="Nombre de competencia" />
-              <label class="check"><input type="checkbox" [(ngModel)]="competency.is_active"
-                (ngModelChange)="toggleCompetency(competency.key, competency.is_active)"
-                [name]="'competency-active-' + competency.key" /> Activa</label>
-              <button type="button" class="compact" (click)="moveCompetency(index, -1)" [disabled]="index === 0">↑</button>
-              <button type="button" class="compact" (click)="moveCompetency(index, 1)" [disabled]="index === configuration.competencies.length - 1">↓</button>
-            </div>
-          }
-          <button type="button" class="outline" (click)="addCompetency()">Agregar competencia</button>
-        </fieldset>
-
-        @for (block of blocks; track block) {
-          <fieldset [disabled]="!canEdit || busy()">
-            <legend>Mes {{ block }} · criterios</legend>
-            @for (criterion of criteriaFor(block); track criterion.key; let index = $index) {
-              <div class="criterion-row" [class.inactive]="!criterion.is_active">
-                <input [(ngModel)]="criterion.name" (ngModelChange)="markCustom()"
-                       [name]="'criterion-name-' + criterion.key" aria-label="Nombre del criterio" />
-                <label>Peso<input type="number" min="0" max="100" step="0.1"
-                  [(ngModel)]="criterion.weight" (ngModelChange)="markCustom()"
-                  [name]="'criterion-weight-' + criterion.key" /></label>
-                <label>Competencia<select [(ngModel)]="criterion.competency_key"
-                  (ngModelChange)="markCustom()" [name]="'criterion-competency-' + criterion.key">
-                  <option [ngValue]="null">Sin competencia</option>
-                  @for (competency of activeCompetencies(); track competency.key) {
-                    <option [value]="competency.key">{{ competency.name }}</option>
-                  }
-                </select></label>
-                <label>Encabezado Excel<input [(ngModel)]="criterion.source_header"
-                  (ngModelChange)="markCustom()" [name]="'criterion-header-' + criterion.key" /></label>
-                <label class="check"><input type="checkbox" [(ngModel)]="criterion.is_optional"
-                  (ngModelChange)="markCustom()" [name]="'criterion-optional-' + criterion.key" /> Opcional</label>
-                <label class="check"><input type="checkbox" [(ngModel)]="criterion.is_active"
-                  (ngModelChange)="markCustom()" [name]="'criterion-active-' + criterion.key" /> Activo</label>
-                <div class="order">
-                  <button type="button" class="compact" (click)="moveCriterion(block, index, -1)" [disabled]="index === 0">↑</button>
-                  <button type="button" class="compact" (click)="moveCriterion(block, index, 1)" [disabled]="index === criteriaFor(block).length - 1">↓</button>
-                </div>
-              </div>
-            }
-            <button type="button" class="outline" (click)="addCriterion(block)">Agregar criterio</button>
-          </fieldset>
-        }
-
-        <fieldset [disabled]="!canEdit || busy()">
-          <legend>Fórmulas permitidas</legend>
-          <p class="help">Operadores: +, −, ×, ÷. Funciones: SUM, MEAN, MIN, MAX y ROUND.</p>
-          @for (formula of configuration.formulas; track formula.key) {
-            <label class="formula">{{ formula.key }}
-              <textarea rows="2" [(ngModel)]="formula.expression" (ngModelChange)="markCustom()"
-                        [name]="'formula-' + formula.key"></textarea>
-            </label>
-          }
-        </fieldset>
-
-        <fieldset [disabled]="busy()">
-          <legend>Vista previa con notas de ejemplo</legend>
-          <div class="scores">
-            @for (criterion of activeCriteria(); track criterion.key) {
-              <label>{{ criterion.name }} · mes {{ criterion.block }}
-                <input type="number" min="0" max="20" step="0.1"
-                  [ngModel]="sampleScores[criterion.key]"
-                  (ngModelChange)="setSampleScore(criterion.key, $event)"
-                  [name]="'score-' + criterion.key" />
-              </label>
-            }
-          </div>
-          <button type="button" (click)="preview()">Previsualizar resultados</button>
-          @if (previewResult()) {
-            <div class="preview-result">
-              @for (formula of formulaEntries(); track formula[0]) {
-                <span>{{ formula[0] }}: {{ formula[1] ?? 'Incompleto' }}</span>
-              }
-              <strong>Literal: {{ previewResult()!.literal ?? 'Incompleto' }}</strong>
-            </div>
-            @if (previewResult()!.warnings.length) {
-              <p class="warning">Faltan criterios obligatorios para completar el resultado.</p>
-            }
-          }
-        </fieldset>
-
-        @if (canEdit) {
-          <div class="publication">
-            <label>Motivo del cambio
-              <input [(ngModel)]="reason" maxlength="500" placeholder="Describe el propósito de esta versión" />
-            </label>
-            <button type="button" (click)="save('draft')" [disabled]="busy() || !reason.trim()">Guardar borrador</button>
-            <button type="button" (click)="save('published')" [disabled]="busy() || !reason.trim()">Publicar versión</button>
-            <button type="button" class="outline" (click)="restoreInstitutional()" [disabled]="busy() || !reason.trim()">Restablecer plantilla institucional</button>
-          </div>
-        }
-
-        <details>
-          <summary>Historial de versiones ({{ versions().length }})</summary>
-          <div class="history">
-            @for (version of versions(); track version.id) {
-              <button type="button" class="history-item" (click)="openVersion(version)">
-                <strong>v{{ version.version }} · {{ version.state === 'published' ? 'Publicada' : 'Borrador' }}</strong>
-                <span>{{ version.reason }}</span>
-                <small>{{ version.created_at ? (version.created_at | date:'short') : '' }}</small>
-              </button>
-            }
-          </div>
-        </details>
-      } @else if (periodId && !busy()) {
-        <p>No se pudo cargar la configuración.</p>
-      }
-    </section>
-  `,
+  imports: [FormsModule],
+  templateUrl: './evaluation-configurator.component.html',
   styles: [`
-    .evaluation-editor{border-top:1px solid var(--color-border);margin-top:22px;padding-top:18px}.heading{display:flex;justify-content:space-between;gap:18px;align-items:end}.heading p,.help{color:var(--color-muted-text);margin:4px 0}.version{display:inline-block;background:var(--color-muted);border-radius:999px;padding:6px 10px}fieldset{border:1px solid var(--color-border);border-radius:8px;margin:16px 0;padding:14px}legend{font-weight:700}.editor-row,.criterion-row{display:grid;grid-template-columns:minmax(170px,2fr) repeat(3,minmax(100px,1fr)) auto auto auto;gap:10px;align-items:end;margin-bottom:10px}.editor-row{grid-template-columns:minmax(220px,1fr) auto auto auto}.criterion-row input,.criterion-row select,.editor-row input,.formula textarea,.publication input,.heading select,.scores input{width:100%;padding:9px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface)}.check{display:flex;align-items:center;gap:6px}.check input{width:17px}.compact{margin:0;padding:8px 10px}.outline{background:transparent;color:var(--color-primary);border:1px solid var(--color-primary)}.inactive{opacity:.6}.formula{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;margin:8px 0}.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.preview-result{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;padding:12px;background:var(--color-muted);border-radius:7px}.warning{color:#9a5b00}.publication{display:grid;grid-template-columns:minmax(240px,1fr) repeat(3,auto);gap:8px;align-items:end}.history{display:grid;gap:8px;margin-top:10px}.history-item{display:grid;grid-template-columns:140px 1fr auto;gap:10px;text-align:left;margin:0;background:var(--color-muted);color:var(--color-text)}@media(max-width:900px){.criterion-row,.publication{grid-template-columns:1fr 1fr}.heading{align-items:stretch;flex-direction:column}}@media(max-width:600px){.criterion-row,.publication,.editor-row,.formula,.history-item{grid-template-columns:1fr}}
+    .competency-card{border:1px solid var(--color-border);border-radius:10px;padding:14px;margin:12px 0}.competency-card h3{margin:0 0 12px}.competency-card p{display:flex;justify-content:space-between;gap:12px}.competency-card span{color:var(--color-muted-text)}.editor-row select{padding:9px;border:1px solid var(--color-border);border-radius:6px}.evaluation-editor{border-top:1px solid var(--color-border);margin-top:22px;padding-top:18px}.heading{display:flex;justify-content:space-between;gap:18px;align-items:end}.heading p,.help{color:var(--color-muted-text);margin:4px 0}.version{display:inline-block;background:var(--color-muted);border-radius:999px;padding:6px 10px}fieldset{border:1px solid var(--color-border);border-radius:8px;margin:16px 0;padding:14px}legend{font-weight:700}.editor-row,.criterion-row{display:grid;grid-template-columns:minmax(170px,2fr) minmax(170px,2fr) repeat(3,minmax(95px,1fr));gap:10px;align-items:end;margin-bottom:10px}.editor-row{grid-template-columns:minmax(220px,1fr) auto auto auto}.criterion-row input,.criterion-row select,.editor-row input,.formula textarea,.publication input,.heading select,.scores input{width:100%;padding:9px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface)}.check{display:flex;align-items:center;gap:6px}.check input{width:17px}.compact{margin:0;padding:8px 10px}.outline{background:transparent;color:var(--color-primary);border:1px solid var(--color-primary)}.inactive{opacity:.6}.formula{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;margin:8px 0}.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.preview-result{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;padding:12px;background:var(--color-muted);border-radius:7px}.warning{color:#9a5b00}.publication{display:grid;grid-template-columns:minmax(240px,1fr) repeat(2,auto);gap:8px;align-items:end}.history{display:grid;gap:8px;margin-top:10px}.history-item{display:grid;grid-template-columns:140px 1fr auto;gap:10px;text-align:left;margin:0;background:var(--color-muted);color:var(--color-text)}@media(max-width:900px){.criterion-row,.publication{grid-template-columns:1fr 1fr}.heading{align-items:stretch;flex-direction:column}}@media(max-width:600px){.criterion-row,.publication,.editor-row,.formula,.history-item{grid-template-columns:1fr}}
   `],
 })
 export class EvaluationConfiguratorComponent implements OnChanges {
@@ -180,7 +41,7 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   protected reason = '';
   protected readonly canEdit = (() => {
     try {
-      return ['admin', 'teacher', 'coordinator'].includes(
+      return ['admin'].includes(
         JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role,
       );
     } catch {
@@ -202,10 +63,10 @@ export class EvaluationConfiguratorComponent implements OnChanges {
     if (!this.courseId || !this.periodId) return this.clear();
     this.busy.set(true);
     this.error.set('');
-    this.api.getEvaluationConfiguration(this.courseId, this.periodId).subscribe({
+    const request = this.canEdit ? this.api.getEvaluationConfiguration(this.courseId, this.periodId) : this.api.getActiveEvaluationConfiguration(this.courseId, this.periodId);
+    request.subscribe({
       next: (revision) => {
-        this.applyRevision(revision, true);
-        this.loadVersions();
+        if (revision && (this.canEdit || revision.state === "published")) { this.applyRevision(revision, true); if (this.canEdit) this.loadVersions(); } else this.clear();
         this.busy.set(false);
       },
       error: (error) => {
@@ -295,8 +156,26 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   }
 
   protected markCustom(): void {
-    if (this.configuration) this.configuration.template_id = 'custom_v1';
+    if (this.configuration && this.configuration.template_id !== 'weighted_course_v1') this.configuration.template_id = 'custom_v1';
     this.previewResult.set(null);
+  }
+
+  protected useWeightedCalculation(): void {
+    if (!this.canEdit || !this.configuration) return;
+    this.configuration.template_id = 'weighted_course_v1';
+    this.syncWeightedFormulas();
+    this.previewResult.set(null);
+  }
+
+  private syncWeightedFormulas(): void {
+    if (this.configuration?.template_id !== 'weighted_course_v1') return;
+    this.configuration.formulas = this.blocks.map(block => {
+      const criteria = this.activeCriteria().filter(item => item.block === block && Number(item.weight) > 0);
+      const denominator = criteria.reduce((sum, item) => sum + Number(item.weight), 0);
+      return { key: `mes_${block}`, expression: denominator ? `SUM(${criteria.map(item => `${item.key}*${Number(item.weight)}`).join(',')})/${denominator}` : '0' };
+    });
+    this.configuration.formulas.push({ key: 'pf', expression: 'MEAN(mes_1,mes_2)' });
+    this.configuration.final_formula = 'pf';
   }
 
   protected setSampleScore(key: string, value: number | string | null): void {
@@ -324,7 +203,10 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   }
 
   protected save(state: 'draft' | 'published'): void {
+    if (!this.canEdit) return;
     if (!this.configuration || !this.reason.trim()) return;
+    if (state === "published" && (!this.activeCompetencies().length || this.activeCriteria().some(item => !item.competency_key))) { this.error.set("Asigna una competencia a cada criterio activo antes de publicar."); return; }
+    this.syncWeightedFormulas();
     this.busy.set(true);
     this.error.set('');
     const request = state === 'draft'
@@ -346,6 +228,7 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   }
 
   protected async restoreInstitutional(): Promise<void> {
+    if (!this.canEdit) return;
     if (!this.reason.trim()) return;
     if (!await this.confirm.ask('¿Publicar la plantilla institucional como una nueva versión?')) return;
     this.busy.set(true);
@@ -368,6 +251,15 @@ export class EvaluationConfiguratorComponent implements OnChanges {
 
   protected openVersion(revision: EvaluationRevision): void {
     this.configuration = structuredClone(revision.configuration);
+    if (this.canEdit && revision.version === 0) {
+      if (this.configuration.template_id === 'institutional_v1') {
+        this.configuration.criteria = this.blocks.map(block => ({
+          ...this.configuration!.criteria.find(item => item.block === block)!,
+          name: 'Criterio de evaluación', source_header: null, weight: '1',
+        }));
+      }
+      this.useWeightedCalculation();
+    }
     this.sampleScores = Object.fromEntries(
       this.configuration.criteria.map((criterion) => [criterion.key, null]),
     );
@@ -384,6 +276,15 @@ export class EvaluationConfiguratorComponent implements OnChanges {
 
   private applyRevision(revision: EvaluationRevision, updateVersion: boolean): void {
     this.configuration = structuredClone(revision.configuration);
+    if (this.canEdit && revision.version === 0) {
+      if (this.configuration.template_id === 'institutional_v1') {
+        this.configuration.criteria = this.blocks.map(block => ({
+          ...this.configuration!.criteria.find(item => item.block === block)!,
+          name: 'Criterio de evaluación', source_header: null, weight: '1',
+        }));
+      }
+      this.useWeightedCalculation();
+    }
     if (updateVersion) {
       this.currentVersion = revision.version;
       this.currentState = revision.state;
@@ -401,7 +302,7 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   }
 
   private newKey(prefix: string): string {
-    return `${prefix}_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`;
+    return `${prefix}_${Array.from(crypto.getRandomValues(new Uint32Array(2)), value => value.toString(16).padStart(8, '0')).join('')}`;
   }
 
   private errorDetail(error: { error?: { detail?: unknown } }, fallback: string): string {

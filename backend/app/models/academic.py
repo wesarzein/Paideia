@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
@@ -149,6 +149,13 @@ class GradeRecord(Base):
     __tablename__ = "grade_records"
     __table_args__ = (
         CheckConstraint(
+            "(record_kind = 'evaluation' AND assessment_date IS NOT NULL) OR "
+            "(record_kind = 'historical_bimester' AND assessment_date IS NULL "
+            "AND academic_bimester IS NOT NULL AND evaluation_block IS NOT NULL "
+            "AND component_id IS NULL AND evaluation_revision_id IS NULL)",
+            name="grade_records_record_kind",
+        ),
+        CheckConstraint(
             "academic_bimester IS NULL OR academic_bimester > 0",
             name="grade_records_positive_bimester",
         ),
@@ -172,7 +179,8 @@ class GradeRecord(Base):
     )
     evaluation_name: Mapped[str] = mapped_column(String(120), default="Evaluación", nullable=False)
     evaluation_type: Mapped[str] = mapped_column(String(50), default="Actitud ante el área", nullable=False)
-    assessment_date: Mapped[datetime] = mapped_column(Date, nullable=False, default=func.now())
+    record_kind: Mapped[str] = mapped_column(String(24), nullable=False, default="evaluation", server_default="evaluation")
+    assessment_date: Mapped[datetime | None] = mapped_column(Date().evaluates_none(), nullable=True, default=date.today)
     score: Mapped[float] = mapped_column(nullable=False)
     assessment_weight: Mapped[float] = mapped_column(Float, nullable=False)
     assessment_config: Mapped[dict] = mapped_column(JSON, nullable=False)
@@ -263,6 +271,7 @@ def capture_assessment_config(_mapper, connection, record):
 @event.listens_for(GradeRecord, "before_update")
 def preserve_assessment_config(_mapper, _connection, record):
     for field in (
+        "record_kind",
         "assessment_weight",
         "assessment_config",
         "evaluation_revision_id",

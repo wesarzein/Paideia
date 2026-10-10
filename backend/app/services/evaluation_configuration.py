@@ -231,6 +231,9 @@ def preview(config: Configuration, scores: dict) -> dict:
         if value is not None and not 0 <= value <= 20:
             raise FormulaError("Resultado de evaluación fuera de la escala 0–20")
         values[key] = value
+    if config.template_id == "weighted_course_v1":
+        values["mes_1"], values["mes_2"] = weighted["1"], weighted["2"]
+        values[config.final_formula] = (sum(weighted.values()) / 2 if all(value is not None for value in weighted.values()) else None)
     final = values[config.final_formula]
     if warnings:
         # A custom expression can omit an input; do not hide missing required criteria.

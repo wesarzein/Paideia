@@ -38,7 +38,7 @@ export interface AcademicCatalog {
   grades: { id: string; name: string; level: string }[];
   sections: { id: string; name: string; grade_id: string }[];
   courses: { id: string; name: string; code: string | null }[];
-  periods: { id: string; name: string }[];
+  periods: { id: string; name: string; starts_on?: string; ends_on?: string }[];
   students: { id: string; student_code: string | null; name: string }[];
   literal_scale: { greater_than: number; grade: string }[];
 }
@@ -100,7 +100,7 @@ export interface GradePayload {
   evaluation_type?: string;
   assessment_date?: string;
 }
-export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; component_id: string | null; assessment_weight: number; evaluation_name: string; evaluation_type: string; assessment_date: string; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
+export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; component_id: string | null; assessment_weight: number; evaluation_name: string; evaluation_type: string; assessment_date: string | null; record_kind?: "evaluation" | "historical_bimester"; evaluation_revision_id?: string | null; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
 
 export interface AttendancePayload {
   student_id: string;
@@ -239,6 +239,7 @@ export interface GradeImportReview {
 }
 
 export interface InstitutionalContext {
+  historical?: boolean;
   school_year: number | null;
   bimestre: number | null;
   grade_id: string;
@@ -248,6 +249,7 @@ export interface InstitutionalContext {
 }
 
 export interface ImportPreview {
+  name_split_warning?: string;
   institutional?: { template: string; sheet: string; blank_inputs: number; warning: string; students: {source_row: number; student_code: string; name: string}[]; unsupported_formula_rows: number[]; blocks: { block: string; label: string; criteria: { name: string; header: string }[] }[]; derived: { cell: string; formula: string; cached: unknown }[] };
   columns: string[];
   rows: Record<string, unknown>[];
@@ -397,7 +399,7 @@ export class ApiService {
   }
 
   commitStudentRows(rows: Record<string, unknown>[], gradeId: string, sectionId: string) {
-    return this.http.post<{ processed: number; imported: number; rejected: number }>(`${environment.apiUrl}/imports/students/commit`, { rows, grade_id: gradeId, section_id: sectionId });
+    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/students/commit`, { rows, grade_id: gradeId, section_id: sectionId });
   }
 
   previewGradeImport(file: File, periodId: string) {
@@ -406,8 +408,8 @@ export class ApiService {
     return this.http.post<ImportPreview>(`${environment.apiUrl}/imports/grades/preview`, form, { params: { period_id: periodId } });
   }
 
-  commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string, academicContext?: InstitutionalContext) {
-    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId, academic_context: academicContext });
+  commitGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string, academicContext?: InstitutionalContext, correctionsOnly = false) {
+    return this.http.post<{ processed: number; imported: number; updated: number; skipped: number; rejected: number }>(`${environment.apiUrl}/imports/grades/commit`, { rows, course_id: courseId, period_id: periodId, academic_context: academicContext, corrections_only: correctionsOnly });
   }
 
   reviewGradeRows(rows: Record<string, unknown>[], courseId: string, periodId: string, academicContext?: InstitutionalContext) {

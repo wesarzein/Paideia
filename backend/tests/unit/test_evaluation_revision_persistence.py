@@ -219,6 +219,21 @@ def test_http_permissions_publication_history_and_restore(db):
     )
     session.commit()
 
+    assert (
+        client.post(
+            f"/courses/{course.id}/evaluation-configurations/drafts", json=payload
+        ).status_code
+        == 403
+    )
+    admin = User(
+        role=Role(code="admin", name="Administrador"),
+        email="admin@example.test",
+        password_hash="synthetic",
+        full_name="Admin Sintético",
+    )
+    session.add(admin)
+    session.commit()
+    current_user["value"] = admin
     saved = client.post(f"/courses/{course.id}/evaluation-configurations/drafts", json=payload)
     assert saved.status_code == 201
     assert saved.json()["state"] == "draft"
@@ -288,7 +303,7 @@ def test_http_permissions_publication_history_and_restore(db):
     )
     assert forbidden.status_code == 403
 
-    current_user["value"] = teacher
+    current_user["value"] = admin
     restored = client.post(
         f"/courses/{course.id}/evaluation-configurations/restore-institutional",
         json={

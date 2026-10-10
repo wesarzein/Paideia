@@ -20,7 +20,7 @@ def identity(record, *, component=True):
         str(record.component_id) if component and record.component_id else None,
         record.evaluation_name.strip(),
         record.evaluation_type.strip(),
-        record.assessment_date.isoformat(),
+        record.assessment_date.isoformat() if record.assessment_date else None,
     ]
     if record.evaluation_criterion_key:
         dimensions.append(record.evaluation_criterion_key)
@@ -98,6 +98,8 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
                 }
             )
         elif existing:
+            if raw.get("template") == "institutional_v1" and not raw.get("qualitative_note"):
+                record.qualitative_note = existing.qualitative_note
             record.component_id = existing.component_id
             item["existing"] = {
                 "id": str(existing.id),
@@ -114,7 +116,7 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
             )
             item["review_token"] = _token(user, record, existing)
         else:
-            if not explicit_component:
+            if not explicit_component and record.record_kind != "historical_bimester":
                 component = db.scalar(
                     select(CourseAssessmentComponent).where(
                         CourseAssessmentComponent.course_id == record.course_id,
@@ -148,7 +150,7 @@ def inspect_rows(db, user, incoming, raw_rows, *, lock=False):
     return reviews, existing_records, errors
 
 
-def commit_rows(db, user, incoming, raw_rows):
+def commit_rows(db, user, incoming, raw_rows, *, corrections_only=False):
     reviews, existing, errors = inspect_rows(db, user, incoming, raw_rows, lock=True)
     if errors:
         raise HTTPException(status_code=422, detail={"errors": errors})
@@ -180,7 +182,9 @@ def commit_rows(db, user, incoming, raw_rows):
         operations.append((record, saved, item["status"], decision))
     counts = {"processed": len(incoming), "imported": 0, "updated": 0, "skipped": 0, "rejected": 0}
     for record, saved, state, decision in operations:
-        if state == "new":
+        if state == "new" and corrections_only:
+            counts["skipped"] += 1
+        elif state == "new":
             db.add(record)
             counts["imported"] += 1
         elif state == "different" and decision == "update":

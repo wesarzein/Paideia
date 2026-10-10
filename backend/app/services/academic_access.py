@@ -12,13 +12,13 @@ from app.models.user import User
 def student_scope(user: User, course_id=None):
     """SQL predicate for student metadata, optionally limited to one teaching course."""
     role = user.role.code
-    if role in {"admin", "coordinator", "director"}:
+    if role == "admin":
         return true()
     if role == "student":
         return Student.student_user_id == user.id
     if role == "parent":
         return Student.parent_user_id == user.id
-    if role != "teacher":
+    if role not in {"teacher", "coordinator", "director"}:
         return false()
     assignments = select(CourseAssignment.id).where(
         CourseAssignment.teacher_id == user.id,
@@ -59,7 +59,7 @@ def ensure_student_course_access(
             CourseAssignment.section_id == student.section_id,
         )
     )
-    if user.role.code == "teacher":
+    if user.role.code in {"teacher", "coordinator", "director"}:
         if assignment is None or assignment.teacher_id != user.id:
             raise HTTPException(status_code=403, detail="No tienes asignado este curso y sección")
         return

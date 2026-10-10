@@ -38,7 +38,7 @@ def list_enrollments(
 def create_enrollment(
     payload: EnrollmentCreate,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "coordinator", "teacher")),
+    _user: User = Depends(require_roles("admin")),
 ) -> Enrollment:
     if not db.get(Student, payload.student_id):
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
@@ -72,7 +72,7 @@ def create_enrollment(
 
 
 @router.patch("/{enrollment_id}", response_model=EnrollmentResponse)
-def update_enrollment(enrollment_id: UUID, payload: EnrollmentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> Enrollment:
+def update_enrollment(enrollment_id: UUID, payload: EnrollmentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> Enrollment:
     enrollment = db.get(Enrollment, enrollment_id)
     if enrollment is None:
         raise HTTPException(status_code=404, detail="Matrícula no encontrada")
@@ -83,7 +83,7 @@ def update_enrollment(enrollment_id: UUID, payload: EnrollmentUpdate, db: Sessio
 
 
 @router.delete("/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_enrollment(enrollment_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "coordinator"))) -> None:
+def delete_enrollment(enrollment_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> None:
     enrollment = db.get(Enrollment, enrollment_id)
     if enrollment is None:
         raise HTTPException(status_code=404, detail="Matrícula no encontrada")
