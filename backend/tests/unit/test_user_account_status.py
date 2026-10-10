@@ -177,12 +177,12 @@ def test_account_status_migration_preserves_existing_users_and_roundtrip(session
         db.commit()
         columns = "id, role_id, email, password_hash, full_name, created_at, updated_at"
         before = db.execute(text(f"SELECT {columns} FROM users")).all()
-    command.upgrade(Config("alembic.ini"), "head")
+    command.upgrade(Config("alembic.ini"), "0015_user_account_status")
     with sessions() as db:
         assert db.execute(text(f"SELECT {columns} FROM users")).all() == before
         assert db.get(User, user_id).is_active is True
     # This fixture is a UUID schema; public is never downgraded.
     command.downgrade(Config("alembic.ini"), "0014_evaluation_configuration_revisions")
-    command.upgrade(Config("alembic.ini"), "head")
+    command.upgrade(Config("alembic.ini"), "0015_user_account_status")
     with sessions() as db:
         assert db.execute(text(f"SELECT {columns} FROM users")).all() == before

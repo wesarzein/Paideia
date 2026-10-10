@@ -24,6 +24,10 @@ import { ModelRun, ModelStatus, Predictions, RiskModelService } from './risk-mod
       <section class="panel"><h2>Historial de entrenamiento y comparación</h2>@if (!s.runs.length) {<p>No se han entrenado modelos. No hay predicciones disponibles.</p>}
         @for (r of s.runs; track r.id) {<article><h3>Modelo {{ r.id.slice(0,8) }} · {{ r.status }}</h3><p>Solicitado {{ r.created_at | date:'short' }} · Semilla {{ r.configuration.seed }} · {{ r.configuration.pupils }} estudiantes ficticios</p>
           @if (r.error_code) {<p role="alert">Entrenamiento fallido: {{ r.error_code }}. El conjunto aislado se conserva para diagnóstico.</p>}
+          @if (admin && ['queued','running'].includes(r.status)) {
+            <p>{{ s.worker_active ? 'Proceso activo: recuperación bloqueada.' : 'No hay un proceso activo confirmado. Puedes cerrar esta solicitud interrumpida y solicitar un entrenamiento nuevo; el conjunto y modelo anterior se conservan.' }}</p>
+            <button (click)="recover(r)" [disabled]="busy() || !ack || reason.trim().length < 5 || s.worker_active !== false">Recuperar solicitud interrumpida</button>
+          }
           @if (r.metrics; as m) {<p>Precisión {{ m.precision | number:'1.2-3' }} · Recall {{ m.recall | number:'1.2-3' }} · F1 {{ m.f1 | number:'1.2-3' }} · Brier {{ m.brier_score | number:'1.2-3' }}</p><p>Baseline F1: {{ r.baseline?.f1 | number:'1.2-3' }} · Entrenamiento {{ r.split?.train_count }}, evaluación {{ r.split?.test_count }} · Sin alumnos compartidos.</p><p>Matriz de confusión [real 0/1 × predicho 0/1]: {{ m.confusion_matrix[0] }} / {{ m.confusion_matrix[1] }}</p><p>Limitación: etiquetas ficticias generadas por reglas; no validación institucional.</p>}
           @if (admin && r.status === 'candidate') {<button (click)="approve(r)" [disabled]="busy() || !ack || reason.trim().length < 5">Aprobar solo para demostración</button>}
           @if (admin && r.status === 'approved' && r.id !== s.active_run_id) {<button (click)="activate(r.id)" [disabled]="busy() || !ack || reason.trim().length < 5">Activar / restaurar esta versión</button>}
@@ -62,6 +66,7 @@ export class RiskModelPage {
   }
   protected train() { if (!this.admin || !this.ack || this.pending() || this.busy()) return; this.action(this.api.train(this.seed, this.pupils, this.cutoff)); }
   protected approve(run: ModelRun) { if (this.admin && this.ack && this.reason.trim().length >= 5) this.action(this.api.approve(run.id, this.reason.trim())); }
+  protected recover(run: ModelRun) { if (this.admin && this.ack && this.reason.trim().length >= 5 && this.status()?.worker_active === false) this.action(this.api.recover(run.id, this.reason.trim())); }
   protected activate(id: string | null) { const state = this.status(); if (state && this.admin && this.ack && this.reason.trim().length >= 5) this.action(this.api.activate(id, state.deployment_version, this.reason.trim())); }
   protected infer() { if (this.busy() || !this.status()?.active_run_id) return; this.busy.set(true); this.error.set(''); this.api.predictions().subscribe({ next: p => { this.predictions.set(p); this.busy.set(false); }, error: () => { this.busy.set(false); this.error.set('Predicciones demostrativas no disponibles.'); } }); }
   protected readyCount() { return this.predictions()?.rows.filter(r => r.prediction.probability !== null).length || 0; }

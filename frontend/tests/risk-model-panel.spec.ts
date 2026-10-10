@@ -7,6 +7,8 @@ import { ModelStatus, RiskModelService } from '../src/app/features/ai/risk-model
 
 class Page extends RiskModelPage {
   acknowledge() { this.ack = true; this.reason = 'Synthetic experimental review'; }
+  recoverNow() { this.recover({ id: 'interrupted', status: 'running' } as any); }
+  worker(active: boolean | null) { this.status.set({ ...this.status()!, worker_active: active }); }
   trainNow() { this.train(); }
   activateNow() { this.activate('model'); }
   failed() { return this.error(); }
@@ -16,14 +18,26 @@ function setup(role = 'admin') {
   vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ role }) });
   const state: ModelStatus = { mode: 'demonstration', institutional_status: 'inactive', active_run_id: null, deployment_version: 3, autorun: false, runs: [] };
   const status = vi.fn(() => of(state)); const train = vi.fn(() => of({})); const activate = vi.fn(() => of({}));
+  const recover = vi.fn(() => of({}));
   const injector = Injector.create({ providers: [
-    { provide: RiskModelService, useValue: { status, train, activate } },
+    { provide: RiskModelService, useValue: { status, train, activate, recover } },
     { provide: DestroyRef, useValue: { onDestroy: () => {} } },
   ] });
-  return { page: runInInjectionContext(injector, () => new Page()), status, train, activate };
+  return { page: runInInjectionContext(injector, () => new Page()), status, train, activate, recover };
 }
 afterEach(() => vi.unstubAllGlobals());
 describe('experimental model panel', () => {
+  it('recovers only an acknowledged interruption with no live worker', () => {
+    const { page, recover } = setup(); page.acknowledge();
+    page.worker(true); page.recoverNow(); page.worker(null); page.recoverNow();
+    expect(recover).not.toHaveBeenCalled();
+    page.worker(false); page.recoverNow();
+    expect(recover).toHaveBeenCalledWith('interrupted', 'Synthetic experimental review');
+  });
+  it('cannot recover a training request as a teacher', () => {
+    const { page, recover } = setup('teacher'); page.acknowledge(); page.worker(false); page.recoverNow();
+    expect(recover).not.toHaveBeenCalled();
+  });
   it('requires explicit synthetic acknowledgement to request training', () => {
     const { page, train } = setup(); page.trainNow(); expect(train).not.toHaveBeenCalled();
     page.acknowledge(); page.trainNow(); expect(train).toHaveBeenCalledWith(42, 80, 10.4);

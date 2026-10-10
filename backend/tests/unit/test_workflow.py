@@ -4,8 +4,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, update
+from test_roster_persistence import sessions
 
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, get_db
 from app.core.security import hash_password
 from app.main import app
 from app.models.academic import (
@@ -15,13 +16,16 @@ from app.models.academic import (
     CourseAssessmentComponent,
     CourseAssignment,
     Enrollment,
+    Grade,
     GradeRecord,
+    Section,
 )
 from app.models.follow_up import FollowUp
-from app.models.academic import Grade, Section
 from app.models.student import Student
 from app.models.user import Role, User
 from app.services.student_codes import format_student_code
+
+__all__ = ["sessions"]
 
 
 def test_school_student_code_format() -> None:
@@ -69,10 +73,27 @@ def _cleanup_test_data() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_test_records():
+def clean_test_records(sessions, monkeypatch):
+    from app import main
+
+    # Even the legacy helpers must use the guarded UUID/SQLite fixture, never the
+    # globally configured database. Startup and API requests share that target.
+    monkeypatch.setitem(globals(), 'SessionLocal', sessions)
+    monkeypatch.setattr(main, 'SessionLocal', sessions)
+    def database():
+        with sessions() as db:
+            yield db
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = database
     _cleanup_test_data()
-    yield
-    _cleanup_test_data()
+    try:
+        yield
+        _cleanup_test_data()
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous
 
 
 def _seed_basics() -> None:

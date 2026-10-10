@@ -199,11 +199,11 @@ def test_migration_roundtrip_preserves_prior_rows(sessions):
         )
         db.commit()
         before = db.execute(text("SELECT row_to_json(s) FROM students s")).all()
-    command.upgrade(Config("alembic.ini"), "head")
+    command.upgrade(Config("alembic.ini"), "0016_local_risk_models")
     with sessions() as db:
         assert db.execute(text("SELECT row_to_json(s) FROM students s")).all() == before
         assert db.scalar(text("SELECT count(*) FROM risk_model_deployments")) == 2
     command.downgrade(Config("alembic.ini"), "0015_user_account_status")
-    command.upgrade(Config("alembic.ini"), "head")
+    command.upgrade(Config("alembic.ini"), "0016_local_risk_models")
     with sessions() as db:
         assert db.execute(text("SELECT row_to_json(s) FROM students s")).all() == before

@@ -58,6 +58,7 @@ def seed(sessions):
         return user.id, course.id, period.id, student.id, component.id
 
 
+@pytest.mark.parametrize("sessions", ["0014_evaluation_configuration_revisions"], indirect=True)
 def test_0014_upgrade_and_reversible_downgrade(sessions):
     with sessions() as db:
         inspector = inspect(db.bind)

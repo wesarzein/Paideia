@@ -1,6 +1,42 @@
 # Roadmap de Paideia
 
-## Prioridad vigente: entrega BI/IA y consolidación
+## Cierre del MVP: alcance congelado, 10/10/2026
+
+Base `main`/`origin/main`: `9efe2a4`. Trabajo interrumpido conservado en
+`fix/current-version-stability`; no había commits ni archivos staged nuevos al reanudar.
+No iniciar fases, módulos, algoritmos ni documentación de presentación adicionales.
+Las tablas posteriores son antecedentes; esta sección determina la prioridad vigente.
+
+| Pendiente de estabilización | Estado real / prioridad | Aceptación y evidencia ejecutada |
+| --- | --- | --- |
+| B3: auditoría académica aditiva | Probado, P0 | 0017: antes/después, actor, rol, autorización, fecha, rollback y ámbito por curso; historial append-only sin cascadas. Tres pruebas PG y Playwright sobre seguimiento real; UI de cero y denegación con respuestas controladas |
+| Recuperación IA interrumpida | Probado, P0 | 0018: exclusión de workers, reclamación invalidada, recuperación administrativa explícita, dataset preservado y candidato sin activación automática. Siete pruebas PG, incluido entrenamiento real y fallo por datos insuficientes |
+| BI y permisos existentes | Probado, P0 | Dos regresiones PG nuevas: cambios de notas/asistencia, filtros combinados y 1.001 notas; consulta medida en 0,157 s. Recorrido BI real: 0,680 s, sin errores JS, cobertura y cero/null |
+| Arranque limpio y reinicio | Probado con límites, P0 | Esquema UUID nuevo: migraciones hasta head, seed JSON sintético real, startup, login y segundo startup. Laboratorio conservado: update, stop/start y huellas de todas las tablas idénticas. Initialize rechaza base poblada antes de detener API/frontend |
+| Integración GitHub | Pendiente, P0; depende de pruebas y revisión | Auditar commits salientes/secretos, conservar respaldo, PR temporal con squash solo si CI pasa; verificar main local/remoto |
+
+Pruebas de la ejecución recuperada: 254 casos backend aprobados y un fallo de fixture
+legada que usaba la conexión global. Se aisló esa fixture en UUID: sus diez casos y
+siete de recuperación pasaron (17/17, 78,58 s); el inventario público no cambió.
+No presentar esa ejecución como una suite completa aprobada. La integración CI debe
+confirmar la regresión conjunta. Frontend: 55/55 Vitest y build Angular (28,416 s),
+usando Node 24 y lockfile en Docker; no repetir sin cambios frontend relevantes.
+
+Reanudación: seed/startup con salvaguarda real aprobado (1/1, 18,28 s), siete pruebas
+de scripts aprobadas, Ruff focalizado y diff sin errores. Reimportación real omitió las
+diez notas existentes. Playwright académico/BI y reinicio de tres servicios aprobados
+en la ejecución recuperada. Se volvió a verificar por lectura las **32 notas y snapshots**:
+SHA-256 `e7998edc2fb51a66ea381f2e15207f45e6e7502df0ac29664dbe66e96f92a1b5`.
+Modelo demostrativo aprobado conservado (versión 5, 240 predicciones); institucional inactivo.
+0017/0018 están aplicadas exclusivamente en el laboratorio autorizado.
+
+Límites de cierre: no se probó otra laptop física ni un segundo laboratorio Docker;
+la instalación nueva se verifica mediante esquema aislado y CI. Políticas institucionales,
+retención/eliminación, IA real y producción quedan fuera del MVP. Los demás pendientes
+de las tablas históricas no autorizan ampliar esta versión. Siguiente y último paso:
+revisar/publicar estos cambios, aprobar CI y consolidar main; después detener desarrollo.
+
+## Antecedente: entrega BI/IA consolidada en 9efe2a4
 
 Solicitud integral posterior a `a6495ce`; sustituye la prioridad B3/C7 y la
 prohibición anterior de push/merge. Respaldo local: `backup/pre-bi-ai-a6495ce`.

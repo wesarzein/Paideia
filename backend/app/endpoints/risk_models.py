@@ -62,6 +62,7 @@ def summary(run):
         "created_at": run.created_at,
         "finished_at": run.finished_at,
         "approved_at": run.approved_at,
+        "started_at": run.started_at,
         "created_by_id": str(run.created_by_id),
         "approved_by_id": str(run.approved_by_id) if run.approved_by_id else None,
         "error_code": run.error_code,
@@ -84,6 +85,7 @@ def models(db: Database, _user: Staff):
         "active_run_id": str(active.run_id) if active.run_id else None,
         "deployment_version": active.version,
         "autorun": os.environ.get("PAIDEIA_AI_AUTORUN") == "true",
+        "worker_active": risk_registry.worker_active(db),
         "runs": [
             summary(r)
             for r in db.scalars(
@@ -105,6 +107,13 @@ def launch_worker(run_id):
     )
     # Reap the one-off child outside the HTTP response lifecycle.
     Thread(target=process.wait, daemon=True).start()
+
+
+@router.post("/{run_id}/recover")
+def recover(run_id: UUID, payload: ModelDecision, db: Database, user: Admin):
+    if not payload.acknowledge_synthetic:
+        raise HTTPException(422, "Confirma la recuperación exclusivamente demostrativa")
+    return summary(risk_registry.recover_interrupted(db, user, run_id, payload.reason))
 
 
 @router.post("/demonstration/train", status_code=202)
@@ -162,19 +171,22 @@ def predictions(db: Database, _user: Staff):
     if not active.run_id:
         return {"status": "untrained_or_inactive", "mode": "demonstration", "rows": []}
     run = db.get(RiskModelRun, active.run_id)
-    engine = risk_registry.demo_engine(settings.database_url, run.dataset_schema)
+    engine = None
     try:
+        if run is None or run.status != "approved" or run.mode != "demonstration":
+            raise ValueError("No approved demonstration model")
+        engine = risk_registry.demo_engine(settings.database_url, run.dataset_schema)
         rows = risk_registry.dataset_rows(engine, run.dataset_schema)
-    except (ValueError, KeyError, AssertionError, SQLAlchemyError) as exc:
+        inferred = [{**r, "prediction": predict_demonstration(run.result["artifact"], r)} for r in rows]
+    except (ValueError, KeyError, IndexError, TypeError, AssertionError, SQLAlchemyError) as exc:
         raise HTTPException(503, "Conjunto demostrativo no disponible") from exc
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
     return {
         "status": "experimental_not_institutionally_validated",
         "mode": "demonstration",
         "run_id": str(run.id),
         "model_date": run.finished_at,
-        "rows": [
-            {**r, "prediction": predict_demonstration(run.result["artifact"], r)} for r in rows
-        ],
+        "rows": inferred,
     }
