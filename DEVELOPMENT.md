@@ -31,9 +31,9 @@ El comando solicita el correo de la cuenta administradora y pide dos veces la nu
 
 | Servicio | Imagen o base | Acceso local |
 | --- | --- | --- |
-| Backend | Python `3.12-slim` + `build-essential` | `http://localhost:8000` |
-| Base de datos | `postgres:17-alpine` | `localhost:5432` |
-| Frontend | `node:24-alpine` | `http://localhost:4200` |
+| Backend | Python `3.12-slim` + `build-essential` | Solo red Docker; API por el proxy frontend |
+| Base de datos | `postgres:17-alpine` | Solo red Docker; sin puerto publicado |
+| Frontend | `node:24-alpine` + Nginx | `http://localhost:14200` para el alias dev1 |
 
 ---
 
