@@ -177,7 +177,9 @@ def predictions(db: Database, _user: Staff):
             raise ValueError("No approved demonstration model")
         engine = risk_registry.demo_engine(settings.database_url, run.dataset_schema)
         rows = risk_registry.dataset_rows(engine, run.dataset_schema)
-        inferred = [{**r, "prediction": predict_demonstration(run.result["artifact"], r)} for r in rows]
+        inferred = [
+            {**r, "prediction": predict_demonstration(run.result["artifact"], r)} for r in rows
+        ]
     except (ValueError, KeyError, IndexError, TypeError, AssertionError, SQLAlchemyError) as exc:
         raise HTTPException(503, "Conjunto demostrativo no disponible") from exc
     finally:

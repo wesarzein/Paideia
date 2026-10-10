@@ -13,7 +13,7 @@ Las tablas posteriores son antecedentes; esta sección determina la prioridad vi
 | Recuperación IA interrumpida | Probado, P0 | 0018: exclusión de workers, reclamación invalidada, recuperación administrativa explícita, dataset preservado y candidato sin activación automática. Siete pruebas PG, incluido entrenamiento real y fallo por datos insuficientes |
 | BI y permisos existentes | Probado, P0 | Dos regresiones PG nuevas: cambios de notas/asistencia, filtros combinados y 1.001 notas; consulta medida en 0,157 s. Recorrido BI real: 0,680 s, sin errores JS, cobertura y cero/null |
 | Arranque limpio y reinicio | Probado con límites, P0 | Esquema UUID nuevo: migraciones hasta head, seed JSON sintético real, startup, login y segundo startup. Laboratorio conservado: update, stop/start y huellas de todas las tablas idénticas. Initialize rechaza base poblada antes de detener API/frontend |
-| Integración GitHub | Pendiente, P0; depende de pruebas y revisión | Auditar commits salientes/secretos, conservar respaldo, PR temporal con squash solo si CI pasa; verificar main local/remoto |
+| Integración GitHub | Publicada en [PR #3](https://github.com/wesarzein/Paideia/pull/3); estado final de CI/squash consultable allí | Commits salientes auditados sin hallazgos; respaldos locales conservados. Squash condicionado a CI aprobado y comprobación de main local/remoto |
 
 Pruebas de la ejecución recuperada: 254 casos backend aprobados y un fallo de fixture
 legada que usaba la conexión global. Se aisló esa fixture en UUID: sus diez casos y
@@ -21,6 +21,9 @@ siete de recuperación pasaron (17/17, 78,58 s); el inventario público no cambi
 No presentar esa ejecución como una suite completa aprobada. La integración CI debe
 confirmar la regresión conjunta. Frontend: 55/55 Vitest y build Angular (28,416 s),
 usando Node 24 y lockfile en Docker; no repetir sin cambios frontend relevantes.
+CI frontend de PR #3 aprobado. El primer CI backend se detuvo en Ruff por una línea
+larga; se corrigió únicamente el formato antes de repetir la integración. El estado
+remoto y la ejecución conjunta final se conservan en la PR, sin anticipar su resultado.
 
 Reanudación: seed/startup con salvaguarda real aprobado (1/1, 18,28 s), siete pruebas
 de scripts aprobadas, Ruff focalizado y diff sin errores. Reimportación real omitió las
