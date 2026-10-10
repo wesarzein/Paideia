@@ -41,7 +41,7 @@ const links = [
   `,
   styles: [`
     :host { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; background: var(--color-muted); }
-    aside { background: #fff; color: var(--color-text); padding: 20px 14px; border-right: 1px solid var(--color-border); }
+    aside { min-width: 0; background: #fff; color: var(--color-text); padding: 20px 14px; border-right: 1px solid var(--color-border); }
     .brand { display: flex; align-items: center; margin-bottom: 22px; padding: 0 8px; } .brand img { width: 148px; max-width: 100%; height: 58px; object-fit: contain; object-position: left center; }
     nav { display: grid; gap: 3px; }
     a { display:flex; align-items:center; gap:11px; border-radius: 7px; color: var(--color-muted-text); padding: 10px 12px; font-size:.91rem; transition:background .15s,color .15s; }
