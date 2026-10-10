@@ -68,7 +68,7 @@ activación explícita y rollback al anterior conservaron íntegra su metadata y
 32 notas. Evidencia privada `risk-retraining.result.json`.
 
 Integración BI: conteos, cobertura, versión y fecha demostrativos en sección
-independiente; 50/50 componentes en 23,05 s y build 25,897 s. Pendiente recorrido
+independiente; 50/50 componentes en 23,05 s y build 25,897 s. Recorrido
 visual de esa sección **aprobado** con 240 casos ficticios separados de 32 notas,
 cobertura/versionado/fecha, filtros, vacío, error/reintento y móvil; cero errores JS.
 Consulta integrada observada 0,581 s. Entrenamiento API sin Edge reserva mínimo 1 GiB y comparte
@@ -81,6 +81,9 @@ institucional/umbrales invertidos/motivo vacío rechazados). Total de este bloqu
 pruebas puras de features/suficiencia, aprobados por etapas; no es una ejecución
 conjunta nueva. Cuatro unittest de infraestructura y Ruff scripts/BI/IA aprobaron.
 
-No push ni PR todavía: requieren auditoría del historial saliente y aceptación
-integral. Backup local `backup/pre-bi-ai-a6495ce`. Reanudación visual con recursos:
-`config/local/browser-venv/Scripts/python.exe -B scripts/verify_risk_model_ui.py`.
+Aceptación funcional local verificada. Auditoría preliminar de 37 commits/476
+versiones de archivos: sin coincidencias de claves/JWT/rutas privadas; revisión
+manual de datos JSON, configuración, SQL y logo completada (fixture ficticia,
+resultados anonimizados, logo sin personas). Los filtros automáticos no sustituyen
+esa revisión. No se publican archivos `config/local`, XLSX, datasets ni artefactos.
+Backup local `backup/pre-bi-ai-a6495ce`; consolidación condicionada al CI remoto.
