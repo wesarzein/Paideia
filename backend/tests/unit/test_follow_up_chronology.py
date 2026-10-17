@@ -53,9 +53,13 @@ def test_timeline_scope_and_legacy_unknown_author_are_preserved(scenario, sessio
         db.add(legacy)
         db.commit()
         legacy_id = str(legacy.id)
+    current["user"] = actors["coordinator"]
     rows = client.get("/follow-up", params={"student_id": ids["students"][0]}).json()
     assert rows[-1]["id"] == legacy_id and rows[-1]["recorded_by_name"] is None
     assert all(row["student_id"] == ids["students"][0] for row in rows)
-    assert client.get("/follow-up", params={"student_id": ids["students"][2]}).json() == []
+    assert all(
+        row["student_id"] == ids["students"][2]
+        for row in client.get("/follow-up", params={"student_id": ids["students"][2]}).json()
+    )
     current["user"] = actors["parent"]
     assert client.get("/follow-up", params={"student_id": ids["students"][0]}).status_code == 403

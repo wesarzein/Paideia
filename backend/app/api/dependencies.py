@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -36,6 +37,12 @@ def get_current_user(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token sin usuario")
 
+    try:
+        user_id = UUID(user_id)
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido"
+        ) from exc
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise HTTPException(

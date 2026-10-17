@@ -1,12 +1,17 @@
 """Account deactivation preserves links, denies login/JWT and is auditable."""
 
+from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt
 from sqlalchemy import select
 from test_academic_authorization import scenario, sessions
 
 from app.api.dependencies import get_current_user
+from app.core.config import settings
 from app.core.security import hash_password
 from app.endpoints import auth, users
 from app.models.academic import CourseAssignment
@@ -14,6 +19,19 @@ from app.models.student import Student
 from app.models.user import AuditLog, User
 
 __all__ = ["scenario", "sessions"]
+
+
+@pytest.mark.parametrize("subject", ["not-a-uuid", ""])
+def test_invalid_token_subject_is_rejected_before_database_lookup(subject):
+    token = jwt.encode(
+        {"sub": subject}, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
+    database = Mock()
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    with pytest.raises(HTTPException) as error:
+        get_current_user(credentials, database)
+    assert error.value.status_code == 401
+    database.get.assert_not_called()
 
 
 @pytest.fixture
@@ -33,7 +51,7 @@ def account_api(scenario, sessions):
     return client, ids, actors, current
 
 
-@pytest.mark.parametrize("role", ["teacher", "student", "parent"])
+@pytest.mark.parametrize("role", ["teacher", "coordinator"])
 def test_status_and_compatibility_delete_preserve_every_relationship(account_api, sessions, role):
     client, ids, actors, _current = account_api
     target = str(actors[role].id)
@@ -103,7 +121,9 @@ def test_status_can_be_changed_even_with_archived_linked_student(account_api, se
         db.commit()
     result = client.patch(f"/users/{actors['student'].id}", json={"is_active": False})
     assert result.status_code == 200
-    assert result.json()["student_id"] == ids["students"][0]
+    assert result.json()["student_id"] is None
+    with sessions() as db:
+        assert db.get(Student, UUID(ids["students"][0])).student_user_id == actors["student"].id
 
 
 def test_concurrent_administrator_deactivation_retains_one_active(account_api, sessions):

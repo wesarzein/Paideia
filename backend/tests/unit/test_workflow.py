@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 from test_roster_persistence import sessions
 
 from app.core.database import SessionLocal, get_db
@@ -51,7 +51,11 @@ def _cleanup_test_data() -> None:
             db.delete(student)
         if course is not None:
             db.execute(delete(CourseAssignment).where(CourseAssignment.course_id == course.id))
-            db.execute(delete(CourseAssessmentComponent).where(CourseAssessmentComponent.course_id == course.id))
+            db.execute(
+                delete(CourseAssessmentComponent).where(
+                    CourseAssessmentComponent.course_id == course.id
+                )
+            )
             db.execute(delete(GradeRecord).where(GradeRecord.course_id == course.id))
             db.execute(delete(AttendanceRecord).where(AttendanceRecord.course_id == course.id))
             db.execute(delete(Enrollment).where(Enrollment.course_id == course.id))
@@ -141,8 +145,8 @@ def _seed_basics() -> None:
             db.add(
                 AcademicPeriod(
                     name="2026-I",
-                    starts_on="2026-03-01",
-                    ends_on="2026-07-31",
+                    starts_on=date(2026, 3, 1),
+                    ends_on=date(2026, 7, 31),
                 )
             )
         db.flush()
@@ -229,110 +233,23 @@ def test_users_list_serializes_role_code() -> None:
     assert all(isinstance(user["role"], str) for user in response.json())
 
 
-def test_parent_account_cannot_read_unlinked_student_records() -> None:
+@pytest.mark.parametrize("role_code", ["director", "student", "parent"])
+def test_retired_account_roles_cannot_be_created(role_code) -> None:
     _seed_basics()
-    client = TestClient(app)
-    admin_headers = _admin_headers()
-    parent_email = f"parent-{uuid4().hex[:10]}@paideia.local"
-    unlinked_student_code = f"FAMILY-{uuid4().hex[:10]}"
-    parent_user_id = None
-    unlinked_student_id = None
-
+    email = f"retired-{uuid4().hex[:10]}@paideia.local"
+    response = TestClient(app).post(
+        "/api/v1/users",
+        json={
+            "email": email,
+            "full_name": "Cuenta de rol retirado",
+            "password": "SyntheticTest123!",
+            "role_code": role_code,
+        },
+        headers=_admin_headers(),
+    )
+    assert response.status_code == 400
     with SessionLocal() as db:
-        linked_student = db.scalar(select(Student).where(Student.student_code == "STU-1001"))
-        course = db.scalar(select(Course).where(Course.code == "MAT-01"))
-        period = db.scalar(select(AcademicPeriod).where(AcademicPeriod.name == "2026-I"))
-        db.add(
-            Student(
-                student_code=unlinked_student_code,
-                first_name="Estudiante",
-                last_name="No vinculado",
-                status="ACTIVE",
-            )
-        )
-        db.flush()
-        unlinked_student = db.scalar(
-            select(Student).where(Student.student_code == unlinked_student_code)
-        )
-        unlinked_student_id = unlinked_student.id
-        db.add(
-            GradeRecord(
-                student_id=unlinked_student.id,
-                course_id=course.id,
-                period_id=period.id,
-                evaluation_name="Prueba de aislamiento",
-                evaluation_type="Tarea",
-                assessment_date=date(2026, 4, 1),
-                score=15,
-            )
-        )
-        db.add(
-            AttendanceRecord(
-                student_id=unlinked_student.id,
-                course_id=course.id,
-                period_id=period.id,
-                attendance_date=date(2026, 4, 1),
-                status="PRESENT",
-            )
-        )
-        db.commit()
-        linked_student_id = linked_student.id
-        course_id = course.id
-        period_id = period.id
-
-    try:
-        response = client.post(
-            "/api/v1/users",
-            json={
-                "email": parent_email,
-                "full_name": "Apoderado de prueba",
-                "password": "FamilyTest123!",
-                "role_code": "parent",
-                "student_ids": [str(linked_student_id)],
-            },
-            headers=admin_headers,
-        )
-        assert response.status_code == 201, response.text
-        parent_user_id = response.json()["id"]
-
-        login = client.post(
-            "/api/v1/auth/login",
-            json={"email": parent_email, "password": "FamilyTest123!"},
-        )
-        assert login.status_code == 200
-        parent_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-
-        visible_students = client.get("/api/v1/students", headers=parent_headers)
-        assert visible_students.status_code == 200
-        assert [item["id"] for item in visible_students.json()] == [str(linked_student_id)]
-
-        assert client.get(
-            f"/api/v1/students/{unlinked_student_id}", headers=parent_headers
-        ).status_code == 403
-        assert client.get(
-            f"/api/v1/grades?student_id={unlinked_student_id}", headers=parent_headers
-        ).json() == []
-        assert client.get(
-            f"/api/v1/attendance?student_id={unlinked_student_id}", headers=parent_headers
-        ).json() == []
-        assert client.get(
-            f"/api/v1/grades?student_id={linked_student_id}&course_id={course_id}&period_id={period_id}",
-            headers=parent_headers,
-        ).status_code == 200
-    finally:
-        with SessionLocal() as db:
-            if unlinked_student_id is not None:
-                db.execute(delete(GradeRecord).where(GradeRecord.student_id == unlinked_student_id))
-                db.execute(delete(AttendanceRecord).where(AttendanceRecord.student_id == unlinked_student_id))
-                student = db.get(Student, unlinked_student_id)
-                if student is not None:
-                    db.delete(student)
-            if parent_user_id is not None:
-                db.execute(update(Student).where(Student.parent_user_id == parent_user_id).values(parent_user_id=None))
-                parent = db.get(User, parent_user_id)
-                if parent is not None:
-                    db.delete(parent)
-            db.commit()
+        assert db.scalar(select(User.id).where(User.email == email)) is None
 
 
 def test_grade_value_must_be_in_official_scale() -> None:
@@ -423,7 +340,9 @@ def test_grade_import_is_atomic_on_invalid_row() -> None:
 def test_courses_hide_archived_by_default() -> None:
     _seed_basics()
     with SessionLocal() as db:
-        archived = Course(name="Curso archivado de prueba", code="ARCHIVED-CHECK-01", is_active=False)
+        archived = Course(
+            name="Curso archivado de prueba", code="ARCHIVED-CHECK-01", is_active=False
+        )
         db.add(archived)
         db.commit()
         archived_id = archived.id

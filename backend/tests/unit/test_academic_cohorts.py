@@ -59,7 +59,8 @@ def test_catalog_administration_denied_to_nonadmin(cohort_api, role):
     client, _ids, actors, current = cohort_api
     current["user"] = actors[role]
     for path in ["/academic/grades", "/academic/sections"]:
-        assert client.get(path).status_code == (403 if role in {"student", "parent"} else 200)
+        expected = 403 if role in {"director", "student", "parent"} else 200
+        assert client.get(path).status_code == expected
     assert (
         client.post("/academic/grades", json={"name": "2°", "level": "Primaria"}).status_code == 403
     )

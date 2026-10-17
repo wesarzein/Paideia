@@ -140,7 +140,7 @@ def test_teacher_still_imports_grades_for_assigned_students(policy_api):
     assert client.post("/imports/grades/commit", json=payload).json()["skipped"] == 1
 
 
-@pytest.mark.parametrize("role", ["admin", "coordinator", "director"])
+@pytest.mark.parametrize("role", ["admin", "coordinator"])
 def test_management_and_academic_area_cannot_change_grades_or_weights(policy_api, role):
     client, ids, actors, current = policy_api
     current["user"] = actors[role]
@@ -202,7 +202,7 @@ def test_assigned_teacher_owns_weights_and_configuration(policy_api, sessions):
     ).status_code == 403
 
 
-@pytest.mark.parametrize("role", ["coordinator", "director"])
+@pytest.mark.parametrize("role", ["coordinator"])
 def test_academic_area_follows_all_classrooms_without_teaching_assignment(policy_api, role):
     client, ids, actors, current = policy_api
     current["user"] = actors[role]

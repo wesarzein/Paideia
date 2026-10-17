@@ -57,7 +57,9 @@ def test_create_edit_and_catalog_include_other_years_without_changing_history(pe
 def test_read_only_roles_cannot_manage_calendars(period_api, role):
     client, ids, actors, current = period_api
     current["user"] = actors[role]
-    assert client.get("/academic/periods").status_code == 200
+    assert client.get("/academic/periods").status_code == (
+        200 if role in {"teacher", "coordinator"} else 403
+    )
     assert client.post("/academic/periods", json=payload()).status_code == 403
     assert (
         client.patch(f"/academic/periods/{ids['period']}", json={"name": "Ajeno"}).status_code

@@ -103,25 +103,14 @@ def test_family_cannot_access_forecasts(scenario, role):
     )
 
 
-def test_teacher_scope_correlates_course_and_classroom(scenario):
+def test_teacher_cannot_access_academic_area_forecasts(scenario):
     client, ids = client_for(scenario, "teacher")
-    response = client.get(
-        "/academic-ai/forecast",
-        params={
-            "period_id": ids["period"],
-            "student_id": ids["students"][0],
-            "as_of": "2026-07-01",
-        },
-    )
-    assert response.status_code == 200
-    assert {r["course_id"] for r in response.json()["rows"]} == {ids["courses"][0]}
-    assert (
-        client.get(
+    for student_id in (ids["students"][0], ids["students"][2]):
+        response = client.get(
             "/academic-ai/forecast",
-            params={"period_id": ids["period"], "student_id": ids["students"][2]},
-        ).status_code
-        == 404
-    )
+            params={"period_id": ids["period"], "student_id": student_id},
+        )
+        assert response.status_code == 403
 
 
 def test_forecast_reads_registered_grades_and_never_writes_them(scenario, sessions):

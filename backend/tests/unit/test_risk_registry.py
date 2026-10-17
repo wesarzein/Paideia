@@ -92,7 +92,8 @@ def test_non_admin_cannot_train_approve_or_deploy(scenario, role):
         == 403
     )
     assert client.get("/risk-models/events").status_code == 403
-    assert client.get("/risk-models").status_code == (403 if role in {"student", "parent"} else 200)
+    expected = 403 if role in {"director", "student", "parent"} else 200
+    assert client.get("/risk-models").status_code == expected
 
 
 def test_approval_activation_deactivation_and_stale_version(scenario, sessions, monkeypatch):

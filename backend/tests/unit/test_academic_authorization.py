@@ -215,7 +215,7 @@ def test_teacher_export_and_filters_never_include_an_unassigned_course_section(s
     assert client.get("/grades", params={"student_id": ids["students"][2]}).json() == []
 
 
-@pytest.mark.parametrize("role", ["admin", "coordinator", "director"])
+@pytest.mark.parametrize("role", ["admin", "coordinator"])
 def test_institutional_read_roles_can_consult_and_export_reports(scenario, role):
     client, ids, actors, current = scenario
     current["user"] = actors[role]
@@ -225,18 +225,16 @@ def test_institutional_read_roles_can_consult_and_export_reports(scenario, role)
     assert len(client.get("/grades").json()) == 5
 
 
-@pytest.mark.parametrize("role,indices", [("student", [0]), ("parent", [0, 1])])
-def test_family_accounts_only_read_linked_students_and_cannot_write(scenario, role, indices):
+@pytest.mark.parametrize("role", ["director", "student", "parent"])
+def test_retired_roles_cannot_read_or_write_academic_records(scenario, role):
     client, ids, actors, current = scenario
     current["user"] = actors[role]
-    allowed = {ids["students"][i] for i in indices}
-    for route in ("/grades", "/attendance"):
-        assert {r["student_id"] for r in client.get(route).json()} == allowed
-        assert client.get(route, params={"student_id": ids["students"][2]}).json() == []
-    assert {r["id"] for r in client.get("/students").json()} == allowed
-    assert client.get(f"/students/{ids['students'][2]}").status_code == 403
-    assert client.get(f"/grades/summary/{ids['students'][2]}").status_code == 403
-    for path in ("/reports/summary", "/reports/students", "/enrollments"):
+    for path in (
+        "/grades", "/attendance", "/students", "/academic/catalog",
+        "/reports/summary", "/reports/students", "/enrollments", "/follow-up",
+        f"/students/{ids['students'][0]}",
+        f"/grades/summary/{ids['students'][0]}",
+    ):
         assert client.get(path).status_code == 403
     payload = {
         "student_id": ids["students"][0],
@@ -246,10 +244,6 @@ def test_family_accounts_only_read_linked_students_and_cannot_write(scenario, ro
         "assessment_date": "2026-04-01",
     }
     assert client.post("/grades", json=payload).status_code == 403
-    unrelated = client.get(
-        "/academic/catalog", params={"grade_id": ids["grade"], "section_id": ids["sections"][2]}
-    ).json()
-    assert unrelated["students"] == unrelated["sections"] == unrelated["courses"] == []
 
 
 def test_teacher_cannot_enroll_or_modify_records_outside_assignment(scenario):
@@ -265,7 +259,7 @@ def test_teacher_cannot_enroll_or_modify_records_outside_assignment(scenario):
     assert client.post("/enrollments", json=payload).status_code == 403
     assert client.get(f"/enrollments/{ids['enrollments'][1]}").status_code == 403
     assert client.get(f"/enrollments/{ids['enrollments'][0]}").status_code == 200
-    assert {r["student_id"] for r in client.get("/follow-up").json()} == set(ids["students"][:2])
+    assert client.get("/follow-up").status_code == 403
     assert (
         client.patch(
             f"/follow-up/{ids['followups'][2]}", json={"action": "Cambio ajeno"}

@@ -94,9 +94,8 @@ def test_zero_and_snapshot_weights_are_shared_by_reports_dashboard_and_summary(s
         "/reports/students", params={"month": 4, "course_id": ids["courses"][0]}
     ).json()[0]
     assert zero_only["risk_level"] == "ALTO"
-    assert (
-        client.get("/grades").json()[0]["assessment_config"] == created.json()["assessment_config"]
-    )
+    saved = next(row for row in client.get("/grades").json() if row["id"] == created.json()["id"])
+    assert saved["assessment_config"] == created.json()["assessment_config"]
 
 
 def test_student_without_any_records_has_null_average_and_is_not_an_alert(scenario, sessions):
