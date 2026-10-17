@@ -38,10 +38,7 @@ def create_app() -> FastAPI:
             for role_code, role_name in (
                 ("admin", "Administrador"),
                 ("teacher", "Docente"),
-                ("coordinator", "Coordinador"),
-                ("director", "Directivo"),
-                ("student", "Estudiante"),
-                ("parent", "Padre o apoderado"),
+                ("coordinator", "Área académica"),
             ):
                 if db.scalar(select(Role).where(Role.code == role_code)) is None:
                     db.add(Role(code=role_code, name=role_name))

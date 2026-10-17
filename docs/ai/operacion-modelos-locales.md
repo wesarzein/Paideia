@@ -1,5 +1,9 @@
 # Modelos locales y demostración
 
+Este documento describe el registro de modelos de riesgo. La proyección numérica
+por alumno/aula usa un artefacto sintético independiente y está documentada en
+[predicción de rendimiento](prediccion-rendimiento.md), con su contrato y evidencia.
+
 La API mantiene REQ-29–32 separados del cálculo académico oficial. No incorpora
 servicios externos, claves, costos ni modelos de deserción. No extrae datos reales
 para entrenar. Las decisiones institucionales siguen pendientes.

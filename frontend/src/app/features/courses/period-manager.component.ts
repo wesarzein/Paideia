@@ -17,20 +17,20 @@ import { AcademicPeriod, ApiService, PeriodPayload } from '../../core/services/a
           <label>Inicio del periodo<input name="period_start" type="date" [(ngModel)]="form.starts_on" required /></label>
           <label>Fin del periodo<input name="period_end" type="date" [(ngModel)]="form.ends_on" required /></label>
         </div>
-        <button type="submit" [disabled]="saving()">{{ editingId ? 'Guardar periodo' : 'Crear periodo' }}</button>
-        @if (editingId) { <button type="button" [disabled]="saving()" (click)="reset()">Cancelar edición de periodo</button> }
+        <button type="submit" class="primary" [disabled]="saving()">{{ editingId ? 'Guardar periodo' : 'Crear periodo' }}</button>
+        @if (editingId) { <button type="button" class="secondary" [disabled]="saving()" (click)="reset()">Cancelar edición de periodo</button> }
       </form>
       @if (error()) { <p role="alert">{{ error() }}</p> }
       @if (message()) { <p role="status">{{ message() }}</p> }
       @if (loading()) { <p role="status">Cargando periodos...</p> }
-      @else if (loadError()) { <p role="alert">No se pudieron cargar los periodos.</p><button type="button" (click)="load()">Reintentar periodos</button> }
+      @else if (loadError()) { <p role="alert">No se pudieron cargar los periodos.</p><button type="button" class="primary" (click)="load()">Reintentar periodos</button> }
       @else if (!periods().length) { <p>Aún no hay periodos registrados.</p> }
       @else {
         <div class="table-wrap"><table>
           <thead><tr><th>Periodo</th><th>Inicio</th><th>Fin</th><th>Acciones</th></tr></thead>
           <tbody>@for (period of periods(); track period.id) {
             <tr><td>{{ period.name }}</td><td>{{ period.starts_on }}</td><td>{{ period.ends_on }}</td>
-              <td><button type="button" [disabled]="saving()" (click)="edit(period)" [attr.aria-label]="'Editar periodo ' + period.name">Editar periodo</button></td></tr>
+              <td class="actions-cell"><button type="button" class="icon-action" [disabled]="saving()" (click)="edit(period)" [attr.aria-label]="'Editar periodo ' + period.name" title="Editar periodo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button></td></tr>
           }</tbody>
         </table></div>
       }
@@ -40,7 +40,7 @@ import { AcademicPeriod, ApiService, PeriodPayload } from '../../core/services/a
     .panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:22px;margin-bottom:18px}
     .fields{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}label{display:grid;gap:6px}
     input{padding:10px;font:inherit;border:1px solid var(--color-border);border-radius:6px;min-width:0}
-    button{margin:12px 8px 0 0;padding:9px 12px;cursor:pointer}button:disabled{cursor:wait}
+    button{margin:12px 8px 0 0;padding:9px 12px;cursor:pointer;border:1px solid transparent;border-radius:7px}.primary{background:var(--color-primary);color:white}.primary:hover{background:var(--color-primary-dark)}.secondary{background:var(--color-surface);border-color:var(--color-primary);color:var(--color-primary-dark)}button:disabled{cursor:wait}
     .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--color-border);text-align:left}
     [role=alert]{color:#a33a32}[role=status]{color:var(--color-primary)}h2{font-size:1.2rem}
     @media(max-width:700px){.fields{grid-template-columns:1fr}}

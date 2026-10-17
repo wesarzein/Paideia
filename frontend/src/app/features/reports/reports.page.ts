@@ -1,12 +1,13 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { academicNote } from '../../shared/academic-presentation';
 import { AcademicCatalog, ApiService, RiskAlert } from '../../core/services/api.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 
 interface IndividualReport {
   student: { id: string; student_code: string; name: string; grade: string | null; level: string | null; section: string | null };
-  grades: { course: string; evaluation: string; component: string; date: string; score: number; literal: string; note: string | null }[];
+  grades: { course: string; evaluation: string; component: string; date: string | null; month?: number; data_origin?: string; score: number; literal: string; note: string | null }[];
   attendance: { course: string; date: string; status: string; remarks: string | null }[];
   follow_ups: { date: string | null; category: string; action: string; status: string }[];
 }
@@ -31,7 +32,7 @@ const emptyCatalog = (): AcademicCatalog => ({ grades: [], sections: [], courses
     @else if (loadError()) { <p class="panel" role="alert">No se pudo cargar el reporte. Cambia un filtro para reintentar.</p> }
     @else {
       <div class="print-root">
-      <p class="period-caption">Reporte mensual @if (month) { · {{ monthLabel() }} · Bimestre {{ bimesterNumber() }} }</p>
+      <p class="period-caption">Reporte mensual @if (month) { · {{ monthLabel() }} @if (bimesterNumber()) { · Bimestre {{ bimesterNumber() }} } }</p>
       <section class="summary"><article><span>Estudiantes</span><strong>{{ students().length }}</strong></article><article><span>Promedio grupal de referencia</span><strong>{{ average() === null ? 'Sin datos' : (average() | number:'1.1-2') }}</strong></article><article><span>Asistencia grupal</span><strong>{{ attendance() === null ? 'Sin datos' : (attendance() | number:'1.1-1') + '%' }}</strong></article></section>
       <section class="panel preview">
         <h2>Reporte grupal · {{ gradeName() }} {{ sectionId ? '· ' + sectionName() : '' }}</h2>
@@ -42,7 +43,7 @@ const emptyCatalog = (): AcademicCatalog => ({ grades: [], sections: [], courses
       @if (individual()) {
         <section class="panel preview individual">
           <h2>Reporte individual</h2><p><strong>{{ individual()!.student.name }}</strong> · {{ individual()!.student.student_code }} · {{ individual()!.student.level }} / {{ individual()!.student.grade }} {{ individual()!.student.section }}</p>
-          <h3>Calificaciones</h3><table><thead><tr><th>Curso</th><th>Evaluación</th><th>Fecha</th><th>Nota</th><th>Literal</th><th>Observación</th></tr></thead><tbody>@for (grade of individual()!.grades; track $index) {<tr><td>{{ grade.course }}</td><td>{{ grade.evaluation }} · {{ grade.component }}</td><td>{{ grade.date }}</td><td>{{ grade.score }}</td><td>{{ grade.literal }}</td><td>{{ grade.note }}</td></tr>}</tbody></table>
+          <h3>Calificaciones</h3><table><thead><tr><th>Curso</th><th>Evaluación</th><th>Fecha o mes académico</th><th>Nota</th><th>Literal</th><th>Observación</th></tr></thead><tbody>@for (grade of individual()!.grades; track $index) {<tr><td>{{ grade.course }}</td><td>{{ grade.evaluation }} · {{ grade.component }}</td><td>{{ grade.date || (grade.month ? monthLabel(grade.month) : 'Registro bimestral') }}</td><td>{{ grade.score }}</td><td>{{ grade.literal }}</td><td>{{ academicNote(grade.note, grade.data_origin) }}</td></tr>}</tbody></table>
           <h3>Asistencia</h3><table><thead><tr><th>Fecha</th><th>Curso</th><th>Estado</th><th>Observación</th></tr></thead><tbody>@for (record of individual()!.attendance; track $index) {<tr><td>{{ record.date }}</td><td>{{ record.course }}</td><td>{{ record.status }}</td><td>{{ record.remarks }}</td></tr>}</tbody></table>
           <h3>Seguimiento</h3>@for (item of individual()!.follow_ups; track $index) {<p>{{ item.date }} · {{ item.category }} · {{ item.action }}</p>}
         </section>
@@ -55,6 +56,7 @@ const emptyCatalog = (): AcademicCatalog => ({ grades: [], sections: [], courses
   `],
 })
 export class ReportsPage {
+  protected readonly academicNote = academicNote;
   private readonly api = inject(ApiService);
   protected readonly catalog = signal<AcademicCatalog>(emptyCatalog());
   protected readonly students = signal<RiskAlert[]>([]);
@@ -69,20 +71,30 @@ export class ReportsPage {
   protected periodId = '';
   protected courseId = '';
   protected month = new Date().toISOString().slice(0, 7);
-  protected monthLabel(): string {
+  protected monthLabel(selectedMonth?: number): string {
     const [year, month] = this.month.split('-').map(Number);
-    return new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
+    return new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric' }).format(new Date(year, (selectedMonth ?? month) - 1, 1));
   }
   protected bimesterNumber(): number {
     const month = Number(this.month.slice(5, 7));
-    return month ? Math.ceil(month / 2) : 0;
+    return this.catalog().periods.find(p => p.id === this.periodId)?.bimester_months?.[String(month)] || 0;
   }
 
   constructor() { this.loadCatalog(); }
   protected levels(): string[] { return [...new Set(this.catalog().grades.map((item) => item.level))]; }
   protected gradesForLevel() { return this.catalog().grades.filter((item) => item.level === this.level); }
   protected sectionsForGrade() { return this.catalog().sections.filter((item) => item.grade_id === this.gradeId); }
-  protected loadCatalog(): void { this.api.getAcademicCatalog().subscribe({ next: (catalog) => this.catalog.set(catalog) }); }
+  protected loadCatalog(): void { this.api.getAcademicCatalog().subscribe({ next: (catalog) => {
+    this.catalog.set(catalog);
+    if (!this.periodId) {
+      const period = catalog.periods.at(-1);
+      if (period) {
+        this.periodId = period.id;
+        const months = Object.keys(period.bimester_months || {}).map(Number).sort((a,b) => a-b);
+        if (months.length) this.month = `${period.starts_on?.slice(0,4) || new Date().getFullYear()}-${String(months.at(-1)).padStart(2,'0')}`;
+      }
+    }
+  } }); }
   protected gradeName(): string { return this.catalog().grades.find((item) => item.id === this.gradeId)?.name ?? ''; }
   protected sectionName(): string { return this.catalog().sections.find((item) => item.id === this.sectionId)?.name ?? ''; }
 

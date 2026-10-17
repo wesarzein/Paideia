@@ -24,7 +24,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
     } @else {
       <section class="summary"><span>Presentes: {{ count('PRESENT') }}</span><span>Faltas: {{ count('ABSENT') }}</span><span>Tardanzas: {{ count('LATE') }}</span></section>
       <section class="panel">
-        @if (!canWrite) { <p>Consulta de asistencia. El registro corresponde al docente asignado o al administrador.</p> }
+        @if (!canWrite) { <p>Consulta de asistencia. El registro corresponde al docente asignado.</p> }
         @if (canWrite) { <div class="quick"><button type="button" (click)="markAll('PRESENT')" [disabled]="busy()">Todos presentes</button><button type="button" class="outline" (click)="markAll('ABSENT')" [disabled]="busy()">Todos ausentes</button></div> }
         <p>Se propone Presente para alumnos sin registro. Marca las faltas o tardanzas y añade una observación si hubo permiso o retiro.</p>
         <div class="table-scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Observación / permiso</th></tr></thead><tbody>
@@ -64,7 +64,7 @@ export class AttendancePage {
   protected readonly loading = signal(false);
   protected readonly catalogLoading = signal(false);
   protected readonly canWrite = (() => {
-    try { return ['admin', 'teacher'].includes(JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role); }
+    try { return ['teacher'].includes(JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role); }
     catch { return false; }
   })();
   protected level = '';

@@ -4,6 +4,7 @@ Block ordinals are not calendar months. Derived cells are reference information 
 The descriptor deliberately separates source structure from academic configuration.
 """
 
+import hashlib
 import re
 import unicodedata
 from decimal import ROUND_HALF_UP, Decimal
@@ -21,6 +22,7 @@ def key(value):
 
 
 def read_institutional(content: bytes) -> dict | None:
+    source_sha256 = hashlib.sha256(content).hexdigest()
     workbook = load_workbook(BytesIO(content), data_only=False, keep_links=False)
     cached = load_workbook(BytesIO(content), data_only=True, keep_links=False)
     matches = []
@@ -53,7 +55,12 @@ def read_institutional(content: bytes) -> dict | None:
             except ValueError:
                 continue  # P.S / PROMEDIO MENSUAL are not input criteria.
             criteria.append({"column": column, "name": criterion, "header": str(header)})
-        if len(criteria) != 5 or len({c["name"] for c in criteria}) != 5:
+        names = {c["name"] for c in criteria}
+        if (
+            len(criteria) not in (4, 5)
+            or len(names) != len(criteria)
+            or (len(criteria) == 4 and "Módulo" in names)
+        ):
             raise ValueError("Bloque con criterios desconocidos; requiere mapeo de plantilla")
         descriptor.append(
             {
@@ -83,7 +90,11 @@ def read_institutional(content: bytes) -> dict | None:
             total = f"SUM({letters[0]}:{letters[2]})"
             if block["block"] == "2":
                 total = f"({total})"
-            expected[summary] = f"=ROUND(({total}+{letters[3]}*1+{letters[4]}*1)/5,1)"
+            expected[summary] = (
+                f"=ROUND(({total}+{letters[3]}*1+{letters[4]}*1)/5,1)"
+                if len(letters) == 5
+                else f"=ROUND(({total}+{letters[3]}*1)/4,1)"
+            )
         finals = [c for c in sheet[code_cell.row] if key(c.value) == "pf"]
         literals = [c for c in sheet[code_cell.row] if key(c.value) == "promedioliteral"]
         if len(finals) == len(literals) == 1:
@@ -122,9 +133,12 @@ def read_institutional(content: bytes) -> dict | None:
                     "source_cell": cell.coordinate,
                     "source_row": source_row,
                     "source_sheet": sheet.title,
+                    "source_sha256": source_sha256,
+                    "source_reference": f"sha256:{source_sha256}:{sheet.title}:{cell.coordinate}",
                     "template": "institutional_v1",
                 }
                 row["reference_verified"] = verified
+                row["source_criterion_count"] = len(block["criteria"])
                 inputs.append(row)
                 try:
                     if (
@@ -197,19 +211,23 @@ def reference_results(rows: list[dict]) -> list[dict]:
         if not row.get("reference_verified"):
             group["unsupported"] = True
         group.setdefault(str(row.get("source_block")), {})[row["evaluation_type"]] = row["score"]
+        group.setdefault("expected", {})[str(row.get("source_block"))] = row.get(
+            "source_criterion_count", 5
+        )
     results = []
     for (_sheet, source_row), blocks in groups.items():
         monthly = {}
         for block in ("1", "2"):
             criteria = blocks.get(block, {})
-            if len(criteria) != 5 or blocks.get("unsupported"):
+            expected = blocks.get("expected", {}).get(block, 5)
+            if len(criteria) != expected or blocks.get("unsupported"):
                 monthly[block] = None
                 continue
             try:
                 values = [Decimal(str(value)) for value in criteria.values()]
                 if any(not value.is_finite() or not 0 <= value <= 20 for value in values):
                     raise ValueError
-                monthly[block] = (sum(values) / 5).quantize(Decimal("0.1"), ROUND_HALF_UP)
+                monthly[block] = (sum(values) / expected).quantize(Decimal("0.1"), ROUND_HALF_UP)
             except (ValueError, ArithmeticError):
                 monthly[block] = None
         final = None

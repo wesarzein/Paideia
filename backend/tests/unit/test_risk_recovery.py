@@ -11,19 +11,21 @@ from app.services.risk_registry import acquire_worker_lock, release_worker_lock
 __all__ = ["scenario", "sessions"]
 
 
-@pytest.mark.parametrize("sessions", ["0017_academic_change_history"], indirect=True)
 def test_0018_roundtrip_preserves_academic_history(scenario, sessions):
     from alembic import command
     from alembic.config import Config
     from sqlalchemy import text
 
+    with sessions() as db:
+        if db.bind.dialect.name != "postgresql":
+            pytest.skip("Migration acceptance requires PostgreSQL")
+        assert db.scalar(text("SELECT current_schema()")).startswith("phase2_")
+    command.downgrade(Config("alembic.ini"), "0017_academic_change_history")
     fingerprint = text(
         "SELECT md5(string_agg(row_to_json(h)::text, chr(10) ORDER BY id)) "
         "FROM academic_change_history h"
     )
     with sessions() as db:
-        if db.bind.dialect.name != "postgresql":
-            pytest.skip("Migration acceptance requires PostgreSQL")
         before = db.scalar(fingerprint)
         assert db.scalar(text("SELECT count(*) FROM grade_records")) == 5
     command.upgrade(Config("alembic.ini"), "0018_risk_worker_recovery")

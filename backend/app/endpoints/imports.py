@@ -33,6 +33,7 @@ from app.services.grade_import_identity import commit_rows, inspect_rows
 from app.services.institutional_excel import key as name_key
 from app.services.institutional_excel import read_institutional, reference_results
 from app.services.student_codes import format_student_code, student_code_prefix
+from app.services.student_names import roster_name_parts as _roster_name_parts
 
 router = APIRouter()
 
@@ -133,18 +134,6 @@ def _canonicalize_frame(frame: pd.DataFrame) -> pd.DataFrame:
         if "first_name" not in normalized.columns:
             normalized["first_name"] = parts.map(lambda item: item[1])
     return normalized
-
-
-def _roster_name_parts(value: object) -> tuple[str, str]:
-    """Suggest surname-first boundaries for review; never discard the source name."""
-    name = " ".join(str(value or "").split())
-    if "," in name:
-        surname, given = name.split(",", 1)
-        return surname.strip(), given.strip()
-    words = name.split()
-    if len(words) < 3:
-        return "", ""
-    return " ".join(words[:2]), " ".join(words[2:])
 
 
 def _date_for_month(month_number: str, period: AcademicPeriod | None) -> str:
@@ -308,7 +297,7 @@ def commit_student_rows(payload: StudentRowsImport, db: Session = Depends(get_db
 
 
 @router.post("/grades/preview")
-async def preview_grade_import(file: UploadFile = File(...), period_id: UUID | None = Query(default=None), db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict:
+async def preview_grade_import(file: UploadFile = File(...), period_id: UUID | None = Query(default=None), db: Session = Depends(get_db), _user: User = Depends(require_roles("teacher"))) -> dict:
     if not file.filename or not file.filename.lower().endswith((".csv", ".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos CSV o Excel")
     content = await file.read()
@@ -400,6 +389,20 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
         row_bimester = row.get("academic_bimester")
         code = str(row.get("student_code", "")).strip()
         student = db.scalar(select(Student).where(Student.student_code == code)) if code else None
+        if institutional and row.get("source_reference") and not row.get("student_confirmed"):
+            # Exact provenance from an already reconciled workbook resolves external
+            # codes such as 3S001 reused in different sections. Never change stable IDs.
+            known = list(db.scalars(select(GradeRecord).where(
+                GradeRecord.source_reference == row['source_reference'],
+                GradeRecord.course_id == payload.course_id,
+                GradeRecord.period_id == payload.period_id,
+                GradeRecord.data_origin == 'excel',
+                GradeRecord.superseded_by_id.is_(None),
+            )))
+            if len(known) == 1:
+                matched = db.get(Student, known[0].student_id)
+                if name_key(row.get('source_name')) == name_key(f'{matched.last_name} {matched.first_name}'):
+                    student = matched
         if student is None:
             errors.append({"row": index, "error": f"Estudiante no encontrado: {code or '(sin código)'}"})
             continue
@@ -420,6 +423,20 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
             if historical:
                 row['component_id'] = None
                 criterion_key = None
+                # A privately populated month is the same academic evidence, not a
+                # second historical evaluation when its original Excel is uploaded.
+                canonical = list(db.scalars(select(GradeRecord).where(
+                    GradeRecord.student_id == student.id,
+                    GradeRecord.course_id == payload.course_id,
+                    GradeRecord.period_id == payload.period_id,
+                    GradeRecord.academic_bimester == bimestre,
+                    GradeRecord.evaluation_block == int(block),
+                    GradeRecord.evaluation_type == row.get('evaluation_type'),
+                    GradeRecord.academic_month.is_not(None),
+                    GradeRecord.superseded_by_id.is_(None),
+                )))
+                if len(canonical) == 1:
+                    row['evaluation_name'] = canonical[0].evaluation_name
             if published_configuration:
                 try:
                     criterion = source_criterion(
@@ -531,7 +548,7 @@ def _prepare_grade_rows(payload: GradeRowsImport, db: Session, user: User) -> li
 
 
 @router.post("/grades/review")
-def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict:
+def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("teacher"))) -> dict:
     prepared = _prepare_grade_rows(payload, db, user)
     rows, _records, errors = inspect_rows(db, user, prepared, payload.rows)
     return {"rows": rows, "total": len(rows), "errors": errors,
@@ -539,7 +556,7 @@ def review_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), u
 
 
 @router.post("/grades/commit")
-def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> dict[str, int]:
+def commit_grade_rows(payload: GradeRowsImport, db: Session = Depends(get_db), user: User = Depends(require_roles("teacher"))) -> dict[str, int]:
     try:
         prepared = _prepare_grade_rows(payload, db, user)
         return commit_rows(db, user, prepared, payload.rows, corrections_only=payload.corrections_only)

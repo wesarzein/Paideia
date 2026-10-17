@@ -43,7 +43,7 @@ router = APIRouter()
 
 
 def _ensure_course_access(db: Session, user: User, course_id: UUID) -> None:
-    if user.role.code in {"teacher", "coordinator", "director"} and db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course_id, CourseAssignment.teacher_id == user.id)) is None:
+    if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.course_id == course_id, CourseAssignment.teacher_id == user.id)) is None:
         raise HTTPException(status_code=403, detail="No tienes este curso asignado")
 
 
@@ -115,7 +115,7 @@ def get_evaluation_template(
     course_id: UUID,
     period_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     _evaluation_scope(db, user, course_id, period_id)
     return institutional_template(str(course_id), str(period_id)).document()
@@ -126,7 +126,7 @@ def preview_evaluation_configuration(
     course_id: UUID,
     payload: EvaluationPreviewRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     config = _configuration_from_payload(course_id, payload.configuration)
     _evaluation_scope(db, user, course_id, UUID(config.period_id))
@@ -141,7 +141,7 @@ def get_current_evaluation_configuration(
     course_id: UUID,
     period_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     _evaluation_scope(db, user, course_id, period_id)
     revision = latest_revision(db, course_id, period_id)
@@ -155,7 +155,7 @@ def get_active_evaluation_configuration(
     course_id: UUID,
     period_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     """Return only a published revision; drafts never affect grade capture."""
     _evaluation_scope(db, user, course_id, period_id)
@@ -170,7 +170,7 @@ def list_evaluation_configuration_versions(
     course_id: UUID,
     period_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> list[dict]:
     _evaluation_scope(db, user, course_id, period_id)
     revisions = db.scalars(
@@ -189,7 +189,7 @@ def save_evaluation_configuration_draft(
     course_id: UUID,
     payload: EvaluationRevisionWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("teacher")),
 ) -> dict:
     configuration = _configuration_from_payload(course_id, payload.configuration)
     return _store_evaluation_revision(
@@ -202,7 +202,7 @@ def publish_evaluation_configuration(
     course_id: UUID,
     payload: EvaluationRevisionWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("teacher")),
 ) -> dict:
     configuration = _configuration_from_payload(course_id, payload.configuration)
     return _store_evaluation_revision(
@@ -218,7 +218,7 @@ def restore_institutional_evaluation_configuration(
     course_id: UUID,
     payload: EvaluationRestoreRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("teacher")),
 ) -> dict:
     configuration = institutional_template(str(course_id), str(payload.period_id))
     return _store_evaluation_revision(
@@ -227,11 +227,11 @@ def restore_institutional_evaluation_configuration(
 
 
 @router.get("/{course_id}/assignments", response_model=list[CourseAssignmentResponse])
-def list_course_assignments(course_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director"))) -> list[CourseAssignment]:
+def list_course_assignments(course_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> list[CourseAssignment]:
     if db.get(Course, course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     statement = select(CourseAssignment).where(CourseAssignment.course_id == course_id)
-    if user.role.code in {"teacher", "coordinator", "director"}: statement = statement.where(CourseAssignment.teacher_id == user.id)
+    if user.role.code == "teacher": statement = statement.where(CourseAssignment.teacher_id == user.id)
     return db.scalars(statement).all()
 
 
@@ -271,7 +271,7 @@ def remove_course_assignment(course_id: UUID, assignment_id: UUID, db: Session =
 
 
 @router.get("/{course_id}/assessment-components", response_model=list[AssessmentComponentResponse])
-def list_assessment_components(course_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director"))) -> list[CourseAssessmentComponent]:
+def list_assessment_components(course_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> list[CourseAssessmentComponent]:
     if db.get(Course, course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     _ensure_course_access(db, user, course_id)
@@ -279,7 +279,8 @@ def list_assessment_components(course_id: UUID, db: Session = Depends(get_db), u
 
 
 @router.post("/{course_id}/assessment-components", response_model=AssessmentComponentResponse, status_code=status.HTTP_201_CREATED)
-def create_assessment_component(course_id: UUID, payload: AssessmentComponentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
+def create_assessment_component(course_id: UUID, payload: AssessmentComponentCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("teacher"))) -> CourseAssessmentComponent:
+    _ensure_course_access(db, _user, course_id)
     if db.get(Course, course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
     component = CourseAssessmentComponent(course_id=course_id, **payload.model_dump())
@@ -294,7 +295,8 @@ def create_assessment_component(course_id: UUID, payload: AssessmentComponentCre
 
 
 @router.patch("/{course_id}/assessment-components/{component_id}", response_model=AssessmentComponentResponse)
-def update_assessment_component(course_id: UUID, component_id: UUID, payload: AssessmentComponentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
+def update_assessment_component(course_id: UUID, component_id: UUID, payload: AssessmentComponentUpdate, db: Session = Depends(get_db), _user: User = Depends(require_roles("teacher"))) -> CourseAssessmentComponent:
+    _ensure_course_access(db, _user, course_id)
     component = db.get(CourseAssessmentComponent, component_id)
     if component is None or component.course_id != course_id:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -306,7 +308,8 @@ def update_assessment_component(course_id: UUID, component_id: UUID, payload: As
 
 
 @router.delete("/{course_id}/assessment-components/{component_id}", response_model=AssessmentComponentResponse)
-def deactivate_assessment_component(course_id: UUID, component_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin"))) -> CourseAssessmentComponent:
+def deactivate_assessment_component(course_id: UUID, component_id: UUID, db: Session = Depends(get_db), _user: User = Depends(require_roles("teacher"))) -> CourseAssessmentComponent:
+    _ensure_course_access(db, _user, course_id)
     component = db.get(CourseAssessmentComponent, component_id)
     if component is None or component.course_id != course_id:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -320,14 +323,14 @@ def deactivate_assessment_component(course_id: UUID, component_id: UUID, db: Ses
 def list_courses(
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> list[Course]:
     statement = select(Course).order_by(Course.name)
     if not include_inactive:
         statement = statement.where(Course.is_active.is_(True))
     elif user.role.code not in {"admin", "coordinator"}:
         raise HTTPException(status_code=403, detail="No tienes permiso para consultar cursos archivados")
-    if user.role.code in {"teacher", "coordinator", "director"}:
+    if user.role.code == "teacher":
         statement = statement.where(Course.id.in_(select(CourseAssignment.course_id).where(CourseAssignment.teacher_id == user.id))).distinct()
     return db.scalars(statement).all()
 
@@ -355,7 +358,7 @@ def create_course(
 def get_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> Course:
     course = db.get(Course, course_id)
     if course is None:

@@ -12,8 +12,8 @@ type Course = { id: string; name: string; code: string | null; is_active: boolea
   standalone: true,
   imports: [FormsModule, PageHeaderComponent, EvaluationConfiguratorComponent, PeriodManagerComponent],
   template: `
-    <app-page-header title="Cursos" [description]="isAdmin ? 'Administra cursos, asignaciones y componentes de evaluación.' : 'Consulta tus cursos asignados. El administrador gestiona el catálogo y las asignaciones.'" />
-    @if (isAdmin) { <details class="panel"><summary>Administrar periodos académicos</summary><app-period-manager (periodsChanged)="reloadCatalog()" /></details> }
+    <app-page-header [title]="isAdmin ? 'Cursos y asignaciones' : 'Mis cursos'" [description]="isAdmin ? 'Organiza los cursos y asigna a cada docente sus aulas.' : 'Consulta tus aulas y configura las competencias y criterios de evaluación.'" />
+    @if (isAdmin) { <section class="panel"><h2>Administrar periodos académicos</h2><app-period-manager (periodsChanged)="reloadCatalog()" /></section> }
 
     <section class="panel">
       @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
@@ -23,21 +23,21 @@ type Course = { id: string; name: string; code: string | null; is_active: boolea
         <button type="submit">{{ editingCourseId ? 'Guardar cambios' : 'Crear curso' }}</button>
         @if (editingCourseId) { <button type="button" class="muted" (click)="resetCourse()">Cancelar</button> }
       </form> }
-      @if (!isAdmin) { <p>Los cursos, grados y secciones se muestran según las asignaciones a tu cuenta.</p><p>Periodos: @for (period of catalog().periods; track period.id) { {{ period.name }}; }</p> }
+      @if (!isAdmin) { <p>Selecciona un curso para ver tus aulas y ajustar sus competencias y pesos.</p> }
     </section>
     <section class="panel table-wrap">
       <table><thead><tr><th>Curso</th><th>Código</th><th>Estado</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
-        @for (course of courses(); track course.id) {<tr [class.inactive]="!course.is_active"><td>{{ course.name }}</td><td>{{ course.code ?? '—' }}</td><td>{{ course.is_active ? 'Activo' : 'Inactivo' }}</td><td class="actions-cell">@if (isAdmin) { <button class="icon-action" type="button" (click)="editCourse(course)" title="Editar curso" aria-label="Editar curso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button> } <button class="icon-action" type="button" (click)="chooseCourse(course)" [title]="isAdmin ? 'Configurar curso' : 'Ver curso'" [attr.aria-label]="isAdmin ? 'Configurar curso' : 'Ver curso'"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z"/></svg></button>@if (isAdmin) { <button class="icon-action danger-icon" type="button" (click)="toggleCourse(course)" [title]="course.is_active ? 'Archivar curso' : 'Reactivar curso'" [attr.aria-label]="course.is_active ? 'Archivar curso' : 'Reactivar curso'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v13H4zM3 4h18v3H3zM10 11h4"/></svg></button> }</td></tr>}
+        @for (course of courses(); track course.id) {<tr [class.inactive]="!course.is_active"><td>{{ course.name }}</td><td>{{ course.code ?? '—' }}</td><td>{{ course.is_active ? 'Activo' : 'Inactivo' }}</td><td class="actions-cell">@if (isAdmin) { <button class="icon-action" type="button" (click)="editCourse(course)" title="Editar curso" aria-label="Editar curso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button> } <button class="course-detail" type="button" (click)="chooseCourse(course)" [title]="isAdmin ? 'Asignar aulas' : 'Competencias y pesos'" [attr.aria-label]="isAdmin ? 'Asignar aulas' : 'Competencias y pesos'"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z"/></svg><span>{{ isAdmin ? 'Asignar aulas' : 'Competencias y pesos' }}</span></button>@if (isAdmin) { <button class="icon-action danger-icon" type="button" (click)="toggleCourse(course)" [title]="course.is_active ? 'Archivar curso' : 'Reactivar curso'" [attr.aria-label]="course.is_active ? 'Archivar curso' : 'Reactivar curso'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v13H4zM3 4h18v3H3zM10 11h4"/></svg></button> }</td></tr>}
       </tbody></table>
     </section>
     @if (selectedCourse()) {
-      <section class="panel">
+      @if (!isAdmin) { <section class="panel">
         <h2>{{ selectedCourse()!.name }}</h2>
         <app-evaluation-configurator
           [courseId]="selectedCourse()!.id"
           [periods]="catalog().periods"
         />
-      </section>
+      </section> }
       <section class="panel">
         <h2>Asignación a grado y sección</h2>
         @if (isAdmin) { <div class="component-form"><label>Grado<select [(ngModel)]="assignmentGradeId" (ngModelChange)="assignmentSectionId = ''"><option value="">Seleccionar grado</option>@for (grade of catalog().grades; track grade.id) {<option [value]="grade.id">{{ grade.name }} · {{ grade.level }}</option>}</select></label><label>Sección<select [(ngModel)]="assignmentSectionId" [disabled]="!assignmentGradeId"><option value="">Seleccionar sección</option>@for (section of sectionsForAssignment(); track section.id) {<option [value]="section.id">{{ section.name }}</option>}</select></label>@if (isAdmin) {<label>Docente<select [(ngModel)]="assignmentTeacherId"><option value="">Seleccionar cuenta docente</option>@for (teacher of teachers(); track teacher.id) {<option [value]="teacher.id">{{ teacher.full_name }}</option>}</select></label>}</div>
@@ -47,6 +47,8 @@ type Course = { id: string; name: string; code: string | null; is_active: boolea
     }
   `,
   styles: [`
+    .course-detail{display:inline-flex;align-items:center;gap:7px;margin:0;padding:8px 12px;background:var(--color-primary-soft);color:var(--color-primary-dark);font-size:.85rem}.course-detail svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5}
+
     .panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:22px;margin-bottom:18px}.grid,.component-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}label{display:grid;gap:7px;color:var(--color-muted-text)}input,select{padding:10px;border:1px solid var(--color-border);border-radius:6px;font:inherit;background:var(--color-surface)}.check{display:flex;align-items:center;gap:8px}.check input{width:18px;height:18px}button{margin:14px 8px 0 0;background:var(--color-primary);color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer}.muted{background:var(--color-muted-text)}.danger{background:#b94b3b}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid var(--color-border);text-align:left;white-space:nowrap}.actions-cell{display:flex;gap:5px}.weight{width:90px}.inactive{opacity:.6}h2{font-size:1.2rem}@media(max-width:700px){.grid,.component-form{grid-template-columns:1fr}}
   `],
 })

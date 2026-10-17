@@ -38,7 +38,7 @@ def test_roster_template_and_name_correction(sessions):
             ],
         }
         count = db.scalar(select(func.count()).select_from(Student))
-    with client_for(sessions) as client:
+    with client_for(sessions, "admin") as client:
         preview = client.post(
             "/imports/preview", files={"file": ("notas.xlsx", workbook_bytes("full"))}
         )
@@ -118,20 +118,21 @@ def test_same_surname_first_workbook_imports_pupils_then_grades(sessions):
     with client_for(sessions) as client:
         payload["rows"] = preview(client, content.getvalue())["rows"]
         assert client.post("/imports/grades/review", json=payload).status_code == 422
-        roster = client.post(
-            "/imports/preview", files={"file": ("registro.xlsx", content.getvalue())}
-        )
-        assert roster.status_code == 200
-        rows = roster.json()["rows"]
-        assert len(rows) == 16
-        assert all(row["last_name"] == "APELLIDO SINTETICO" for row in rows)
-        assert all(row["first_name"].startswith("ALUMNO ") for row in rows)
-        assert roster.json()["name_split_warning"]
-        student_payload = {**payload["academic_context"], "rows": rows}
-        result = client.post("/imports/students/commit", json=student_payload)
-        assert result.status_code == 200, result.text
-        assert result.json()["imported"] == 16
-        assert client.post("/imports/students/commit", json=student_payload).json()["skipped"] == 16
+        with client_for(sessions, "admin") as admin:
+            roster = admin.post(
+                "/imports/preview", files={"file": ("registro.xlsx", content.getvalue())}
+            )
+            assert roster.status_code == 200
+            rows = roster.json()["rows"]
+            assert len(rows) == 16
+            assert all(row["last_name"] == "APELLIDO SINTETICO" for row in rows)
+            assert all(row["first_name"].startswith("ALUMNO ") for row in rows)
+            assert roster.json()["name_split_warning"]
+            student_payload = {**payload["academic_context"], "rows": rows}
+            result = admin.post("/imports/students/commit", json=student_payload)
+            assert result.status_code == 200, result.text
+            assert result.json()["imported"] == 16
+            assert admin.post("/imports/students/commit", json=student_payload).json()["skipped"] == 16
         reviewed = client.post("/imports/grades/review", json=payload)
         assert reviewed.status_code == 200, reviewed.text
         assert reviewed.json()["total"] == 160
@@ -157,7 +158,7 @@ def test_existing_compound_surname_boundary_is_preserved(sessions):
     workbook.active["B7"] = "DE LA CRUZ SINTETICO ALUMNO UNO"
     content = BytesIO()
     workbook.save(content)
-    with client_for(sessions) as client:
+    with client_for(sessions, "admin") as client:
         result = client.post(
             "/imports/preview", files={"file": ("registro.xlsx", content.getvalue())}
         )

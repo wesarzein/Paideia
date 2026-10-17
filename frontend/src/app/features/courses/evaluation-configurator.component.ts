@@ -18,6 +18,8 @@ type PeriodOption = { id: string; name: string };
   imports: [FormsModule],
   templateUrl: './evaluation-configurator.component.html',
   styles: [`
+    label{display:grid;gap:6px;color:var(--color-muted-text);font-size:.88rem}button{padding:10px 14px;border:1px solid var(--color-primary);border-radius:7px;background:var(--color-primary);color:white;cursor:pointer;margin:8px 8px 0 0}button:hover:not(:disabled){background:var(--color-primary-dark)}.outline:hover:not(:disabled){background:var(--color-primary-soft)}.feedback{padding:12px 16px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-primary-soft)}.error{color:#a33a32}details{margin-top:16px}h2{font-size:1.15rem;margin-top:0}
+
     .competency-card{border:1px solid var(--color-border);border-radius:10px;padding:14px;margin:12px 0}.competency-card h3{margin:0 0 12px}.competency-card p{display:flex;justify-content:space-between;gap:12px}.competency-card span{color:var(--color-muted-text)}.editor-row select{padding:9px;border:1px solid var(--color-border);border-radius:6px}.evaluation-editor{border-top:1px solid var(--color-border);margin-top:22px;padding-top:18px}.heading{display:flex;justify-content:space-between;gap:18px;align-items:end}.heading p,.help{color:var(--color-muted-text);margin:4px 0}.version{display:inline-block;background:var(--color-muted);border-radius:999px;padding:6px 10px}fieldset{border:1px solid var(--color-border);border-radius:8px;margin:16px 0;padding:14px}legend{font-weight:700}.editor-row,.criterion-row{display:grid;grid-template-columns:minmax(170px,2fr) minmax(170px,2fr) repeat(3,minmax(95px,1fr));gap:10px;align-items:end;margin-bottom:10px}.editor-row{grid-template-columns:minmax(220px,1fr) auto auto auto}.criterion-row input,.criterion-row select,.editor-row input,.formula textarea,.publication input,.heading select,.scores input{width:100%;padding:9px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface)}.check{display:flex;align-items:center;gap:6px}.check input{width:17px}.compact{margin:0;padding:8px 10px}.outline{background:transparent;color:var(--color-primary);border:1px solid var(--color-primary)}.inactive{opacity:.6}.formula{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;margin:8px 0}.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.preview-result{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;padding:12px;background:var(--color-muted);border-radius:7px}.warning{color:#9a5b00}.publication{display:grid;grid-template-columns:minmax(240px,1fr) repeat(2,auto);gap:8px;align-items:end}.history{display:grid;gap:8px;margin-top:10px}.history-item{display:grid;grid-template-columns:140px 1fr auto;gap:10px;text-align:left;margin:0;background:var(--color-muted);color:var(--color-text)}@media(max-width:900px){.criterion-row,.publication{grid-template-columns:1fr 1fr}.heading{align-items:stretch;flex-direction:column}}@media(max-width:600px){.criterion-row,.publication,.editor-row,.formula,.history-item{grid-template-columns:1fr}}
   `],
 })
@@ -41,7 +43,7 @@ export class EvaluationConfiguratorComponent implements OnChanges {
   protected reason = '';
   protected readonly canEdit = (() => {
     try {
-      return ['admin'].includes(
+      return ['teacher'].includes(
         JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role,
       );
     } catch {

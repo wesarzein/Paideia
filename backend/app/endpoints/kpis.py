@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("")
 def calculate_kpis(
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("admin", "teacher", "coordinator", "director"))],
+    user: Annotated[User, Depends(require_roles("admin", "teacher", "coordinator"))],
     grade_id: UUID | None = None,
     section_id: UUID | None = None,
     course_id: UUID | None = None,

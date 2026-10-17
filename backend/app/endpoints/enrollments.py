@@ -21,7 +21,7 @@ def list_enrollments(
     course_id: UUID | None = None,
     period_id: UUID | None = None,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> list[Enrollment]:
     query = select(Enrollment).where(record_scope(Enrollment, _user))
     for field, value in (
@@ -95,7 +95,7 @@ def delete_enrollment(enrollment_id: UUID, db: Session = Depends(get_db), _user:
 def get_enrollment(
     enrollment_id: UUID,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> Enrollment:
     enrollment = db.get(Enrollment, enrollment_id)
     if enrollment is None:

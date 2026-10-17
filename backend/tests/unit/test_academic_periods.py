@@ -114,8 +114,9 @@ def test_period_dates_cannot_exclude_existing_grades(period_api):
 
 
 def test_period_dates_cannot_exclude_attendance_without_any_grades(period_api):
-    client, ids, _actors, _current = period_api
+    client, ids, actors, current = period_api
     period = client.post("/academic/periods", json=payload()).json()
+    current["user"] = actors["teacher"]
     created = client.post(
         "/attendance",
         json={
@@ -127,6 +128,7 @@ def test_period_dates_cannot_exclude_attendance_without_any_grades(period_api):
         },
     )
     assert created.status_code == 201
+    current["user"] = actors["admin"]
     before = client.get("/attendance").json()
     assert (
         client.patch(

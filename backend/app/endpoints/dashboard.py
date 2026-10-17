@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.dashboard import DashboardSummary
 from app.services.academic_access import record_scope, student_scope
 from app.services.academic_metrics import academic_metrics
+from app.services.grade_provenance import month_expression
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ router = APIRouter()
 @router.get("/summary", response_model=DashboardSummary)
 def dashboard_summary(
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
     grade_id: UUID | None = None,
     section_id: UUID | None = None,
     course_id: UUID | None = None,
@@ -45,7 +46,7 @@ def dashboard_summary(
         grade_query = grade_query.where(GradeRecord.course_id == course_id)
         attendance_query = attendance_query.where(AttendanceRecord.course_id == course_id)
     if month is not None:
-        grade_query = grade_query.where(extract("month", GradeRecord.assessment_date) == month)
+        grade_query = grade_query.where(month_expression() == month)
         attendance_query = attendance_query.where(extract("month", AttendanceRecord.attendance_date) == month)
     grades = db.scalars(grade_query).all()
     attendances = db.scalars(attendance_query).all()
@@ -67,6 +68,6 @@ def dashboard_summary(
 
 @router.get("/risk-alerts")
 def risk_alerts(
-    _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict[str, str]:
     raise HTTPException(status_code=501, detail="El módulo de IA aún no está habilitado")

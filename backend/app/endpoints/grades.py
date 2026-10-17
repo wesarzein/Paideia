@@ -2,7 +2,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import extract, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,12 +26,13 @@ from app.services.academic_access import (
 )
 from app.services.academic_metrics import academic_metrics
 from app.services.evaluation_revisions import latest_published_revision, revision_configuration
+from app.services.grade_provenance import month_expression
 
 router = APIRouter()
 
 
 @router.get("", response_model=list[GradeResponse])
-def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, grade_id: UUID | None = None, section_id: UUID | None = None, month: int | None = None, academic_bimester: int | None = Query(default=None, ge=1), evaluation_block: int | None = Query(default=None, ge=1, le=2), evaluation_name: str | None = None, evaluation_type: str | None = None, assessment_date: date | None = None, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[GradeRecord]:
+def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, grade_id: UUID | None = None, section_id: UUID | None = None, month: int | None = None, academic_bimester: int | None = Query(default=None, ge=1), evaluation_block: int | None = Query(default=None, ge=1, le=2), evaluation_name: str | None = None, evaluation_type: str | None = None, assessment_date: date | None = None, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> list[GradeRecord]:
     statement = select(GradeRecord).where(record_scope(GradeRecord, user))
     if grade_id or section_id:
         statement = statement.join(Student, GradeRecord.student_id == Student.id)
@@ -48,7 +49,7 @@ def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, p
     if month is not None:
         if not 1 <= month <= 12:
             raise HTTPException(status_code=422, detail="month debe estar entre 1 y 12")
-        statement = statement.where(extract("month", GradeRecord.assessment_date) == month)
+        statement = statement.where(month_expression() == month)
     return db.scalars(statement.order_by(GradeRecord.created_at.desc())).all()
 
 
@@ -56,7 +57,7 @@ def list_grades(student_id: UUID | None = None, course_id: UUID | None = None, p
 def create_grade(
     payload: GradeCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher")),
+    user: User = Depends(require_roles("teacher")),
 ) -> GradeRecord:
     student = db.get(Student, payload.student_id)
     if not student:
@@ -150,7 +151,7 @@ def monthly_summary(
     period_id: UUID,
     month: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     if not 1 <= month <= 12:
         raise HTTPException(status_code=422, detail="month debe estar entre 1 y 12")
@@ -169,7 +170,7 @@ def monthly_summary(
             Student.section_id == section_id,
             GradeRecord.course_id == course_id,
             GradeRecord.period_id == period_id,
-            extract("month", GradeRecord.assessment_date) == month,
+            month_expression() == month,
         )
         .group_by(GradeRecord.student_id)
     ).all()
@@ -183,12 +184,14 @@ def monthly_summary(
 
 
 @router.patch("/{grade_id}", response_model=GradeResponse)
-def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher"))) -> GradeRecord:
+def update_grade(grade_id: UUID, payload: GradeUpdate, db: Session = Depends(get_db), user: User = Depends(require_roles("teacher"))) -> GradeRecord:
     record = db.get(GradeRecord, grade_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Calificación no encontrada")
     student = db.get(Student, record.student_id)
     ensure_student_course_access(db, user, student, record.course_id, record.period_id)
+    if record.superseded_by_id:
+        raise HTTPException(status_code=409, detail="La nota sustituida se conserva en el historial; corrige el registro vigente")
     changes = payload.model_dump(exclude_unset=True)
     if record.record_kind == "historical_bimester" and set(changes) - {"score", "qualitative_note"}:
         raise HTTPException(status_code=422, detail="El registro histórico permite corregir notas y observaciones, no convertirlo en una evaluación")
@@ -220,11 +223,15 @@ def validate_assessment_date(period: AcademicPeriod, assessment_date: date) -> N
 
 
 @router.delete("/{grade_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_grade(grade_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "teacher"))) -> None:
+def delete_grade(grade_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles("teacher"))) -> None:
     record = db.get(GradeRecord, grade_id)
     if record is None: raise HTTPException(status_code=404, detail="Calificación no encontrada")
     student = db.get(Student, record.student_id)
     ensure_student_course_access(db, user, student, record.course_id, record.period_id)
+    if record.superseded_by_id or db.scalar(select(GradeRecord.id).where(
+        GradeRecord.superseded_by_id == record.id
+    ).limit(1)):
+        raise HTTPException(status_code=409, detail="La nota forma parte de un historial conservado y no se puede eliminar")
     db.delete(record); db.commit()
 
 
@@ -232,7 +239,7 @@ def delete_grade(grade_id: UUID, db: Session = Depends(get_db), user: User = Dep
 def summary_by_student(
     student_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> GradeSummary:
     student = db.get(Student, student_id)
     if student is None:

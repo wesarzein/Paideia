@@ -11,7 +11,6 @@ from app.models.academic import CourseAssignment
 from app.models.student import Student
 from app.models.academic import Grade, Section
 from app.schemas.students import StudentCreate, StudentResponse, StudentSummary, StudentUpdate
-from app.services.academic_access import ensure_student_view_access
 from app.services.student_codes import format_student_code, student_code_prefix
 
 router = APIRouter()
@@ -25,7 +24,7 @@ def list_students(
     section_id: UUID | None = None,
     period_id: UUID | None = None,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent")),
+    user=Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> list[Student]:
     statement = select(Student)
     if user.role.code == "teacher":
@@ -36,10 +35,6 @@ def list_students(
         ).where(CourseAssignment.teacher_id == user.id).distinct().order_by(
             Student.student_code, Student.last_name, Student.first_name
         )
-    elif user.role.code == "student":
-        statement = statement.where(Student.student_user_id == user.id).order_by(Student.student_code)
-    elif user.role.code == "parent":
-        statement = statement.where(Student.parent_user_id == user.id).order_by(Student.student_code)
     else:
         statement = statement.outerjoin(Grade, Student.grade_id == Grade.id).outerjoin(
             Section, Student.section_id == Section.id
@@ -67,7 +62,7 @@ def list_students(
 
 
 @router.get("/summary", response_model=StudentSummary)
-def student_summary(db: Session = Depends(get_db), user=Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> StudentSummary:
+def student_summary(db: Session = Depends(get_db), user=Depends(require_roles("admin", "teacher", "coordinator"))) -> StudentSummary:
     statement = select(Student.id)
     if user.role.code == "teacher":
         statement = statement.join(
@@ -75,10 +70,6 @@ def student_summary(db: Session = Depends(get_db), user=Depends(require_roles("a
             (CourseAssignment.grade_id == Student.grade_id)
             & (CourseAssignment.section_id == Student.section_id),
         ).where(CourseAssignment.teacher_id == user.id).distinct()
-    elif user.role.code == "student":
-        statement = statement.where(Student.student_user_id == user.id)
-    elif user.role.code == "parent":
-        statement = statement.where(Student.parent_user_id == user.id)
     total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
     active = db.scalar(select(func.count()).select_from(statement.where(Student.status == "ACTIVE").subquery())) or 0
     return StudentSummary(total=total, active=active, inactive=total - active)
@@ -109,11 +100,10 @@ def create_student(payload: StudentCreate, db: Session = Depends(get_db), _user=
 
 
 @router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: UUID, db: Session = Depends(get_db), user=Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> Student:
+def get_student(student_id: UUID, db: Session = Depends(get_db), user=Depends(require_roles("admin", "teacher", "coordinator"))) -> Student:
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-    ensure_student_view_access(user, student)
     if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.grade_id == student.grade_id, CourseAssignment.section_id == student.section_id, CourseAssignment.teacher_id == user.id)) is None:
         raise HTTPException(status_code=403, detail="No tienes acceso a este estudiante")
     return student

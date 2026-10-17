@@ -34,7 +34,7 @@ def validate_name(db: Session, name: str, period_id: UUID | None = None) -> None
 def list_periods(
     db: Session = Depends(get_db),
     _user: User = Depends(
-        require_roles("admin", "teacher", "coordinator", "director", "student", "parent")
+        require_roles("admin", "teacher", "coordinator")
     ),
 ):
     return db.scalars(

@@ -19,6 +19,7 @@ from app.models.student import Student
 from app.services.academic_access import record_scope, student_scope
 from app.services.academic_metrics import academic_metrics
 from app.services.demonstration_summary import demonstration_summary
+from app.services.grade_provenance import origin_counts
 
 
 def indicators(db, user, filters):
@@ -55,10 +56,18 @@ def indicators(db, user, filters):
     metrics = academic_metrics(grades, attendance)
     distribution = Counter(literal_grade(g.score) for g in grades)
     groups = {field: defaultdict(list) for field in ("period", "month", "course", "student")}
+    periods = {p.id: p for p in db.scalars(select(AcademicPeriod))}
     for g in grades:
         for field, key in (
             ("period", g.period_id),
-            ("month", g.assessment_date.strftime("%Y-%m") if g.assessment_date else None),
+            (
+                "month",
+                f"{periods[g.period_id].starts_on.year}-{g.academic_month:02d}"
+                if g.academic_month
+                else g.assessment_date.strftime("%Y-%m")
+                if g.assessment_date
+                else None,
+            ),
             ("course", g.course_id),
             ("student", g.student_id),
         ):
@@ -128,6 +137,7 @@ def indicators(db, user, filters):
         "students_in_scope": len(students),
         "students_with_grades": len(groups["student"]),
         "grade_count": metrics.grade_count,
+        "origins": origin_counts(grades),
         "average": metrics.average_score,
         "zero_scores": sum(g.score == 0 for g in grades),
         "weight_sum": metrics.grade_weight_sum,

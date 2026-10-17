@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[AttendanceResponse])
-def list_attendance(grade_id: UUID | None = None, section_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, attendance_date: date | None = None, month: int | None = None, student_id: UUID | None = None, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director", "student", "parent"))) -> list[AttendanceRecord]:
+def list_attendance(grade_id: UUID | None = None, section_id: UUID | None = None, course_id: UUID | None = None, period_id: UUID | None = None, attendance_date: date | None = None, month: int | None = None, student_id: UUID | None = None, db: Session = Depends(get_db), _user: User = Depends(require_roles("admin", "teacher", "coordinator"))) -> list[AttendanceRecord]:
     statement = select(AttendanceRecord).where(record_scope(AttendanceRecord, _user))
     if grade_id or section_id:
         statement = statement.join(Student, AttendanceRecord.student_id == Student.id)
@@ -38,7 +38,7 @@ def list_attendance(grade_id: UUID | None = None, section_id: UUID | None = None
 def create_attendance(
     payload: AttendanceCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher")),
+    user: User = Depends(require_roles("teacher")),
 ) -> AttendanceRecord:
     if not db.get(Student, payload.student_id):
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")

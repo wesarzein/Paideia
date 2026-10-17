@@ -8,7 +8,13 @@
 - Único laboratorio autorizado: `paideia-dev-phase4b3ui`, configuración
   `config/local/phase4b3ui.env`, Compose `docker-compose.environment.yml`, frontend
   `127.0.0.1:14211`. Verificar etiquetas, volumen y conexión efectiva antes de escribir.
-  Conservar las 32 notas actuales (incluidas las 21 iniciales) y sus snapshots. Usar esquemas UUID para pruebas
+  Conservar las 250 notas previas y sus snapshots; 240 están sustituidas sin borrado.
+  Tras la carga y corrección del calendario hay 139 alumnos y 5.847 notas vigentes
+  (1.049 Excel, 4.788 simuladas y 10 previas). El laboratorio contiene datos privados
+  reales: no tratarlo como una fixture desechable ni publicar datos o capturas.
+  Calendario marzo–septiembre: I marzo/abril, II mayo/junio, III agosto/septiembre;
+  julio conserva historia simulada del segundo bloque lectivo. No repetir cargas privadas.
+  Usar esquemas UUID para pruebas
   de migración o fixtures destructivas; nunca downgrade de public con datos conservables.
 - No tocar instalación `paideia`, `.env` raíz, volumen institucional, padrones, secretos
   o respaldos. No prune, down -v, reset --hard ni despliegue público.

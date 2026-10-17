@@ -1,8 +1,5 @@
-<app-page-header title="Importar desde Excel" [description]="isAdmin ? 'Carga alumnos o registros de notas de bimestres anteriores.' : 'Carga notas de bimestres anteriores de tus aulas asignadas.'" />
-<nav class="modes" aria-label="Tipo de importación">
-  <button type="button" [class.active]="mode() === 'grades'" (click)="setMode('grades')" [disabled]="busy()">Calificaciones</button>
-  @if (isAdmin) { <button type="button" [class.active]="mode() === 'students'" (click)="setMode('students')" [disabled]="busy()">Estudiantes</button> }
-</nav>
+<app-page-header title="Importar desde Excel" [description]="isAdmin ? 'Registra alumnos o actualiza sus nombres con el padrón del colegio.' : 'Carga notas de bimestres anteriores de tus aulas asignadas.'" />
+
 <ol class="steps" aria-label="Pasos de importación">
   <li [class.current]="!contextLocked()"><span>1</span> Selecciona el grupo</li>
   <li [class.current]="contextLocked() && !preview()"><span>2</span> Carga tu archivo</li>

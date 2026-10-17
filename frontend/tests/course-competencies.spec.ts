@@ -39,7 +39,7 @@ function setup(role: string, state = 'default') {
 
 describe('course competencies', () => {
   it('publishes configured competencies with system generated weighted calculations', () => {
-    const {page,publish} = setup('admin');
+    const {page,publish} = setup('teacher');
     expect(page.config()!.criteria).toHaveLength(2);
     page.publish(); expect(publish).not.toHaveBeenCalled(); expect(page.errorText()).toContain('competencia');
     page.configure(); page.publish();
@@ -50,12 +50,12 @@ describe('course competencies', () => {
     expect(payload.formulas[1].expression).toContain('*2');
     expect(payload.criteria.every(item => !!item.competency_key)).toBe(true);
   });
-  it('loads only the published configuration for a teacher and rejects writes', () => {
-    const {page,current,active,publish} = setup('teacher','published');
+  it('loads only the published configuration for administration and rejects writes', () => {
+    const {page,current,active,publish} = setup('admin','published');
     expect(active).toHaveBeenCalledOnce(); expect(current).not.toHaveBeenCalled();
     page.publish(); expect(publish).not.toHaveBeenCalled();
   });
-  it('does not present a default template as published teacher competencies', () => {
-    const {page} = setup('teacher'); expect(page.config()).toBeNull();
+  it('does not present a default template as published competencies', () => {
+    const {page} = setup('admin'); expect(page.config()).toBeNull();
   });
 });

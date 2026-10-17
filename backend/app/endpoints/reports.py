@@ -27,6 +27,7 @@ from app.services.academic_access import (
     student_scope,
 )
 from app.services.academic_metrics import academic_metrics
+from app.services.grade_provenance import month_expression
 
 router = APIRouter()
 
@@ -34,7 +35,7 @@ router = APIRouter()
 @router.get("/summary", response_model=ReportSummary)
 def reports_summary(
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> ReportSummary:
     students = db.scalars(select(Student).where(Student.status == "ACTIVE", student_scope(_user))).all()
     ids = [student.id for student in students]
@@ -56,7 +57,7 @@ def reports_summary(
 @router.get("/students", response_model=list[StudentReport])
 def student_reports(
     db: Session = Depends(get_db),
-    _user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    _user: User = Depends(require_roles("admin", "teacher", "coordinator")),
     grade_id: UUID | None = None,
     section_id: UUID | None = None,
     period_id: UUID | None = None,
@@ -79,7 +80,7 @@ def student_reports(
             grade_query = grade_query.where(GradeRecord.course_id == course_id)
             attendance_query = attendance_query.where(AttendanceRecord.course_id == course_id)
         if month is not None:
-            grade_query = grade_query.where(extract("month", GradeRecord.assessment_date) == month)
+            grade_query = grade_query.where(month_expression() == month)
             attendance_query = attendance_query.where(extract("month", AttendanceRecord.attendance_date) == month)
         metrics = academic_metrics(db.scalars(grade_query).all(), db.scalars(attendance_query).all())
         reports.append(
@@ -93,6 +94,8 @@ def student_reports(
                 grade_weight_sum=metrics.grade_weight_sum,
                 attendance_count=metrics.attendance_count,
                 risk_level=metrics.risk_level,
+                synthetic_count=metrics.synthetic_count,
+                recorded_count=metrics.grade_count - metrics.synthetic_count,
             )
         )
     return reports
@@ -103,7 +106,7 @@ def individual_report(
     student_id: UUID,
     period_id: UUID | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> dict:
     student = db.get(Student, student_id)
     if student is None:
@@ -121,7 +124,7 @@ def individual_report(
     follow_ups = db.scalars(select(FollowUp).where(FollowUp.student_id == student_id).order_by(FollowUp.created_at.desc())).all()
     return {
         "student": {"id": str(student.id), "student_code": student.student_code, "name": f"{student.last_name}, {student.first_name}", "grade": grade.name if grade else None, "level": grade.level if grade else None, "section": section.name if section else None},
-        "grades": [{"course": course_name, "evaluation": record.evaluation_name, "component": record.evaluation_type, "date": record.assessment_date.isoformat() if record.assessment_date else None, "score": record.score, "literal": literal_grade(record.score), "note": record.qualitative_note} for record, course_name in grade_rows],
+        "grades": [{"course": course_name, "evaluation": record.evaluation_name, "component": record.evaluation_type, "date": record.assessment_date.isoformat() if record.assessment_date else None, "month": record.academic_month, "data_origin": record.data_origin, "score": record.score, "literal": literal_grade(record.score), "note": record.qualitative_note} for record, course_name in grade_rows],
         "attendance": [{"course": course_name, "date": record.attendance_date.isoformat(), "status": record.status, "remarks": record.remarks} for record, course_name in attendance_rows],
         "follow_ups": [{"date": item.created_at.isoformat() if item.created_at else None, "category": item.category, "action": item.action, "status": item.status} for item in follow_ups],
     }
@@ -135,12 +138,15 @@ def export_group_report(
     course_id: UUID | None = None,
     month: int | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
 ) -> StreamingResponse:
     if month is not None and not 1 <= month <= 12:
         raise HTTPException(status_code=422, detail="month debe estar entre 1 y 12")
     rows = student_reports(db=db, _user=user, grade_id=grade_id, section_id=section_id, period_id=period_id, course_id=course_id, month=month)
-    frame = pd.DataFrame([row.model_dump(mode="json") for row in rows])
+    frame = pd.DataFrame([
+        row.model_dump(mode="json", exclude={"synthetic_count", "recorded_count"})
+        for row in rows
+    ])
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         frame.to_excel(writer, sheet_name="Reporte grupal", index=False)

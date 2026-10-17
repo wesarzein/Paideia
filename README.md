@@ -14,8 +14,10 @@ Centralizar los datos académicos y apoyar el seguimiento institucional con mód
 
 Incluye autenticación, usuarios, estudiantes, cursos, calificaciones, asistencia,
 seguimiento, dashboard, reportes e importación Excel/CSV. BI consulta evidencia
-autorizada de PostgreSQL. La IA local funciona exclusivamente en demostración con
-datos ficticios aislados; no genera alertas institucionales ni decisiones automáticas.
+autorizada de PostgreSQL. La IA local ofrece riesgo demostrativo con datos ficticios
+aislados y proyecciones experimentales por alumno/aula sobre el historial autorizado.
+Sus modelos se entrenan con datos sintéticos; no genera alertas institucionales,
+notas oficiales ni decisiones automáticas.
 
 La evaluación configurable ofrece competencias, criterios, pesos, fórmulas de
 previsualización, borradores, publicación y versiones. La evidencia ejecutada está
@@ -39,6 +41,9 @@ flowchart TD
   F --> G[BI autorizado]
   B --> H[IA demostrativa local]
   H --> I[Dataset ficticio aislado]
+  B --> J[Proyección experimental alumno/aula]
+  J --> K[Modelo numérico entrenado con datos sintéticos]
+  J -->|Lectura autorizada de historia| E
 ```
 
 ## Stack tecnologico
@@ -57,19 +62,37 @@ Autenticación, usuarios, estudiantes, cursos y asignaciones, calificaciones,
 asistencia, seguimiento, dashboard, reportes, importación, BI e IA experimental.
 Se conserva el portal familiar existente; el alcance no se amplía a un ERP.
 
+## Responsabilidades de acceso
+
+| Cuenta | Módulos y responsabilidades |
+| --- | --- |
+| Administración | Usuarios, alumnos, grados, secciones, periodos, cursos y asignación de docentes y aulas. Importación de alumnos. |
+| Docente | Sus cursos y aulas asignados; competencias, criterios y pesos; calificaciones, asistencia e importación de notas históricas. |
+| Área académica (`coordinator`) y dirección académica | Seguimiento, analítica, BI y reportes institucionales. Sin edición de alumnos, cursos, pesos o notas. |
+
+El administrador crea las cuentas del área académica desde Usuarios. La navegación
+y las rutas comparten las mismas reglas por módulo; las escrituras se validan también
+en la API. Las notas existentes conservan sus criterios y pesos originales.
+
 ## BI e IA experimental
 
 Analítica: filtros, cobertura, distribuciones, tendencias, comparación de periodos
 y asistencia. Distingue cero, ausencia e incompletitud; usa pesos históricos.
-Los conteos demostrativos de IA se muestran separados de los indicadores académicos.
+Los datos demostrativos de IA no aparecen en las pantallas institucionales.
 
-IA: un administrador solicita entrenamiento ficticio, revisa métricas/baseline,
+IA experimental mediante la API de operación: un administrador solicita entrenamiento ficticio, revisa métricas/baseline,
 aprueba y activa explícitamente una versión; puede restaurar una anterior.
 El entrenamiento ocurre en un proceso auxiliar bajo demanda y no reemplaza el
 modelo activo. Datos y artefactos quedan en PostgreSQL; no se suben datasets ni
 modelos privados. La IA institucional permanece inactiva hasta disponer de política,
 historia autorizada suficiente, validación y aprobación. Sin APIs externas ni costos.
-Véanse [operación IA](docs/ai/operacion-modelos-locales.md) y
+La pantalla IA permite analizar un alumno o aula y proyectar la próxima evaluación
+o bimestre con un modelo local numérico entrenado sobre 600 alumnos ficticios.
+Muestra historial, patrones, rangos estimados y ausencia de evidencia suficiente;
+respeta permisos y pesos históricos. Los datos reales se consultan para análisis,
+sin usarse para entrenar este modelo. La precisión institucional no está acreditada.
+Véanse [predicción de rendimiento](docs/ai/prediccion-rendimiento.md),
+[operación de modelos de riesgo](docs/ai/operacion-modelos-locales.md) y
 [evidencia BI/IA](docs/bi/validacion-bi-ia.md).
 
 ## Estructura del repositorio
@@ -78,7 +101,7 @@ Véanse [operación IA](docs/ai/operacion-modelos-locales.md) y
 backend/   FastAPI, SQLAlchemy, Alembic y tests
 frontend/  Angular SPA y componentes base
 database/  migraciones/configuracion, respaldos y padrón escolar local excluido de Git
-ml/        estructura de IA sin modelos entrenados
+ml/        documentación y datasets sintéticos locales excluidos de Git
 bi/        SQL, datasets y KPIs de analitica de negocio
 docs/      requisitos, arquitectura, Scrum, IA y analitica de negocio
 ```

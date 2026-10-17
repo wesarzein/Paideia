@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { academicNote } from '../../shared/academic-presentation';
 import { concatMap, finalize, forkJoin, from, tap } from 'rxjs';
 
 import {
@@ -54,30 +55,36 @@ type MatrixCriterion = {
       </section>
     }
     @if (grades().length) {
-      <details class="panel table-wrap"><summary>Seguimiento de notas por bimestre</summary>
+      <section class="panel table-wrap"><h2>Notas por mes</h2>
+        <p>Consulta los promedios mensuales de cada estudiante. Los meses sin registros quedan vacíos.</p>
+        <table><thead><tr><th>Estudiante</th>@for (month of historyMonths(); track month) {<th>{{ monthLabel(month) }}</th>}</tr></thead><tbody>
+          @for (student of catalog().students; track student.id) {<tr><td>{{ student.name }}</td>@for (month of historyMonths(); track month) {<td>{{ monthlyAverage(student.id, month) | number:'1.1-2' }}</td>}</tr>}
+        </tbody></table>
+      </section>
+      <section class="panel table-wrap"><h2>Seguimiento de notas por bimestre</h2>
         <p>Promedios de referencia de las notas registradas, usando sus pesos originales. Los datos pendientes no se cuentan como cero.</p>
         <table><thead><tr><th>Estudiante</th>@for (bimester of [1,2,3,4]; track bimester) { <th>{{ bimester }}.º bimestre</th> }</tr></thead><tbody>
           @for (student of catalog().students; track student.id) { <tr><td>{{ student.name }}</td>@for (bimester of [1,2,3,4]; track bimester) { <td>{{ bimesterAverage(student.id, bimester) | number:'1.1-2' }}<small>{{ bimesterCount(student.id, bimester) }} notas</small></td> }</tr> }
         </tbody></table>
-      </details>
+      </section>
     }
     @if (creatingEvaluation) {
       <section class="panel filters"><label>Bimestre<input aria-label="Bimestre" type="number" min="1" step="1" [(ngModel)]="academicBimester" (ngModelChange)="loadMatrix()" /></label><label>Bloque<select aria-label="Bloque" [(ngModel)]="evaluationBlock" (ngModelChange)="loadMatrix()"><option [ngValue]="1">Primer bloque</option><option [ngValue]="2">Segundo bloque</option></select></label><label>Nombre de evaluación<input aria-label="Nombre de evaluación" [(ngModel)]="evaluationName" (change)="loadMatrix()" maxlength="120" /></label><label>Fecha de evaluación<input aria-label="Fecha de evaluación" type="date" [(ngModel)]="assessmentDate" (ngModelChange)="loadMatrix()" /></label></section>
     }
 
     @if (isHistorical()) { <p class="period-caption">Historial bimestral sin fechas individuales. Puedes corregir las notas importadas; la configuración actual no cambia sus criterios.</p> } @else if (activeRevision()?.state === 'published') {
-      <p class="period-caption">Configuración publicada v{{ activeRevision()!.version }} · bimestre {{ academicBimester || 'sin seleccionar' }} · bloque {{ evaluationBlock }}</p>
+      <p class="period-caption">Bimestre {{ academicBimester || 'sin seleccionar' }} · bloque {{ evaluationBlock }}</p>
     } @else if (courseId && periodId) {
       <p class="period-caption">Las notas existentes conservan sus criterios y ponderaciones originales.</p>
     }
     @if (message()) { <p role="status" class="panel feedback">{{ message() }}</p> }
 
     @if (!sectionId || !courseId || !periodId) {
-      <p class="panel">Selecciona grado, sección, curso y periodo para cargar la matriz del aula.</p>
+      <p class="panel">Selecciona grado, sección, curso y periodo para ver las notas del aula.</p>
     } @else if (!selectedEvaluation && !creatingEvaluation) {
       <p class="panel">Registra una nueva evaluación para comenzar. La importación de Excel sirve para cargar bimestres anteriores.</p>
     } @else if (!matrixCriteria().length) {
-      <p class="panel">El administrador debe configurar los criterios de este curso antes de registrar una evaluación nueva.</p>
+      <p class="panel">Configura las competencias y criterios en Mis cursos antes de registrar una evaluación nueva.</p>
     } @else {
       <section class="panel table-wrap">
         <table>
@@ -93,25 +100,20 @@ type MatrixCriterion = {
             }
           </tbody>
         </table>
-        @if (!catalog().students.length) { <p>No hay alumnos cargados para esta sección. Importa el padrón institucional para continuar.</p> }
-        <p>Al corregir notas registradas se conserva su versión y peso histórico.</p>
+        @if (!catalog().students.length) { <p>No hay alumnos registrados en esta sección. Solicita a administración que revise el aula asignada.</p> }
+        <p>Los cambios de pesos se aplican a las evaluaciones nuevas.</p>
         @if (matrixLoading()) { <p role="status">Cargando notas de la evaluación...</p> }
         <button type="button" (click)="saveAll()" [disabled]="!catalog().students.length || matrixLoading() || matrixError() || saving()">{{ saving() ? 'Guardando...' : 'Guardar calificaciones' }}</button>
-      </section>
-      <section class="panel table-wrap">
-        <details><summary>Ver todas las notas registradas en el periodo académico ({{ grades().length }})</summary>
-        <table><thead><tr><th>Estudiante</th><th>Contexto</th><th>Evaluación</th><th>Fecha</th><th>Nota</th><th>Observación</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
-          @for (grade of grades(); track grade.id) {<tr><td>{{ studentName(grade.student_id) }}</td><td>{{ grade.academic_bimester ? 'Bimestre ' + grade.academic_bimester : 'Sin bimestre registrado' }}{{ grade.evaluation_block ? ' · bloque ' + grade.evaluation_block : '' }}</td><td>{{ grade.evaluation_name }} · {{ grade.evaluation_type }}</td><td>{{ grade.assessment_date || 'Registro bimestral' }}</td><td><input type="number" min="0" max="20" step="0.1" [(ngModel)]="grade.score" [class.invalid]="invalidScore(grade.score)" /></td><td><input [(ngModel)]="grade.qualitative_note" /></td><td class="actions-cell"><button class="icon-action" type="button" (click)="update(grade)" title="Guardar calificación" aria-label="Guardar calificación"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2Z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/></svg></button><button class="icon-action danger-icon" type="button" (click)="remove(grade)" title="Eliminar calificación" aria-label="Eliminar calificación"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6"/></svg></button></td></tr>}
-        </tbody></table></details>
       </section>
     }
   `,
   styles: [`
-    .course-competencies{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.course-competencies span{padding:6px 10px;border-radius:20px;background:var(--color-muted)}.course-competencies small{flex-basis:100%}.evaluation-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px}.evaluation-actions button{margin:0}.evaluation-actions span{color:var(--color-muted-text);font-size:.9rem}.table-wrap summary{cursor:pointer;padding:4px 0}.table-wrap details[open] summary{margin-bottom:16px}
+    .course-competencies{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.course-competencies span{padding:6px 10px;border-radius:20px;background:var(--color-muted)}.course-competencies small{flex-basis:100%}.evaluation-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px}.evaluation-actions button{margin:0}.evaluation-actions span{color:var(--color-muted-text);font-size:.9rem}
     .panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:20px;margin-bottom:16px}.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}label{display:grid;gap:6px;color:var(--color-muted-text);font-size:.88rem}input,select{min-width:70px;padding:9px;border:1px solid var(--color-border);border-radius:7px;font:inherit;background:var(--color-surface)}.period-caption{margin:-6px 0 14px;color:var(--color-muted-text);font-size:.9rem}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--color-border);text-align:left;white-space:nowrap}th{vertical-align:bottom;white-space:normal;min-width:100px;max-width:160px}th small{white-space:normal}.table-wrap input[type=number]{width:84px}.table-wrap section input{max-width:100%}small{display:block;color:var(--color-muted-text);font-weight:400}button{margin-top:14px;background:var(--color-primary);color:white;border:0;border-radius:5px;padding:10px 14px;cursor:pointer}.actions-cell{display:flex;gap:5px}.invalid{border-color:#b94b3b;background:#fff2ee}.feedback{color:var(--color-primary)}h2{font-size:1.15rem}@media(max-width:850px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.filters{grid-template-columns:1fr}}
   `],
 })
 export class GradesPage {
+  protected readonly academicNote = academicNote;
   private readonly api = inject(ApiService);
   private readonly confirm = inject(ConfirmService);
   protected readonly catalog = signal<AcademicCatalog>(emptyCatalog());
@@ -148,6 +150,11 @@ export class GradesPage {
   private setupRequest = 0;
 
   constructor() { this.loadCatalog(); }
+  protected historyMonths() { return [...new Set(this.grades().map(g => g.academic_month || Number(g.assessment_date?.slice(5,7))).filter(m => m > 0))].sort((a,b) => a-b); }
+  protected monthLabel(month: number) { return new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(new Date(2026, month - 1, 1)); }
+  protected monthlyRows(student: string, month: number) { return this.grades().filter(g => g.student_id === student && (g.academic_month || Number(g.assessment_date?.slice(5,7))) === month); }
+  protected monthlyAverage(student: string, month: number) { const rows = this.monthlyRows(student, month); const weight = rows.reduce((s,g) => s + g.assessment_weight, 0); return weight ? rows.reduce((s,g) => s + g.score * g.assessment_weight, 0) / weight : null; }
+  protected monthlySynthetic(student: string, month: number) { return this.monthlyRows(student, month).some(g => g.data_origin === 'synthetic'); }
   protected levels(): string[] { return [...new Set(this.catalog().grades.map((item) => item.level))]; }
   protected gradesForLevel() { return this.catalog().grades.filter((item) => item.level === this.level); }
   protected sectionsForGrade() { return this.catalog().sections.filter((item) => item.grade_id === this.gradeId); }
@@ -213,7 +220,7 @@ export class GradesPage {
     const evaluations = new Map<string, { key: string; label: string; record: GradeRecord }>();
     for (const record of this.grades()) {
       const key = JSON.stringify([record.evaluation_name, record.assessment_date, record.academic_bimester, record.evaluation_block]);
-      evaluations.set(key, { key, record, label: record.record_kind === 'historical_bimester' ? `Historial · Bimestre ${record.academic_bimester} · Bloque ${record.evaluation_block}` : `${record.evaluation_name}${record.assessment_date ? ' · ' + record.assessment_date : ''}${record.academic_bimester ? ' · Bimestre ' + record.academic_bimester : ''}${record.evaluation_block ? ' · Bloque ' + record.evaluation_block : ''}` });
+      evaluations.set(key, { key, record, label: record.record_kind === 'historical_bimester' ? `Historial ${record.academic_month ? this.monthLabel(record.academic_month) : ""} · Bimestre ${record.academic_bimester} · Bloque ${record.evaluation_block}` : `${record.evaluation_name}${record.assessment_date ? ' · ' + record.assessment_date : ''}${record.academic_bimester ? ' · Bimestre ' + record.academic_bimester : ''}${record.evaluation_block ? ' · Bloque ' + record.evaluation_block : ''}` });
     }
     return [...evaluations.values()].sort((a, b) => (b.record.assessment_date ?? '').localeCompare(a.record.assessment_date ?? ''));
   }
@@ -368,7 +375,7 @@ export class GradesPage {
         persisted[key] = record;
         if (!(key in this.scores) || this.scores[key] === this.persisted[key]?.score) this.scores[key] = record.score;
         if (!(record.student_id in loadedNotes)) {
-          loadedNotes[record.student_id] = record.qualitative_note ?? '';
+          loadedNotes[record.student_id] = academicNote(record.qualitative_note, record.data_origin);
           if (!(record.student_id in this.notes) || this.notes[record.student_id] === this.loadedNotes[record.student_id]) this.notes[record.student_id] = loadedNotes[record.student_id];
         }
       }

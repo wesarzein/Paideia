@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_roles
 from app.core.database import get_db
-from app.models.academic import CourseAssignment
 from app.models.follow_up import FollowUp
 from app.models.student import Student
 from app.models.user import User
@@ -54,7 +53,7 @@ def list_follow_ups(
     section_id: UUID | None = None,
     student_id: UUID | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("coordinator")),
 ):
     statement = (
         select(FollowUp, User.full_name)
@@ -80,13 +79,11 @@ def list_follow_ups(
 def create_follow_up(
     payload: FollowUpCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator", "director")),
+    user: User = Depends(require_roles("coordinator")),
 ):
     student = db.get(Student, payload.student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-    if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.grade_id == student.grade_id, CourseAssignment.section_id == student.section_id, CourseAssignment.teacher_id == user.id)) is None:
-        raise HTTPException(status_code=403, detail="No tienes acceso al seguimiento de este estudiante")
 
     item = FollowUp(**payload.model_dump(), recorded_by_id=user.id)
     db.add(item)
@@ -100,14 +97,11 @@ def update_follow_up(
     follow_up_id: UUID,
     payload: FollowUpUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+    user: User = Depends(require_roles("coordinator")),
 ):
     item = db.get(FollowUp, follow_up_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Seguimiento no encontrado")
-    student = db.get(Student, item.student_id)
-    if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.grade_id == student.grade_id, CourseAssignment.section_id == student.section_id, CourseAssignment.teacher_id == user.id)) is None:
-        raise HTTPException(status_code=403, detail="No tienes permiso para editar este seguimiento")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
     db.commit()
@@ -119,13 +113,10 @@ def update_follow_up(
 def delete_follow_up(
     follow_up_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "teacher", "coordinator")),
+    user: User = Depends(require_roles("coordinator")),
 ) -> None:
     item = db.get(FollowUp, follow_up_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Seguimiento no encontrado")
-    student = db.get(Student, item.student_id)
-    if user.role.code == "teacher" and db.scalar(select(CourseAssignment.id).where(CourseAssignment.grade_id == student.grade_id, CourseAssignment.section_id == student.section_id, CourseAssignment.teacher_id == user.id)) is None:
-        raise HTTPException(status_code=403, detail="No tienes permiso para eliminar este seguimiento")
     db.delete(item)
     db.commit()

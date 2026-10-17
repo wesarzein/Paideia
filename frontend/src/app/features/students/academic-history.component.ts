@@ -1,6 +1,7 @@
-import { DatePipe, JsonPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, Input, OnChanges, inject, signal } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { roleLabels } from '../../core/module-access';
 
 export interface AcademicChange {
   id: string; entity: string; record_id: string; operation: string;
@@ -9,21 +10,21 @@ export interface AcademicChange {
 }
 
 @Component({
-  selector: 'app-academic-history', standalone: true, imports: [DatePipe, JsonPipe],
+  selector: 'app-academic-history', standalone: true, imports: [DatePipe],
   template: `
     <h3>Historial de cambios académicos</h3>
-    <p>Versiones conservadas desde la habilitación de auditoría. Las notas anteriores mantienen sus snapshots; no se reconstruyen cambios que no fueron registrados.</p>
+    <p>Consulta los cambios registrados en las notas y la asistencia del estudiante.</p>
     @if (loading()) {<p role="status">Cargando historial…</p>}
     @if (error()) {<p role="alert">{{ error() }} <button (click)="load()">Reintentar historial</button></p>}
     @for (change of rows(); track change.id) {
       <article><strong>{{ entityLabel(change.entity) }} · {{ operationLabel(change.operation) }}</strong>
-        <p>{{ change.created_at | date:'medium' }} · {{ change.actor_role || 'Proceso de base' }} {{ change.actor_id?.slice(0,8) || 'sin usuario API' }} · Registro {{ change.record_id.slice(0,8) }}</p>
-        <details><summary>Valores anteriores y posteriores</summary><h4>Antes</h4><pre>{{ change.before | json }}</pre><h4>Después</h4><pre>{{ change.after | json }}</pre></details>
+        <p>{{ change.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ roleName(change.actor_role) }}</p>
+        <details><summary>Ver cambios</summary><table><thead><tr><th>Dato</th><th>Antes</th><th>Después</th></tr></thead><tbody>@for (field of changedFields(change); track field.key) {<tr><td>{{ field.label }}</td><td>{{ field.before }}</td><td>{{ field.after }}</td></tr>}</tbody></table></details>
       </article>
     } @empty { @if (!loading() && !error()) {<p>No hay cambios registrados en esta página.</p>} }
     <nav aria-label="Paginación de historial"><button (click)="page(-1)" [disabled]="loading() || offset === 0">Anteriores</button><span>Página {{ offset / 50 + 1 }}</span><button (click)="page(1)" [disabled]="loading() || rows().length < 50">Siguientes</button><button (click)="load()" [disabled]="loading()">Actualizar historial</button></nav>
   `,
-  styles: [`:host{display:block;margin-top:20px}article{border-top:1px solid var(--color-border);padding:12px 0}pre{overflow:auto;max-height:280px;font-size:.8rem}nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button{padding:8px;font:inherit;cursor:pointer}`],
+  styles: [`:host{display:block;margin-top:20px}article{border-top:1px solid var(--color-border);padding:12px 0}details{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--color-border)}nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button{padding:8px 12px;font:inherit;cursor:pointer;border:1px solid var(--color-border);border-radius:7px;background:white;color:var(--color-text)}`],
 })
 export class AcademicHistoryComponent implements OnChanges {
   @Input({ required: true }) studentId = '';
@@ -45,5 +46,13 @@ export class AcademicHistoryComponent implements OnChanges {
   }
   protected page(direction: number) { this.offset = Math.max(0, this.offset + direction * 50); this.load(); }
   protected entityLabel(value: string) { return ({ grade_records: 'Nota', attendance_records: 'Asistencia', follow_ups: 'Seguimiento' } as Record<string,string>)[value] || value; }
-  protected operationLabel(value: string) { return ({ INSERT: 'Registro', UPDATE: 'Corrección', DELETE: 'Retiro del registro operativo; historia conservada' } as Record<string,string>)[value] || value; }
+  protected operationLabel(value: string) { return ({ INSERT: 'Registro', UPDATE: 'Corrección', DELETE: 'Eliminación' } as Record<string,string>)[value] || value; }
+  protected roleName(value: string | null) { return roleLabels[value ?? ''] ?? 'Registro del sistema'; }
+  protected changedFields(change: AcademicChange) {
+    const labels: Record<string, string> = { score: 'Nota', evaluation_name: 'Evaluación', evaluation_type: 'Criterio', assessment_date: 'Fecha de evaluación', qualitative_note: 'Observación', assessment_weight: 'Peso', attendance_date: 'Fecha de asistencia', status: 'Estado', remarks: 'Observación', category: 'Tipo de seguimiento', action: 'Descripción', academic_bimester: 'Bimestre', evaluation_block: 'Bloque' };
+    const values: Record<string, string> = { PRESENT: 'Presente', ABSENT: 'Falta', LATE: 'Tardanza', OPEN: 'Abierto', CLOSED: 'Cerrado', OBSERVATION: 'Observación', PEDAGOGICAL_AGREEMENT: 'Acuerdo pedagógico', MEETING: 'Reunión', ACTION: 'Acción' };
+    const display = (value: unknown) => value === null || value === undefined || value === '' ? '—' : values[String(value)] ?? String(value);
+    return Object.entries(labels).filter(([key]) => change.before?.[key] !== change.after?.[key])
+      .map(([key, label]) => ({ key, label, before: display(change.before?.[key]), after: display(change.after?.[key]) }));
+  }
 }

@@ -24,7 +24,7 @@ from app.services.student_codes import student_code_prefix
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
 Admin = Annotated[User, Depends(require_roles("admin"))]
-Reader = Annotated[User, Depends(require_roles("admin", "teacher", "coordinator", "director"))]
+Reader = Annotated[User, Depends(require_roles("admin", "teacher", "coordinator"))]
 
 
 def lock_catalog(db: Session) -> None:
@@ -65,7 +65,7 @@ def save(db: Session, item, user: User, action: str):
 @router.get("/grades", response_model=list[GradeResponse])
 def list_grades(db: Db, _user: Reader):
     query = select(Grade)
-    if _user.role.code in {"teacher", "coordinator", "director"}:
+    if _user.role.code == "teacher":
         query = query.where(
             Grade.id.in_(
                 select(CourseAssignment.grade_id).where(CourseAssignment.teacher_id == _user.id)
@@ -106,7 +106,7 @@ def update_grade(grade_id: UUID, payload: GradeLabel, db: Db, user: Admin):
 @router.get("/sections", response_model=list[SectionResponse])
 def list_sections(db: Db, _user: Reader):
     query = select(Section)
-    if _user.role.code in {"teacher", "coordinator", "director"}:
+    if _user.role.code == "teacher":
         query = query.where(
             Section.id.in_(
                 select(CourseAssignment.section_id).where(CourseAssignment.teacher_id == _user.id)

@@ -1,0 +1,57 @@
+<app-page-header title="IA para el seguimiento" description="Analiza patrones por alumno o aula y explora su rendimiento futuro." />
+<section class="notice" aria-label="Orientación del análisis">
+  <strong>Proyección de rendimiento</strong>
+  <p>Consulta tendencias y estimaciones a partir del historial académico. Las proyecciones orientan la revisión del equipo académico y pueden variar en las próximas evaluaciones.</p>
+</section>
+<section class="panel">
+  <h2>Selecciona qué analizar</h2>
+  <div class="filters">
+    <label>Analizar<select [(ngModel)]="mode" (ngModelChange)="changeMode()"><option value="classroom">Aula completa</option><option value="student">Un alumno</option></select></label>
+    <label>Grado<select [(ngModel)]="gradeId" (ngModelChange)="changeGrade()"><option value="">Selecciona un grado</option>@for (g of catalog().grades; track g.id) {<option [value]="g.id">{{ g.level }} · {{ g.name }}</option>}</select></label>
+    <label>Aula<select [(ngModel)]="sectionId" (ngModelChange)="changeSection()" [disabled]="!gradeId"><option value="">Selecciona un aula</option>@for (s of catalog().sections; track s.id) {@if (s.grade_id === gradeId) {<option [value]="s.id">{{ s.name }}</option>}}</select></label>
+    @if (mode === 'student') {<label>Alumno<select [(ngModel)]="studentId" (ngModelChange)="invalidate()" [disabled]="!sectionId || catalogLoading()"><option value="">Selecciona un alumno</option>@for (s of catalog().students; track s.id) {<option [value]="s.id">{{ s.name }}</option>}</select></label>}
+    <label>Curso<select [(ngModel)]="courseId" (ngModelChange)="invalidate()"><option value="">Todos los cursos disponibles</option>@for (c of catalog().courses; track c.id) {<option [value]="c.id">{{ c.name }}</option>}</select></label>
+    <label>Periodo de referencia<select [(ngModel)]="periodId" (ngModelChange)="invalidate()"><option value="">Selecciona un periodo</option>@for (p of catalog().periods; track p.id) {<option [value]="p.id">{{ p.name }}</option>}</select></label>
+    <label>Predecir<select [(ngModel)]="horizon" (ngModelChange)="invalidate()"><option value="exam">Próxima evaluación</option><option value="bimester">Próximo bimestre</option></select></label>
+    <label>Fecha de corte<input type="date" [(ngModel)]="asOf" (ngModelChange)="invalidate()" /></label>
+    @if (horizon === 'bimester') {<label>Último bimestre completado<input type="number" min="1" max="100" step="1" [(ngModel)]="throughBimester" (ngModelChange)="invalidate()" /></label>}
+  </div>
+  <p class="help">Se necesitan tres observaciones por alumno y curso. Las evaluaciones se agrupan por fecha; los bimestres usan las notas y los pesos históricos registrados. Indica solo bimestres que ya finalizaron.</p>
+  @if (catalogLoading()) {<p role="status">Cargando alumnos y cursos…</p>}
+  @if (catalogError()) {<p role="alert">No se pudieron cargar los filtros. <button (click)="loadCatalog()">Reintentar carga</button></p>}
+  <button class="primary" (click)="analyze()" [disabled]="!canAnalyze() || loading()">{{ loading() ? 'Analizando…' : 'Analizar rendimiento' }}</button>
+</section>
+@if (error()) {<section class="panel" role="alert"><p>{{ error() }}</p><button (click)="analyze()">Reintentar análisis</button></section>}
+@if (loading()) {<p role="status">Consultando el historial y calculando las proyecciones…</p>}
+@if (data(); as d) {
+  <section class="cards" aria-label="Resumen del análisis">
+    <article><span>Alumnos seleccionados</span><strong>{{ d.summary.students }}</strong></article>
+    <article><span>Casos con proyección</span><strong>{{ d.summary.predicted }} / {{ d.summary.course_cases }}</strong><small>{{ d.summary.insufficient }} con historia insuficiente</small></article>
+    <article><span>Promedio de proyecciones / 20</span><strong>{{ d.summary.projected_average === null ? 'Sin estimación' : (d.summary.projected_average | number:'1.1-2') }}</strong><small>Solo casos con datos suficientes; cada curso tiene el mismo peso.</small></article>
+  </section>
+  <p class="help">Corte: {{ d.as_of }} · Consulta: {{ d.generated_at | date:'short' }}. Los rangos expresan la variación estimada del rendimiento.</p>
+  @if (!d.rows.length) {<section class="panel empty-state"><h2>Sin cursos o registros disponibles</h2><p>Revisa la selección y las matrículas del aula. No se fabrican resultados cuando faltan datos.</p></section>}
+  @for (row of d.rows; track row.student_id + row.course_id) {
+    <article class="panel result">
+      <div class="result-header"><div><h2>{{ row.student_name }}</h2><p>{{ row.course_name }}</p></div>
+        @if (row.prediction.score !== null) {<div class="estimate"><span>{{ d.horizon === 'exam' ? 'Próxima evaluación' : 'Próximo bimestre' }}</span><strong>{{ row.prediction.score | number:'1.1-2' }} <small>/ 20</small></strong><span>Rango estimado: {{ row.prediction.range?.[0] | number:'1.1-2' }} – {{ row.prediction.range?.[1] | number:'1.1-2' }}</span></div>}
+        @else {<span class="badge">Historia insuficiente</span>}
+      </div>
+      <p>{{ row.history.length }} observaciones · {{ row.attendance_count }} registros de asistencia usados · {{ row.excluded_records }} notas excluidas por fecha o tipo.</p>
+      @if (row.prediction.score !== null) {
+        <span class="badge">{{ trend(row) }}</span>
+        <h3>Patrones asociados a la estimación</h3>
+        <ul>@for (f of row.prediction.factors; track f.feature) {<li>{{ feature(f.feature) }}: {{ f.value | number:'1.0-3' }} <span class="help">(asociación {{ f.association | number:'1.1-2' }} puntos)</span></li>}</ul>
+        <p class="help">Las asociaciones describen el modelo y no prueban causas.</p>
+      }
+      <h3>Orientaciones para revisar</h3><ul>@for (r of row.prediction.recommendations; track r) {<li>{{ r }}</li>}</ul>
+      <section class="history"><h3>Historial utilizado</h3>
+        @if (row.history.length) {
+          <svg viewBox="0 0 600 160" role="img" aria-label="Evolución observada de notas de cero a veinte"><line x1="20" y1="140" x2="580" y2="140" stroke="currentColor"/><polyline [attr.points]="points(row)" fill="none" stroke="var(--color-primary)" stroke-width="3"/></svg>
+          <div class="table-wrap"><table><thead><tr><th>Observación</th><th>Promedio de referencia / 20</th><th>Notas</th></tr></thead><tbody>@for (h of row.history; track $index) {<tr><td>{{ h.label }}</td><td>{{ h.score | number:'1.1-2' }}</td><td>{{ h.records }}</td></tr>}</tbody></table></div>
+        } @else {<p>No hay observaciones utilizables para este horizonte.</p>}
+      </section>
+    </article>
+  }
+}
+<div class="links"><a routerLink="/analitica">Consultar analítica</a><a routerLink="/seguimiento">Registrar acompañamiento</a></div>

@@ -8,7 +8,7 @@ import { AcademicGrade, AcademicSection, ApiService } from '../../core/services/
   selector: 'app-cohort-manager',
   imports: [FormsModule],
   template: `
-    <details class="panel" [open]="expanded"><summary>Grados y secciones</summary>
+    <section class="panel">
       @if (canManage) { <p>Los cambios de etiqueta conservan los códigos escolares. Crea un grado o una sección nuevos para una identidad diferente.</p> }
       @else { <p>Consulta tus grados y secciones asignados. El administrador crea el catálogo y asigna los cursos a tu cuenta docente.</p> }
       @if (loading()) { <p role="status">Cargando catálogo…</p> }
@@ -18,34 +18,34 @@ import { AcademicGrade, AcademicSection, ApiService } from '../../core/services/
         <form (ngSubmit)="saveGrade()"><h2>{{ gradeId ? 'Editar etiqueta de grado' : 'Nuevo grado' }}</h2>
           <div class="fields"><label>Nombre del grado<input name="grade_name" [(ngModel)]="gradeName" maxlength="80" required placeholder="Ej. 2° grado" /></label>
             <label>Nivel del grado<select name="grade_level" [(ngModel)]="gradeLevel" [disabled]="!!gradeId"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option></select></label></div>
-          <button type="submit">{{ gradeId ? 'Guardar etiqueta de grado' : 'Crear grado' }}</button>
-          @if (gradeId) { <button type="button" (click)="resetGrade()">Cancelar grado</button> }
+          <button type="submit" class="primary">{{ gradeId ? 'Guardar etiqueta de grado' : 'Crear grado' }}</button>
+          @if (gradeId) { <button type="button" class="secondary" (click)="resetGrade()">Cancelar grado</button> }
         </form>
         <form (ngSubmit)="saveSection()"><h2>{{ sectionId ? 'Editar etiqueta de sección' : 'Nueva sección' }}</h2>
           <div class="fields"><label>Grado de la sección<select name="section_grade" [(ngModel)]="sectionGrade" [disabled]="!!sectionId" required><option value="">Seleccionar grado</option>@for (grade of grades(); track grade.id) {@if (grade.is_active) {<option [value]="grade.id">{{ grade.name }} · {{ grade.level }}</option>}}</select></label>
             <label>Nombre de la sección<input name="section_name" [(ngModel)]="sectionName" maxlength="20" required placeholder="Ej. A o B" /></label></div>
-          <button type="submit">{{ sectionId ? 'Guardar etiqueta de sección' : 'Crear sección' }}</button>
-          @if (sectionId) { <button type="button" (click)="resetSection()">Cancelar sección</button> }
+          <button type="submit" class="primary">{{ sectionId ? 'Guardar etiqueta de sección' : 'Crear sección' }}</button>
+          @if (sectionId) { <button type="button" class="secondary" (click)="resetSection()">Cancelar sección</button> }
         </form>
         }
         <div class="table-wrap"><table><thead><tr><th>Grado</th><th>Nivel</th><th>Acciones</th></tr></thead><tbody>
-          @for (grade of grades(); track grade.id) { <tr><td>{{ grade.name }}</td><td>{{ grade.level }}</td><td>@if (canManage) { <button type="button" (click)="editGrade(grade)" [attr.aria-label]="'Editar grado ' + grade.name + ' ' + grade.level">Editar grado</button> }</td></tr> }
+          @for (grade of grades(); track grade.id) { <tr><td>{{ grade.name }}</td><td>{{ grade.level }}</td><td class="actions-cell">@if (canManage) { <button type="button" class="icon-action" (click)="editGrade(grade)" [attr.aria-label]="'Editar grado ' + grade.name + ' ' + grade.level" title="Editar grado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button> }</td></tr> }
           @empty { <tr><td colspan="3">Sin grados registrados.</td></tr> }
         </tbody></table></div>
         <div class="table-wrap"><table><thead><tr><th>Sección</th><th>Grado</th><th>Acciones</th></tr></thead><tbody>
-          @for (section of sections(); track section.id) { <tr><td>{{ section.name }}</td><td>{{ gradeLabel(section.grade_id) }}</td><td>@if (canManage) { <button type="button" (click)="editSection(section)" [attr.aria-label]="'Editar sección ' + section.name + ' ' + gradeLabel(section.grade_id)">Editar sección</button> }</td></tr> }
+          @for (section of sections(); track section.id) { <tr><td>{{ section.name }}</td><td>{{ gradeLabel(section.grade_id) }}</td><td class="actions-cell">@if (canManage) { <button type="button" class="icon-action" (click)="editSection(section)" [attr.aria-label]="'Editar sección ' + section.name + ' ' + gradeLabel(section.grade_id)" title="Editar sección"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button> }</td></tr> }
           @empty { <tr><td colspan="3">Sin secciones registradas.</td></tr> }
         </tbody></table></div>
       </fieldset>
       @if (error()) { <p role="alert">{{ error() }}</p> }
       @if (message()) { <p role="status">{{ message() }}</p> }
-    </details>
+    </section>
   `,
   styles: [`
     .panel{display:block;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:22px;margin-bottom:18px}
-    summary{cursor:pointer;font-weight:600}fieldset{border:0;padding:0;min-width:0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    fieldset{border:0;padding:0;min-width:0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     label{display:grid;gap:6px}input,select{min-width:0;padding:10px;font:inherit;border:1px solid var(--color-border);border-radius:6px}
-    button{margin:12px 8px 8px 0;padding:9px 12px;cursor:pointer}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}
+    button{margin:12px 8px 8px 0;padding:9px 12px;cursor:pointer;border:1px solid transparent;border-radius:7px}.primary{background:var(--color-primary);color:white}.primary:hover{background:var(--color-primary-dark)}.secondary{background:var(--color-surface);border-color:var(--color-primary);color:var(--color-primary-dark)}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid var(--color-border);text-align:left}[role=alert]{color:#a33a32}h2{font-size:1.1rem}
     @media(max-width:700px){.fields{grid-template-columns:1fr}}
   `],

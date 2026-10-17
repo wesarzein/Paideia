@@ -29,7 +29,7 @@ def pg_only(sessions):
 def test_before_after_actor_delete_and_snapshot_preservation(scenario, sessions):
     pg_only(sessions)
     client, _, actors, current = scenario
-    current["user"] = actors["admin"]
+    current["user"] = actors["teacher"]
     record = client.get("/grades").json()[0]
     assert client.patch(f"/grades/{record['id']}", json={"score": 0}).status_code == 200
     rows = history(scenario, record["student_id"]).json()
@@ -37,11 +37,11 @@ def test_before_after_actor_delete_and_snapshot_preservation(scenario, sessions)
     assert change["before"]["score"] == record["score"]
     assert change["after"]["score"] == 0
     assert change["before"]["assessment_config"] == change["after"]["assessment_config"]
-    assert change["actor_id"] == str(actors["admin"].id)
-    assert change["actor_role"] == "admin" and change["source"] == "authenticated_api"
+    assert change["actor_id"] == str(actors["teacher"].id)
+    assert change["actor_role"] == "teacher" and change["source"] == "authenticated_api"
     assert change["authorization"]["method"] == "PATCH"
     assert change["authorization"]["path"] == f"/grades/{record['id']}"
-    assert "admin" in change["authorization"]["allowed_roles"]
+    assert "teacher" in change["authorization"]["allowed_roles"]
     assert change["created_at"]
     assert client.delete(f"/grades/{record['id']}").status_code == 204
     deletion = next(
@@ -83,7 +83,7 @@ def test_authorization_and_rollback_do_not_write_history(scenario, sessions):
 def test_attendance_followup_and_append_only_guard(scenario, sessions):
     pg_only(sessions)
     client, ids, actors, current = scenario
-    current["user"] = actors["admin"]
+    current["user"] = actors["teacher"]
     assert (
         client.post(
             "/attendance",
@@ -97,6 +97,7 @@ def test_attendance_followup_and_append_only_guard(scenario, sessions):
         ).status_code
         == 201
     )
+    current["user"] = actors["coordinator"]
     assert (
         client.patch(
             "/follow-up/" + ids["followups"][0], json={"action": "Cambio ficticio"}

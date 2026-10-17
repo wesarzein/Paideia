@@ -179,7 +179,7 @@ export class PlaceholderPage {
     return this.mode() === 'grades' ? { historical: true, school_year: this.schoolYear, bimestre: this.bimestre, grade_id: this.gradeId, section_id: this.sectionId, confirmed: this.contextConfirmed, blocks: this.blocks } : undefined;
   }
 
-  constructor() { if (!this.isAdmin) this.mode.set('grades'); this.loadCatalog(); }
+  constructor() { this.mode.set(this.isAdmin ? 'students' : 'grades'); this.loadCatalog(); }
 
   protected levels(): string[] { return [...new Set(this.catalog().grades.map((item) => item.level))]; }
   protected gradesForLevel() { return this.catalog().grades.filter((item) => item.level === this.level); }
@@ -212,7 +212,7 @@ export class PlaceholderPage {
     return [...rowErrors, ...(this.preview()?.errors ?? []).map((error) => `Fila ${error.row}: ${error.error}`)];
   }
 
-  protected setMode(mode: 'students' | 'grades'): void { if (this.busy() || (mode === 'students' && !this.isAdmin) || mode === this.mode()) return; this.replaceFile(); this.mode.set(mode); this.contextLocked.set(false); this.contextConfirmed = false; }
+  protected setMode(mode: 'students' | 'grades'): void { if (this.busy() || (mode === 'students' ? !this.isAdmin : this.isAdmin) || mode === this.mode()) return; this.replaceFile(); this.mode.set(mode); this.contextLocked.set(false); this.contextConfirmed = false; }
   protected select(event: Event): void { const file = (event.target as HTMLInputElement).files?.[0]; if (file) this.previewFile(file); }
   protected drop(event: DragEvent): void { event.preventDefault(); const file = event.dataTransfer?.files[0]; if (file) this.previewFile(file); }
   protected importGrades(): void {
@@ -275,7 +275,7 @@ export class PlaceholderPage {
     if (!this.isAdmin) return;
     if (this.busy() || this.rowErrors().length || !this.preview() || !this.gradeId || !this.sectionId) { this.notify('Selecciona grado y sección, y carga una vista previa válida.', 'error'); return; }
     this.busy.set(true);
-    this.api.commitStudentRows(this.preview()!.rows, this.gradeId, this.sectionId).subscribe({ next: (result) => { this.busy.set(false); this.loadCatalog(); this.notify(`${result.imported} nuevos; ${result.updated} actualizados; ${result.skipped} sin cambios; ${result.rejected} rechazados. Ya puedes cargar este mismo Excel en Calificaciones.`, result.rejected ? 'error' : 'success'); }, error: (error) => { this.busy.set(false); this.notify('No se guardaron cambios. ' + this.importError(error), 'error'); } });
+    this.api.commitStudentRows(this.preview()!.rows, this.gradeId, this.sectionId).subscribe({ next: (result) => { this.busy.set(false); this.loadCatalog(); this.notify(`${result.imported} nuevos; ${result.updated} actualizados; ${result.skipped} sin cambios; ${result.rejected} rechazados. El docente asignado ya puede importar las calificaciones con este mismo Excel.`, result.rejected ? 'error' : 'success'); }, error: (error) => { this.busy.set(false); this.notify('No se guardaron cambios. ' + this.importError(error), 'error'); } });
   }
   protected courseName(): string { return this.catalog().courses.find((course) => course.id === this.courseId)?.name ?? 'No seleccionado'; }
   protected periodName(): string { return this.catalog().periods.find((period) => period.id === this.periodId)?.name ?? 'No seleccionado'; }

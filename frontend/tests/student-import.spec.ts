@@ -36,7 +36,7 @@ describe('student workbook upload', () => {
     page.upload(); expect(page.errors()).toEqual([]); page.save();
     expect(commitStudentRows).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ first_name: 'ALUMNO UNO', last_name: 'APELLIDO SINTETICO' })]), 'grade', 'section');
     expect(getAcademicCatalog).toHaveBeenCalledTimes(3);
-    expect(page.text()).toContain('Ya puedes cargar este mismo Excel');
+    expect(page.text()).toContain('El docente asignado ya puede importar');
   });
   it('shows missing column details from the API and prevents a commit', () => {
     const { page, commitStudentRows } = setup(true);

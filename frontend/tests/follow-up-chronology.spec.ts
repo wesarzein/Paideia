@@ -13,7 +13,7 @@ class Timeline extends PlaceholderPage {
   failed() { return this.error(); }
   rows() { return this.items(); }
 }
-function setup(role = 'admin') {
+function setup(role = 'coordinator') {
   vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ role }) });
   const listFollowUps = vi.fn(() => of([] as FollowUp[]));
   const updateFollowUp = vi.fn(() => of({})); const createFollowUp = vi.fn(() => of({}));
@@ -47,8 +47,8 @@ describe('follow-up chronology', () => {
     listFollowUps.mockReturnValueOnce(throwError(() => ({}))); page.group(); page.select(); page.saveNow();
     expect(updateFollowUp).not.toHaveBeenCalled();
   });
-  it('does not offer edits to a director whose API role only permits creation and reading', () => {
-    const { page, updateFollowUp } = setup('director'); page.group(); page.select(); page.saveNow();
+  it('does not offer edits to a teacher outside the academic area', () => {
+    const { page, updateFollowUp } = setup('teacher'); page.group(); page.select(); page.saveNow();
     expect(updateFollowUp).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,8 @@ class StudentReport(BaseModel):
     grade_weight_sum: float
     attendance_count: int
     risk_level: str
+    synthetic_count: int = 0
+    recorded_count: int = 0
 
 
 class ReportSummary(BaseModel):

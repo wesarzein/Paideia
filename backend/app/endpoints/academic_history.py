@@ -19,7 +19,7 @@ router = APIRouter()
 def history(
     student_id: UUID,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("admin", "teacher", "coordinator", "director"))],
+    user: Annotated[User, Depends(require_roles("admin", "teacher", "coordinator"))],
     record_id: UUID | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),

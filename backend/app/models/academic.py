@@ -148,6 +148,8 @@ def preserve_evaluation_revision(_mapper, _connection, _revision):
 class GradeRecord(Base):
     __tablename__ = "grade_records"
     __table_args__ = (
+        CheckConstraint("data_origin IN ('recorded','excel','synthetic')", name="grade_data_origin"),
+        CheckConstraint("academic_month IS NULL OR academic_month BETWEEN 1 AND 12", name="grade_academic_month"),
         CheckConstraint(
             "(record_kind = 'evaluation' AND assessment_date IS NOT NULL) OR "
             "(record_kind = 'historical_bimester' AND assessment_date IS NULL "
@@ -166,6 +168,12 @@ class GradeRecord(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    data_origin: Mapped[str] = mapped_column(String(16), nullable=False, default="recorded", server_default="recorded")
+    academic_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("grade_records.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.id"), nullable=False)
     course_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("courses.id"), nullable=False)
     period_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("academic_periods.id"), nullable=False)

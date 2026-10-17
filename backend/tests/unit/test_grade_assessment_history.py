@@ -2,22 +2,18 @@
 
 import os
 from datetime import date
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import func, select, text
+from sqlalchemy import MetaData, Table, func, select, text
 from sqlalchemy.exc import DBAPIError
+from test_grade_import_identity import client_for
 from test_roster_persistence import roster
 from test_roster_persistence import sessions as _sessions
 
-from app.api.dependencies import get_current_user
-from app.core.database import get_db
-from app.endpoints import courses, grades
+from app.endpoints import courses
 from app.models.academic import AcademicPeriod, Course, CourseAssessmentComponent, GradeRecord
 from app.models.student import Student
 from app.services import school_roster
@@ -51,20 +47,10 @@ def seed(sessions):
         }, [str(component.id) for component in components]
 
 
-def api(sessions, role="admin"):
-    app = FastAPI()
-    app.include_router(grades.router, prefix="/grades")
-    app.include_router(courses.router, prefix="/courses")
-
-    def database():
-        with sessions() as db:
-            yield db
-
-    app.dependency_overrides[get_db] = database
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=uuid4(), role=SimpleNamespace(code=role)
-    )
-    return TestClient(app)
+def api(sessions, role=None):
+    client = client_for(sessions, role)
+    client.app.include_router(courses.router, prefix="/courses")
+    return client
 
 
 def add_grades(client, ids, components, month):
@@ -261,12 +247,13 @@ def test_migration_preserves_legacy_values_ids_and_links(sessions):
             (components[0], components[1], None), (10, 20, 15), strict=True
         ):
             db.execute(
-                GradeRecord.__table__.insert().values(
+                Table("grade_records", MetaData(), autoload_with=db.bind).insert().values(
                     id=uuid4(),
                     student_id=ids["student_id"],
                     course_id=ids["course_id"],
                     period_id=ids["period_id"],
                     component_id=component,
+                    evaluation_name="Evaluacion", evaluation_type="Cuaderno",
                     score=score,
                     assessment_date=date(2026, 4, 1),
                 )

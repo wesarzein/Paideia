@@ -1,10 +1,9 @@
 from uuid import UUID
-
 from fastapi import HTTPException
 from sqlalchemy import false, select, true
 from sqlalchemy.orm import Session
 
-from app.models.academic import CourseAssignment, Enrollment
+from app.models.academic import CourseAssignment, Enrollment, GradeRecord
 from app.models.student import Student
 from app.models.user import User
 
@@ -12,13 +11,9 @@ from app.models.user import User
 def student_scope(user: User, course_id=None):
     """SQL predicate for student metadata, optionally limited to one teaching course."""
     role = user.role.code
-    if role == "admin":
+    if role in {"admin", "coordinator"}:
         return true()
-    if role == "student":
-        return Student.student_user_id == user.id
-    if role == "parent":
-        return Student.parent_user_id == user.id
-    if role not in {"teacher", "coordinator", "director"}:
+    if role != "teacher":
         return false()
     assignments = select(CourseAssignment.id).where(
         CourseAssignment.teacher_id == user.id,
@@ -32,12 +27,13 @@ def student_scope(user: User, course_id=None):
 
 def record_scope(model, user: User):
     """Correlate course AND student section; a course taught elsewhere is insufficient."""
-    return (
+    predicate = (
         select(Student.id)
         .where(Student.id == model.student_id, student_scope(user, model.course_id))
         .correlate_except(Student)
         .exists()
     )
+    return predicate & GradeRecord.superseded_by_id.is_(None) if model is GradeRecord else predicate
 
 
 def ensure_student_read_access(db: Session, user: User, student: Student) -> None:
@@ -59,7 +55,7 @@ def ensure_student_course_access(
             CourseAssignment.section_id == student.section_id,
         )
     )
-    if user.role.code in {"teacher", "coordinator", "director"}:
+    if user.role.code == "teacher":
         if assignment is None or assignment.teacher_id != user.id:
             raise HTTPException(status_code=403, detail="No tienes asignado este curso y sección")
         return
@@ -77,10 +73,3 @@ def ensure_student_course_access(
             status_code=409,
             detail="No existe asignación del curso a esta sección ni matrícula activa",
         )
-
-
-def ensure_student_view_access(user: User, student: Student) -> None:
-    if user.role.code == "student" and student.student_user_id != user.id:
-        raise HTTPException(status_code=403, detail="No tienes acceso a este estudiante")
-    if user.role.code == "parent" and student.parent_user_id != user.id:
-        raise HTTPException(status_code=403, detail="No tienes acceso a este estudiante")

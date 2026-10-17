@@ -12,7 +12,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, text
+from sqlalchemy import MetaData, Table, func, select, text
 from sqlalchemy.exc import IntegrityError
 from test_roster_persistence import roster
 from test_roster_persistence import sessions as _sessions
@@ -59,7 +59,31 @@ def context(sessions):
         }
 
 
-def client_for(sessions, role="admin", user_id=None):
+def client_for(sessions, role=None, user_id=None):
+    if role is None:
+        role = "teacher"
+        with sessions() as db:
+            actor = db.get(User, user_id) if user_id else db.scalar(
+                select(User).where(User.email == "grade-capture@synthetic.invalid")
+            )
+            if actor is None:
+                teacher_role = db.scalar(select(Role).where(Role.code == "teacher"))
+                if teacher_role is None:
+                    teacher_role = Role(code="teacher", name="Docente")
+                    db.add(teacher_role)
+                    db.flush()
+                actor = User(id=user_id or uuid4(), role_id=teacher_role.id,
+                             email=(f"{user_id}@synthetic.invalid" if user_id
+                                    else "grade-capture@synthetic.invalid"),
+                             full_name="Docente de prueba",
+                             password_hash="synthetic")
+                db.add(actor)
+                db.flush()
+            user_id = actor.id
+            for assignment in db.scalars(select(CourseAssignment)):
+                if assignment.teacher_id is None:
+                    assignment.teacher_id = user_id
+            db.commit()
     app = FastAPI()
     app.include_router(imports.router, prefix="/imports")
     app.include_router(grades.router, prefix="/grades")
@@ -186,11 +210,11 @@ def test_stale_modified_or_forged_confirmation_rejected(sessions, change):
         elif change == "token":
             payload["rows"][0]["review_token"] = "forged"
         if change == "actor":
-            with client_for(sessions) as other:
+            with client_for(sessions, "teacher") as other:
                 response = other.post("/imports/grades/commit", json=payload)
         else:
             response = client.post("/imports/grades/commit", json=payload)
-        assert response.status_code == 409
+        assert response.status_code == (422 if change == "actor" else 409)
         assert client.get("/grades").json()[0]["score"] == (19 if change == "existing" else 17)
 
 
@@ -256,6 +280,7 @@ def test_import_rollback_for_invalid_and_conflicting_rows(sessions):
 
 def test_concurrent_confirmations_import_once(sessions):
     payload = context(sessions)
+    client_for(sessions).close()
     barrier = Barrier(2)
 
     def confirm():
@@ -403,7 +428,7 @@ def test_migration_preserves_and_reserves_historical_duplicate_groups(sessions):
         student = db.scalar(select(Student))
         for score in (0, 18):
             db.execute(
-                GradeRecord.__table__.insert().values(
+                Table("grade_records", MetaData(), autoload_with=db.bind).insert().values(
                     id=uuid4(),
                     student_id=student.id,
                     course_id=payload["course_id"],

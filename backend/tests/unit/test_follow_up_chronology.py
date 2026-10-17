@@ -14,6 +14,7 @@ __all__ = ["scenario", "sessions"]
 @pytest.mark.parametrize("category", ["OBSERVATION", "PEDAGOGICAL_AGREEMENT", "MEETING", "ACTION"])
 def test_created_categories_keep_date_and_author_when_edited(scenario, category):
     client, ids, actors, current = scenario
+    current["user"] = actors["coordinator"]
     created = client.post(
         "/follow-up",
         json={
@@ -24,8 +25,8 @@ def test_created_categories_keep_date_and_author_when_edited(scenario, category)
     )
     assert created.status_code == 201
     item = created.json()
-    assert item["recorded_by_id"] == str(actors["teacher"].id)
-    assert item["recorded_by_name"] == "teacher"
+    assert item["recorded_by_id"] == str(actors["coordinator"].id)
+    assert item["recorded_by_name"] == "coordinator"
     assert datetime.fromisoformat(item["created_at"])
     assert not {"email", "password_hash", "parent_user_id"} & item.keys()
     current["user"] = actors["coordinator"]

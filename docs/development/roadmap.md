@@ -353,3 +353,15 @@ no ejecutar sus etapas iniciales import/configuration sobre datos ya poblados.
   estados/búsquedas/paginación), C10 y dependencias dev. El nombre de alumno inactivo
   en cronología aún puede caer al UUID por el catálogo activo; corregir sin ampliar
   ámbitos. Producción, CI remoto, archivo/traslados y reglas de cálculo siguen pendientes.
+
+
+## IA: proyecciones por alumno y aula (14/10/2026)
+
+- Modulo de consulta y proyeccion experimental implementado, con dos horizontes,
+  permisos academicos, pesos historicos, corte temporal e historia insuficiente.
+- Modelo local entrenado con 600 alumnos ficticios y 12.240 ejemplos etiquetados;
+  dataset aislado y artefacto JSON reproducible, sin entrenamiento con notas reales.
+- 9/9 pruebas PG en UUID, 83/83 frontend, build y recorrido Edge desktop/movil
+  aprobados. Laboratorio actualizado; las 250 notas y tablas academicas intactas.
+- Evidencia, contrato y limites: [prediccion de rendimiento](../ai/prediccion-rendimiento.md).
+  Se conserva IA institucional inactiva; no se acredita eficacia con historia real.

@@ -38,7 +38,7 @@ export interface AcademicCatalog {
   grades: { id: string; name: string; level: string }[];
   sections: { id: string; name: string; grade_id: string }[];
   courses: { id: string; name: string; code: string | null }[];
-  periods: { id: string; name: string; starts_on?: string; ends_on?: string }[];
+  periods: { id: string; name: string; starts_on?: string; ends_on?: string; bimester_months?: Record<string, number> }[];
   students: { id: string; student_code: string | null; name: string }[];
   literal_scale: { greater_than: number; grade: string }[];
 }
@@ -100,7 +100,7 @@ export interface GradePayload {
   evaluation_type?: string;
   assessment_date?: string;
 }
-export interface GradeRecord { id: string; student_id: string; course_id: string; period_id: string; component_id: string | null; assessment_weight: number; evaluation_name: string; evaluation_type: string; assessment_date: string | null; record_kind?: "evaluation" | "historical_bimester"; evaluation_revision_id?: string | null; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
+export interface GradeRecord { data_origin?: string; academic_month?: number | null; source_reference?: string | null; id: string; student_id: string; course_id: string; period_id: string; component_id: string | null; assessment_weight: number; evaluation_name: string; evaluation_type: string; assessment_date: string | null; record_kind?: "evaluation" | "historical_bimester"; evaluation_revision_id?: string | null; score: number; academic_bimester: number | null; evaluation_block: 1 | 2 | null; evaluation_criterion_key: string | null; qualitative_note?: string | null; }
 
 export interface AttendancePayload {
   student_id: string;
@@ -290,6 +290,7 @@ export class ApiService {
     });
   }
 
+  getAcademicDataStatus() { return this.http.get<{ total: number; origins: Record<string, number>; monthly_records: number }>(`${environment.apiUrl}/academic/data-status`); }
   getAcademicCatalog(filters: Record<string, string> = {}) {
     return this.http.get<AcademicCatalog>(`${environment.apiUrl}/academic/catalog`, { params: filters });
   }

@@ -13,6 +13,7 @@ from app.endpoints.grades import router as grades_router
 from app.endpoints.health import router as health_router
 from app.endpoints.imports import router as imports_router
 from app.endpoints.kpis import router as kpis_router
+from app.endpoints.performance_forecast import router as performance_forecast_router
 from app.endpoints.periods import router as periods_router
 from app.endpoints.reports import router as reports_router
 from app.endpoints.risk_models import router as risk_models_router
@@ -37,4 +38,7 @@ api_router.include_router(reports_router, prefix="/reports", tags=["reports"])
 api_router.include_router(imports_router, prefix="/imports", tags=["imports"])
 api_router.include_router(kpis_router, prefix="/kpis", tags=["kpis"])
 api_router.include_router(risk_models_router, prefix="/risk-models", tags=["experimental-ai"])
+api_router.include_router(
+    performance_forecast_router, prefix="/academic-ai", tags=["experimental-ai"]
+)
 api_router.include_router(follow_up_router, prefix="/follow-ups", tags=["follow-ups"])

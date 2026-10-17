@@ -1,3 +1,4 @@
+import { moduleRoles } from './core/module-access';
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/guards/auth.guard';
@@ -12,19 +13,18 @@ export const routes: Routes = [
     canActivateChild: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      { path: 'dashboard', canActivate: [roleGuard], loadComponent: () => import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage), data: { title: 'Dashboard', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'mi-avance', canActivate: [roleGuard], loadComponent: () => import('./features/portal/my-academic.page').then((m) => m.MyAcademicPage), data: { title: 'Mi avance académico', roles: ['student', 'parent'] } },
-      { path: 'usuarios', canActivate: [roleGuard], loadComponent: () => import('./features/users/users.page').then((m) => m.UsersPage), data: { title: 'Usuarios', roles: ['admin'] } },
-      { path: 'grados-secciones', canActivate: [roleGuard], loadComponent: () => import('./features/courses/cohorts.page').then((m) => m.CohortsPage), data: { title: 'Grados y secciones', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'estudiantes', canActivate: [roleGuard], loadComponent: () => import('./features/students/students.page').then((m) => m.StudentsPage), data: { title: 'Estudiantes', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'cursos', canActivate: [roleGuard], loadComponent: () => import('./features/courses/courses.page').then((m) => m.CoursesPage), data: { title: 'Cursos y gestion academica', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'calificaciones', canActivate: [roleGuard], loadComponent: () => import('./features/grades/grades.page').then((m) => m.GradesPage), data: { title: 'Calificaciones', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'asistencia', canActivate: [roleGuard], loadComponent: () => import('./features/attendance/attendance.page').then((m) => m.AttendancePage), data: { title: 'Asistencia', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'seguimiento', canActivate: [roleGuard], loadComponent: () => import('./features/follow-up/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Seguimiento academico', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'analitica', canActivate: [roleGuard], loadComponent: () => import('./features/analytics/analytics.page').then((m) => m.AnalyticsPage), data: { title: 'Analitica', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'ia', canActivate: [roleGuard], loadComponent: () => import('./features/ai/risk-model.page').then((m) => m.RiskModelPage), data: { title: 'IA', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'reportes', canActivate: [roleGuard], loadComponent: () => import('./features/reports/reports.page').then((m) => m.ReportsPage), data: { title: 'Reportes', roles: ['admin', 'teacher', 'coordinator', 'director'] } },
-      { path: 'importacion', canActivate: [roleGuard], loadComponent: () => import('./features/imports/imports.page').then((m) => m.ImportsPage), data: { title: 'Importacion', roles: ['admin', 'teacher'] } }
+      { path: 'dashboard', canActivate: [roleGuard], loadComponent: () => import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage), data: { title: 'Inicio', roles: moduleRoles['dashboard'] } },
+      { path: 'usuarios', canActivate: [roleGuard], loadComponent: () => import('./features/users/users.page').then((m) => m.UsersPage), data: { title: 'Usuarios', roles: moduleRoles['usuarios'] } },
+      { path: 'grados-secciones', canActivate: [roleGuard], loadComponent: () => import('./features/courses/cohorts.page').then((m) => m.CohortsPage), data: { title: 'Grados y secciones', roles: moduleRoles['grados-secciones'] } },
+      { path: 'estudiantes', canActivate: [roleGuard], loadComponent: () => import('./features/students/students.page').then((m) => m.StudentsPage), data: { title: 'Estudiantes', roles: moduleRoles['estudiantes'] } },
+      { path: 'cursos', canActivate: [roleGuard], loadComponent: () => import('./features/courses/courses.page').then((m) => m.CoursesPage), data: { title: 'Cursos', roles: moduleRoles['cursos'] } },
+      { path: 'calificaciones', canActivate: [roleGuard], loadComponent: () => import('./features/grades/grades.page').then((m) => m.GradesPage), data: { title: 'Calificaciones', roles: moduleRoles['calificaciones'] } },
+      { path: 'asistencia', canActivate: [roleGuard], loadComponent: () => import('./features/attendance/attendance.page').then((m) => m.AttendancePage), data: { title: 'Asistencia', roles: moduleRoles['asistencia'] } },
+      { path: 'seguimiento', canActivate: [roleGuard], loadComponent: () => import('./features/follow-up/placeholder.page').then((m) => m.PlaceholderPage), data: { title: 'Seguimiento academico', roles: moduleRoles['seguimiento'] } },
+      { path: 'analitica', canActivate: [roleGuard], loadComponent: () => import('./features/analytics/analytics.page').then((m) => m.AnalyticsPage), data: { title: 'Analitica', roles: moduleRoles['analitica'] } },
+      { path: 'ia', canActivate: [roleGuard], loadComponent: () => import('./features/ai/academic-ai.page').then((m) => m.AcademicAiPage), data: { title: 'IA', roles: moduleRoles['ia'] } },
+      { path: 'reportes', canActivate: [roleGuard], loadComponent: () => import('./features/reports/reports.page').then((m) => m.ReportsPage), data: { title: 'Reportes', roles: moduleRoles['reportes'] } },
+      { path: 'importacion', canActivate: [roleGuard], loadComponent: () => import('./features/imports/imports.page').then((m) => m.ImportsPage), data: { title: 'Importacion', roles: moduleRoles['importacion'] } }
     ],
   },
 ];

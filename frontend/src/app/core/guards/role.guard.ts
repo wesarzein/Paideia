@@ -15,6 +15,5 @@ export const roleGuard: CanActivateFn = (route) => {
   const role = currentRole();
 
   if (allowedRoles?.includes(role)) return true;
-  if (role === 'student' || role === 'parent') return router.createUrlTree(['/mi-avance']);
   return router.createUrlTree([role ? '/dashboard' : '/login']);
 };

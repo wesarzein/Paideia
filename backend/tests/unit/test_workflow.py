@@ -179,6 +179,31 @@ def _admin_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _actor_headers(role_code="teacher"):
+    from app.endpoints.auth import _create_token
+
+    with SessionLocal() as db:
+        role = db.scalar(select(Role).where(Role.code == role_code))
+        actor = User(role_id=role.id, email=f"{role_code}-{uuid4().hex}@synthetic.invalid",
+                     full_name="Responsable de prueba", password_hash="synthetic")
+        db.add(actor)
+        db.flush()
+        if role_code == "teacher":
+            grade = Grade(name="1", level="Secundaria")
+            db.add(grade)
+            db.flush()
+            section = Section(grade_id=grade.id, name="A")
+            db.add(section)
+            db.flush()
+            student = db.scalar(select(Student).where(Student.student_code == "STU-1001"))
+            student.grade_id, student.section_id = grade.id, section.id
+            course = db.scalar(select(Course).where(Course.code == "MAT-01"))
+            db.add(CourseAssignment(course_id=course.id, grade_id=grade.id,
+                                    section_id=section.id, teacher_id=actor.id))
+        db.commit()
+        return {"Authorization": "Bearer " + _create_token(actor)}
+
+
 def test_login_returns_token() -> None:
     _seed_basics()
     client = TestClient(app)
@@ -313,7 +338,7 @@ def test_parent_account_cannot_read_unlinked_student_records() -> None:
 def test_grade_value_must_be_in_official_scale() -> None:
     _seed_basics()
     client = TestClient(app)
-    headers = _admin_headers()
+    headers = _actor_headers()
 
     student = SessionLocal().scalar(select(Student).where(Student.student_code == "STU-1001"))
     course = SessionLocal().scalar(select(Course).where(Course.code == "MAT-01"))
@@ -339,7 +364,7 @@ def test_grade_value_must_be_in_official_scale() -> None:
 def test_attendance_record_is_created() -> None:
     _seed_basics()
     client = TestClient(app)
-    headers = _admin_headers()
+    headers = _actor_headers()
 
     student = SessionLocal().scalar(select(Student).where(Student.student_code == "STU-1001"))
     course = SessionLocal().scalar(select(Course).where(Course.code == "MAT-01"))
@@ -364,7 +389,7 @@ def test_attendance_record_is_created() -> None:
 def test_grade_import_is_atomic_on_invalid_row() -> None:
     _seed_basics()
     client = TestClient(app)
-    headers = _admin_headers()
+    headers = _actor_headers()
     with SessionLocal() as db:
         student = db.scalar(select(Student).where(Student.student_code == "STU-1001"))
         course = db.scalar(select(Course).where(Course.code == "MAT-01"))
@@ -440,7 +465,7 @@ def test_business_indicators_enabled_without_institutional_ai() -> None:
 def test_follow_up_requires_valid_student() -> None:
     _seed_basics()
     client = TestClient(app)
-    headers = _admin_headers()
+    headers = _actor_headers("coordinator")
 
     response = client.post(
         "/api/v1/follow-ups",

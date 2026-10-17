@@ -64,6 +64,10 @@ class GradeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    data_origin: str = "recorded"
+    academic_month: int | None = None
+    source_reference: str | None = None
+    superseded_by_id: UUID | None = None
     student_id: UUID
     course_id: UUID
     period_id: UUID

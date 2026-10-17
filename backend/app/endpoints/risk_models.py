@@ -21,7 +21,7 @@ from app.services.local_risk_model import predict_demonstration
 
 router = APIRouter()
 Admin = Annotated[User, Depends(require_roles("admin"))]
-Staff = Annotated[User, Depends(require_roles("admin", "teacher", "coordinator", "director"))]
+Staff = Annotated[User, Depends(require_roles("admin", "teacher", "coordinator"))]
 Database = Annotated[Session, Depends(get_db)]
 
 

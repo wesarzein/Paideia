@@ -34,7 +34,7 @@ import { ConfirmService } from '../../core/services/confirm.service';
         @else if (!items().length) { <p>Aún no hay seguimientos para esta sección.</p> }
         @for (item of items(); track item.id) {
           <article>
-            <div><strong>{{ studentName(item.student_id) }}</strong><span>{{ categoryName(item.category) }} · {{ item.status }}</span></div>
+            <div><strong>{{ studentName(item.student_id) }}</strong><span>{{ categoryName(item.category) }} · {{ item.status === 'CLOSED' ? 'Cerrado' : item.status === 'OPEN' ? 'Abierto' : item.status }}</span></div>
             <p class="metadata"><time [attr.datetime]="item.created_at">{{ item.created_at ? (item.created_at | date:'dd/MM/yyyy HH:mm') : 'Fecha no registrada' }}</time> · {{ item.recorded_by_name ?? 'Autor no registrado' }}</p>
             <p>{{ item.action }}</p>
             @if (canEdit) { <footer class="actions-cell"><button type="button" class="icon-action" [disabled]="saving()" (click)="edit(item)" title="Editar seguimiento" aria-label="Editar seguimiento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button type="button" class="icon-action danger-icon" [disabled]="saving()" (click)="remove(item)" title="Eliminar seguimiento" aria-label="Eliminar seguimiento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6"/></svg></button></footer> }
@@ -66,7 +66,7 @@ export class PlaceholderPage {
   protected readonly loading = signal(false);
   protected readonly loadError = signal(false);
   protected readonly saving = signal(false);
-  protected readonly canEdit = (() => { try { return ['admin', 'teacher', 'coordinator'].includes(JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role); } catch { return false; } })();
+  protected readonly canEdit = (() => { try { return ['coordinator', 'director'].includes(JSON.parse(localStorage.getItem('paideia_user') ?? '{}').role); } catch { return false; } })();
   protected level = '';
   protected gradeId = '';
   protected sectionId = '';
